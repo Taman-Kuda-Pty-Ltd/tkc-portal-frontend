@@ -1,5 +1,6 @@
 import { Button, Group, Modal, NumberInput, Select, Stack, Textarea } from "@mantine/core";
-import { DatePickerInput, TimeInput } from "@mantine/dates";
+import { DatePickerInput } from "@mantine/dates";
+import { TimeField } from "./TimeField";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -86,10 +87,9 @@ export function ShiftModal({
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
-  const activityOptions = (activitiesQ.data ?? []).map((a) => ({
-    value: String(a.id),
-    label: a.name,
-  }));
+  const activityOptions = (activitiesQ.data ?? [])
+    .filter((a) => a.is_active)
+    .map((a) => ({ value: String(a.id), label: a.name }));
   const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
 
   return (
@@ -118,9 +118,9 @@ export function ShiftModal({
           onChange={(d) => d && setDate(d)}
           required
         />
-        <Group grow>
-          <TimeInput label="Start" value={start} onChange={(e) => setStart(e.currentTarget.value)} />
-          <TimeInput label="End" value={end} onChange={(e) => setEnd(e.currentTarget.value)} />
+        <Group>
+          <TimeField label="Start" value={start} onChange={setStart} />
+          <TimeField label="End" value={end} onChange={setEnd} />
         </Group>
         <NumberInput
           label="People needed"

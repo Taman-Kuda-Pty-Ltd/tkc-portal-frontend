@@ -1,13 +1,19 @@
 import {
+  ActionIcon,
   AppShell,
   Burger,
   Group,
+  Menu,
   NavLink,
   ScrollArea,
+  SegmentedControl,
+  Stack,
   Text,
   UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { IconSettings } from "@tabler/icons-react";
+import { useSettings } from "../settings/SettingsContext";
 import {
   IconCalendar,
   IconLogout,
@@ -31,6 +37,7 @@ const NAV = [
 export function AppLayout({ children }: { children: ReactNode }) {
   const [opened, { toggle, close }] = useDisclosure();
   const { me, logout, can } = useAuth();
+  const { timeFormat, setTimeFormat } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -46,9 +53,36 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Text fw={700}>Taman Kuda Club</Text>
           </Group>
-          <Text size="sm" c="dimmed" visibleFrom="xs">
-            {me?.full_name}
-          </Text>
+          <Group gap="xs">
+            <Text size="sm" c="dimmed" visibleFrom="xs">
+              {me?.full_name}
+            </Text>
+            <Menu shadow="md" width={220} position="bottom-end" closeOnItemClick={false}>
+              <Menu.Target>
+                <ActionIcon variant="subtle" aria-label="Settings">
+                  <IconSettings size={18} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Settings</Menu.Label>
+                <Stack gap={4} px="sm" py="xs">
+                  <Text size="xs" c="dimmed">
+                    Time format
+                  </Text>
+                  <SegmentedControl
+                    size="xs"
+                    fullWidth
+                    value={timeFormat}
+                    onChange={(v) => setTimeFormat(v as "12h" | "24h")}
+                    data={[
+                      { label: "12-hour", value: "12h" },
+                      { label: "24-hour", value: "24h" },
+                    ]}
+                  />
+                </Stack>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
         </Group>
       </AppShell.Header>
 

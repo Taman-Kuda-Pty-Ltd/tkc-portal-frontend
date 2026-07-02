@@ -59,6 +59,13 @@ export interface Template {
   slots: TemplateSlot[];
 }
 
+export interface TemplateApplyResult {
+  requested_count: number;
+  duplicate_count: number;
+  created_count: number;
+  created: Shift[];
+}
+
 export interface Assignment {
   id: number;
   shift_id: number;

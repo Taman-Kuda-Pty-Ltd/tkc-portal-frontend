@@ -15,7 +15,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
-import type { Shift, Template } from "../api/types";
+import type { Template, TemplateApplyResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { TemplateEditor } from "../components/TemplateEditor";
 
@@ -24,6 +24,7 @@ export function TemplatesPage() {
   const qc = useQueryClient();
   const [applyFor, setApplyFor] = useState<Template | null>(null);
   const [range, setRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [preview, setPreview] = useState<TemplateApplyResult | null>(null);
   const [editing, setEditing] = useState<Template | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -32,19 +33,42 @@ export function TemplatesPage() {
     queryFn: () => api.get<Template[]>("/templates"),
   });
 
-  const applyM = useMutation({
-    mutationFn: (v: { id: number; start: string; end: string }) =>
-      api.post<Shift[]>(`/templates/${v.id}/apply`, {
-        range_start: v.start,
-        range_end: v.end,
-      }),
-    onSuccess: (shifts) => {
+  function closeApply() {
+    setApplyFor(null);
+    setRange([null, null]);
+    setPreview(null);
+  }
+
+  function applyBody(extra: Record<string, unknown>) {
+    return {
+      range_start: dayjs(range[0]!).format("YYYY-MM-DD"),
+      range_end: dayjs(range[1]!).format("YYYY-MM-DD"),
+      ...extra,
+    };
+  }
+
+  // Step 1: dry run to find out how many shifts (and duplicates) would result.
+  const previewM = useMutation({
+    mutationFn: () =>
+      api.post<TemplateApplyResult>(`/templates/${applyFor!.id}/apply`, applyBody({ dry_run: true })),
+    onSuccess: (res) => setPreview(res),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  // Step 2: actually create, optionally skipping duplicates.
+  const commitM = useMutation({
+    mutationFn: (skipDuplicates: boolean) =>
+      api.post<TemplateApplyResult>(
+        `/templates/${applyFor!.id}/apply`,
+        applyBody({ skip_duplicates: skipDuplicates }),
+      ),
+    onSuccess: (res) => {
       notifications.show({
         color: "teal",
-        message: `Generated ${shifts.length} shift${shifts.length === 1 ? "" : "s"}.`,
+        message: `Created ${res.created_count} shift${res.created_count === 1 ? "" : "s"}.`,
       });
-      setApplyFor(null);
-      setRange([null, null]);
+      qc.invalidateQueries({ queryKey: ["shifts"] });
+      closeApply();
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
@@ -128,11 +152,7 @@ export function TemplatesPage() {
         }}
       />
 
-      <Modal
-        opened={!!applyFor}
-        onClose={() => setApplyFor(null)}
-        title={`Apply "${applyFor?.name ?? ""}"`}
-      >
+      <Modal opened={!!applyFor} onClose={closeApply} title={`Apply "${applyFor?.name ?? ""}"`}>
         <Stack>
           <Text size="sm" c="dimmed">
             Generate shifts for every date in the range that matches this template's
@@ -143,24 +163,70 @@ export function TemplatesPage() {
             label="Date range"
             placeholder="Pick start and end"
             value={range}
-            onChange={setRange}
+            onChange={(v) => {
+              setRange(v);
+              setPreview(null);
+            }}
           />
-          <Button
-            disabled={!range[0] || !range[1]}
-            loading={applyM.isPending}
-            onClick={() =>
-              applyFor &&
-              range[0] &&
-              range[1] &&
-              applyM.mutate({
-                id: applyFor.id,
-                start: dayjs(range[0]).format("YYYY-MM-DD"),
-                end: dayjs(range[1]).format("YYYY-MM-DD"),
-              })
-            }
-          >
-            Generate shifts
-          </Button>
+
+          {!preview && (
+            <Button
+              disabled={!range[0] || !range[1]}
+              loading={previewM.isPending}
+              onClick={() => previewM.mutate()}
+            >
+              Check
+            </Button>
+          )}
+
+          {preview && preview.requested_count === 0 && (
+            <>
+              <Text size="sm">This template generates no shifts in that range.</Text>
+              <Button variant="default" onClick={() => setPreview(null)}>
+                Back
+              </Button>
+            </>
+          )}
+
+          {preview && preview.requested_count > 0 && preview.duplicate_count === 0 && (
+            <>
+              <Text size="sm">
+                Will create <b>{preview.requested_count}</b> shift
+                {preview.requested_count === 1 ? "" : "s"}.
+              </Text>
+              <Button loading={commitM.isPending} onClick={() => commitM.mutate(false)}>
+                Create {preview.requested_count} shifts
+              </Button>
+            </>
+          )}
+
+          {preview && preview.duplicate_count > 0 && (
+            <>
+              <Text size="sm">
+                {preview.requested_count} shift{preview.requested_count === 1 ? "" : "s"} match
+                this range, but <b>{preview.duplicate_count}</b> already exist — applying again
+                would duplicate {preview.duplicate_count === 1 ? "it" : "them"}.
+              </Text>
+              <Button
+                loading={commitM.isPending}
+                onClick={() => commitM.mutate(true)}
+                disabled={preview.requested_count - preview.duplicate_count === 0}
+              >
+                Skip duplicates — create {preview.requested_count - preview.duplicate_count}
+              </Button>
+              <Button
+                variant="light"
+                color="orange"
+                loading={commitM.isPending}
+                onClick={() => commitM.mutate(false)}
+              >
+                Create all anyway ({preview.requested_count})
+              </Button>
+              <Button variant="subtle" onClick={() => setPreview(null)}>
+                Back
+              </Button>
+            </>
+          )}
         </Stack>
       </Modal>
     </Stack>

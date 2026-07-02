@@ -20,6 +20,8 @@ import { api } from "../api/client";
 import type { Activity, Person, Shift } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ShiftModal } from "../components/ShiftModal";
+import { formatISOTime } from "../lib/time";
+import { useSettings } from "../settings/SettingsContext";
 
 function mondayOf(d: dayjs.Dayjs): dayjs.Dayjs {
   const dow = (d.day() + 6) % 7; // 0 = Monday
@@ -28,6 +30,7 @@ function mondayOf(d: dayjs.Dayjs): dayjs.Dayjs {
 
 export function SchedulePage() {
   const { can } = useAuth();
+  const { timeFormat } = useSettings();
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState(() => mondayOf(dayjs()));
   const weekEnd = weekStart.add(7, "day");
@@ -164,7 +167,8 @@ export function SchedulePage() {
                         )}
                       </Group>
                       <Text size="xs" c="dimmed">
-                        {dayjs(s.starts_at).format("HH:mm")}–{dayjs(s.ends_at).format("HH:mm")}
+                        {formatISOTime(s.starts_at, timeFormat)}–
+                        {formatISOTime(s.ends_at, timeFormat)}
                         {s.headcount > 1 ? ` · needs ${s.headcount}` : ""}
                       </Text>
                       <Stack gap={2} mt={6}>

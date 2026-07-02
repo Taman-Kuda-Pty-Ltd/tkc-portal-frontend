@@ -5,13 +5,12 @@ import {
   Group,
   Modal,
   NumberInput,
+  Paper,
   Select,
   Stack,
-  Table,
   Text,
   TextInput,
 } from "@mantine/core";
-import { TimeInput } from "@mantine/dates";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +18,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Activity, RecurrenceUnit, Role, Template } from "../api/types";
 import { RECURRENCE_OPTIONS, WEEKDAYS } from "../lib/constants";
+import { TimeField } from "./TimeField";
 
 interface SlotDraft {
   activity_id: string | null;
@@ -91,10 +91,9 @@ export function TemplateEditor({
     }
   }, [template, opened]);
 
-  const activityOptions = (activitiesQ.data ?? []).map((a) => ({
-    value: String(a.id),
-    label: a.name,
-  }));
+  const activityOptions = (activitiesQ.data ?? [])
+    .filter((a) => a.is_active)
+    .map((a) => ({ value: String(a.id), label: a.name }));
   const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
 
   function updateSlot(i: number, patch: Partial<SlotDraft>) {
@@ -107,9 +106,7 @@ export function TemplateEditor({
         activity_id: Number(s.activity_id),
         role_id: s.role_id ? Number(s.role_id) : null,
         weekday:
-          recurrence === "weekly" || recurrence === "fortnightly"
-            ? Number(s.weekday)
-            : null,
+          recurrence === "weekly" || recurrence === "fortnightly" ? Number(s.weekday) : null,
         week_in_cycle: recurrence === "fortnightly" ? Number(s.week_in_cycle) : null,
         day_of_month: recurrence === "monthly" ? s.day_of_month : null,
         start_time: s.start_time,
@@ -134,7 +131,7 @@ export function TemplateEditor({
   const invalid = !name || slots.length === 0 || slots.some((s) => !s.activity_id);
 
   return (
-    <Modal opened={opened} onClose={onClose} title={template ? "Edit template" : "New template"} size="xl">
+    <Modal opened={opened} onClose={onClose} title={template ? "Edit template" : "New template"} size="lg">
       <Stack>
         <Group grow align="flex-start">
           <TextInput
@@ -158,126 +155,101 @@ export function TemplateEditor({
         />
 
         <Divider label="Slots" labelPosition="left" />
-        {recurrence === "daily" && (
-          <Text size="xs" c="dimmed">
-            Daily: each slot repeats every day in the applied range.
-          </Text>
-        )}
+        <Text size="xs" c="dimmed">
+          Each slot is one recurring shift. Role is optional (leave as “Any”).
+          “People” is how many staff the shift needs.
+          {recurrence === "daily" && " Daily slots repeat every day in the applied range."}
+        </Text>
 
-        <Table.ScrollContainer minWidth={720}>
-          <Table verticalSpacing="xs">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Activity</Table.Th>
-                <Table.Th>Role</Table.Th>
-                {showWeekday && <Table.Th>Day</Table.Th>}
-                {showCycle && <Table.Th>Week</Table.Th>}
-                {showDom && <Table.Th>Day of month</Table.Th>}
-                <Table.Th>Start</Table.Th>
-                <Table.Th>End</Table.Th>
-                <Table.Th>Need</Table.Th>
-                <Table.Th />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {slots.map((s, i) => (
-                <Table.Tr key={i}>
-                  <Table.Td>
-                    <Select
-                      data={activityOptions}
-                      value={s.activity_id}
-                      onChange={(v) => updateSlot(i, { activity_id: v })}
-                      placeholder="Activity"
-                      w={140}
-                      comboboxProps={{ withinPortal: true }}
-                    />
-                  </Table.Td>
-                  <Table.Td>
-                    <Select
-                      data={roleOptions}
-                      value={s.role_id}
-                      onChange={(v) => updateSlot(i, { role_id: v })}
-                      placeholder="Any"
-                      clearable
-                      w={130}
-                      comboboxProps={{ withinPortal: true }}
-                    />
-                  </Table.Td>
-                  {showWeekday && (
-                    <Table.Td>
-                      <Select
-                        data={WEEKDAYS}
-                        value={s.weekday}
-                        onChange={(v) => updateSlot(i, { weekday: v })}
-                        w={120}
-                        allowDeselect={false}
-                        comboboxProps={{ withinPortal: true }}
-                      />
-                    </Table.Td>
-                  )}
-                  {showCycle && (
-                    <Table.Td>
-                      <Select
-                        data={[
-                          { value: "0", label: "Week A" },
-                          { value: "1", label: "Week B" },
-                        ]}
-                        value={s.week_in_cycle}
-                        onChange={(v) => updateSlot(i, { week_in_cycle: v })}
-                        w={100}
-                        allowDeselect={false}
-                        comboboxProps={{ withinPortal: true }}
-                      />
-                    </Table.Td>
-                  )}
-                  {showDom && (
-                    <Table.Td>
-                      <NumberInput
-                        min={1}
-                        max={31}
-                        value={s.day_of_month ?? 1}
-                        onChange={(v) => updateSlot(i, { day_of_month: Number(v) })}
-                        w={90}
-                      />
-                    </Table.Td>
-                  )}
-                  <Table.Td>
-                    <TimeInput
-                      value={s.start_time}
-                      onChange={(e) => updateSlot(i, { start_time: e.currentTarget.value })}
-                      w={100}
-                    />
-                  </Table.Td>
-                  <Table.Td>
-                    <TimeInput
-                      value={s.end_time}
-                      onChange={(e) => updateSlot(i, { end_time: e.currentTarget.value })}
-                      w={100}
-                    />
-                  </Table.Td>
-                  <Table.Td>
-                    <NumberInput
-                      min={1}
-                      value={s.headcount}
-                      onChange={(v) => updateSlot(i, { headcount: Number(v) || 1 })}
-                      w={70}
-                    />
-                  </Table.Td>
-                  <Table.Td>
-                    <ActionIcon
-                      color="red"
-                      variant="subtle"
-                      onClick={() => setSlots(slots.filter((_, idx) => idx !== i))}
-                      aria-label="Remove slot"
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+        <Stack gap="xs">
+          {slots.map((s, i) => (
+            <Paper key={i} withBorder p="sm" radius="sm">
+              <Group gap="sm" align="flex-end" wrap="wrap">
+                <Select
+                  label="Activity"
+                  data={activityOptions}
+                  value={s.activity_id}
+                  onChange={(v) => updateSlot(i, { activity_id: v })}
+                  placeholder="Activity"
+                  w={150}
+                  comboboxProps={{ withinPortal: true }}
+                />
+                <Select
+                  label="Role"
+                  data={roleOptions}
+                  value={s.role_id}
+                  onChange={(v) => updateSlot(i, { role_id: v })}
+                  placeholder="Any"
+                  clearable
+                  w={140}
+                  comboboxProps={{ withinPortal: true }}
+                />
+                {showWeekday && (
+                  <Select
+                    label="Day"
+                    data={WEEKDAYS}
+                    value={s.weekday}
+                    onChange={(v) => updateSlot(i, { weekday: v })}
+                    w={130}
+                    allowDeselect={false}
+                    comboboxProps={{ withinPortal: true }}
+                  />
+                )}
+                {showCycle && (
+                  <Select
+                    label="Week"
+                    data={[
+                      { value: "0", label: "Week A" },
+                      { value: "1", label: "Week B" },
+                    ]}
+                    value={s.week_in_cycle}
+                    onChange={(v) => updateSlot(i, { week_in_cycle: v })}
+                    w={110}
+                    allowDeselect={false}
+                    comboboxProps={{ withinPortal: true }}
+                  />
+                )}
+                {showDom && (
+                  <NumberInput
+                    label="Day of month"
+                    min={1}
+                    max={31}
+                    value={s.day_of_month ?? 1}
+                    onChange={(v) => updateSlot(i, { day_of_month: Number(v) })}
+                    w={110}
+                  />
+                )}
+                <TimeField
+                  label="Start"
+                  value={s.start_time}
+                  onChange={(v) => updateSlot(i, { start_time: v })}
+                />
+                <TimeField
+                  label="End"
+                  value={s.end_time}
+                  onChange={(v) => updateSlot(i, { end_time: v })}
+                />
+                <NumberInput
+                  label="People"
+                  min={1}
+                  value={s.headcount}
+                  onChange={(v) => updateSlot(i, { headcount: Number(v) || 1 })}
+                  w={80}
+                />
+                <ActionIcon
+                  color="red"
+                  variant="subtle"
+                  mb={6}
+                  onClick={() => setSlots(slots.filter((_, idx) => idx !== i))}
+                  aria-label="Remove slot"
+                  disabled={slots.length === 1}
+                >
+                  <IconTrash size={18} />
+                </ActionIcon>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
 
         <Group justify="space-between">
           <Button

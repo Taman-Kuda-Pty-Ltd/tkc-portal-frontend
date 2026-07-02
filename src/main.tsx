@@ -9,6 +9,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./auth/AuthContext";
+import { SettingsProvider } from "./settings/SettingsContext";
 
 const theme = createTheme({
   primaryColor: "teal",
@@ -25,9 +26,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <Notifications position="top-right" />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
+          <SettingsProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </SettingsProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </MantineProvider>
