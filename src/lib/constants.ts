@@ -22,6 +22,7 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   manage_people: "Manage people",
   manage_roles: "Manage roles",
   manage_activities: "Manage activities",
+  manage_schedule_lenses: "Manage schedule lenses",
   manage_shift_templates: "Manage shift templates",
   manage_shifts: "Manage shifts",
   assign_staff: "Assign staff",

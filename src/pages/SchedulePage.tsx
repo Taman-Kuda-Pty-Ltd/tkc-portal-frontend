@@ -16,7 +16,7 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, Person, Shift } from "../api/types";
+import type { Activity, Person, ScheduleLens, Shift } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ShiftModal } from "../components/ShiftModal";
 import { DayView } from "../components/schedule/DayView";
@@ -76,6 +76,10 @@ export function SchedulePage() {
     queryFn: () => api.get<Person[]>("/people"),
     enabled: canAssign,
   });
+  const lensesQ = useQuery({
+    queryKey: ["schedule-lenses"],
+    queryFn: () => api.get<ScheduleLens[]>("/schedule-lenses"),
+  });
 
   const activityById = useMemo(
     () => new Map((activitiesQ.data ?? []).map((a) => [a.id, a])),
@@ -86,13 +90,19 @@ export function SchedulePage() {
     [peopleQ.data],
   );
 
+  const lensById = useMemo(
+    () => new Map((lensesQ.data ?? []).map((l) => [String(l.id), l])),
+    [lensesQ.data],
+  );
+
   const shiftsByDay = useMemo(() => {
+    const selected = lensById.get(lens);
     const filtered =
-      lens === "all"
+      lens === "all" || !selected
         ? (shiftsQ.data ?? [])
-        : (shiftsQ.data ?? []).filter((s) => String(s.activity_id) === lens);
+        : (shiftsQ.data ?? []).filter((s) => selected.activity_ids.includes(s.activity_id));
     return groupByDay(filtered);
-  }, [shiftsQ.data, lens]);
+  }, [shiftsQ.data, lens, lensById]);
 
   function chooseLens(v: string | null) {
     const next = v ?? "all";
@@ -152,7 +162,6 @@ export function SchedulePage() {
         ? `${mondayOf(anchor).format("D MMM")} – ${mondayOf(anchor).add(6, "day").format("D MMM YYYY")}`
         : anchor.format("ddd D MMM YYYY");
 
-  const activeActivities = (activitiesQ.data ?? []).filter((a) => a.is_active);
   const addDefault =
     view === "day" ? anchor : view === "week" ? mondayOf(anchor) : anchor.startOf("month");
 
@@ -211,19 +220,29 @@ export function SchedulePage() {
       <Tabs value={lens} onChange={chooseLens} variant="default">
         <Tabs.List>
           <Tabs.Tab value="all">All</Tabs.Tab>
-          {activeActivities.map((a) => (
+          {(lensesQ.data ?? []).map((l) => (
             <Tabs.Tab
-              key={a.id}
-              value={String(a.id)}
+              key={l.id}
+              value={String(l.id)}
               leftSection={
-                <Box
-                  w={9}
-                  h={9}
-                  style={{ borderRadius: "50%", background: a.color ?? "#2f855a" }}
-                />
+                l.activity_ids.length ? (
+                  <Group gap={2} wrap="nowrap">
+                    {l.activity_ids.slice(0, 4).map((aid) => (
+                      <Box
+                        key={aid}
+                        w={7}
+                        h={7}
+                        style={{
+                          borderRadius: "50%",
+                          background: activityById.get(aid)?.color ?? "#718096",
+                        }}
+                      />
+                    ))}
+                  </Group>
+                ) : undefined
               }
             >
-              {a.name}
+              {l.name}
             </Tabs.Tab>
           ))}
         </Tabs.List>

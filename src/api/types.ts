@@ -32,6 +32,15 @@ export interface Activity {
   is_active: boolean;
 }
 
+export interface ScheduleLens {
+  id: number;
+  name: string;
+  description: string | null;
+  position: number;
+  is_active: boolean;
+  activity_ids: number[];
+}
+
 export type RecurrenceUnit = "daily" | "weekly" | "fortnightly" | "monthly";
 export type ShiftStatus = "scheduled" | "cancelled";
 export type AssignmentStatus = "assigned" | "confirmed" | "declined";

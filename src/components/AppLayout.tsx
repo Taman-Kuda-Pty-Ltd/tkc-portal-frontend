@@ -19,6 +19,7 @@ import {
   IconLogout,
   IconTemplate,
   IconTag,
+  IconStack2,
   IconUsers,
   IconShieldLock,
 } from "@tabler/icons-react";
@@ -30,6 +31,7 @@ const NAV = [
   { to: "/schedule", label: "Schedule", icon: IconCalendar, cap: "view_schedule" },
   { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
   { to: "/activities", label: "Activities", icon: IconTag, cap: "manage_activities" },
+  { to: "/lenses", label: "Lenses", icon: IconStack2, cap: "manage_schedule_lenses" },
   { to: "/people", label: "People", icon: IconUsers, cap: "manage_people" },
   { to: "/roles", label: "Roles", icon: IconShieldLock, cap: "manage_roles" },
 ];
