@@ -1,48 +1,65 @@
 import {
   ActionIcon,
-  Badge,
   Button,
   Group,
   Loader,
-  Paper,
-  Select,
-  SimpleGrid,
+  MultiSelect,
+  SegmentedControl,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight, IconPencil, IconX } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconChevronUp, IconPlus } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Activity, Person, Shift } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ShiftModal } from "../components/ShiftModal";
-import { formatISOTime } from "../lib/time";
+import { DayView } from "../components/schedule/DayView";
+import { MonthView } from "../components/schedule/MonthView";
+import { WeekView } from "../components/schedule/WeekView";
+import type { ScheduleCtx } from "../components/schedule/types";
+import { DAY_KEY, groupByDay, mondayOf } from "../lib/dates";
 import { useSettings } from "../settings/SettingsContext";
 
-function mondayOf(d: dayjs.Dayjs): dayjs.Dayjs {
-  const dow = (d.day() + 6) % 7; // 0 = Monday
-  return d.subtract(dow, "day").startOf("day");
-}
+type View = "month" | "week" | "day";
 
 export function SchedulePage() {
   const { can } = useAuth();
   const { timeFormat } = useSettings();
   const qc = useQueryClient();
-  const [weekStart, setWeekStart] = useState(() => mondayOf(dayjs()));
-  const weekEnd = weekStart.add(7, "day");
+
+  const [view, setView] = useState<View>("week");
+  const [anchor, setAnchor] = useState<Dayjs>(() => dayjs());
+  const [activityFilter, setActivityFilter] = useState<string[]>([]);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingOn, setAddingOn] = useState<Date | null>(null);
+
   const canManageShifts = can("manage_shifts");
+  const canAssign = can("assign_staff") && can("manage_people");
+
+  // Visible date range for the current view.
+  const [rangeStart, rangeEnd] = useMemo<[Dayjs, Dayjs]>(() => {
+    if (view === "month") {
+      const s = mondayOf(anchor.startOf("month"));
+      return [s, s.add(42, "day")];
+    }
+    if (view === "week") {
+      const s = mondayOf(anchor);
+      return [s, s.add(7, "day")];
+    }
+    const s = anchor.startOf("day");
+    return [s, s.add(1, "day")];
+  }, [view, anchor]);
 
   const shiftsQ = useQuery({
-    queryKey: ["shifts", weekStart.format("YYYY-MM-DD")],
+    queryKey: ["shifts", rangeStart.format(DAY_KEY), rangeEnd.format(DAY_KEY)],
     queryFn: () =>
       api.get<Shift[]>(
-        `/shifts?start=${weekStart.format("YYYY-MM-DDTHH:mm:ss")}&end=${weekEnd.format(
+        `/shifts?start=${rangeStart.format("YYYY-MM-DDTHH:mm:ss")}&end=${rangeEnd.format(
           "YYYY-MM-DDTHH:mm:ss",
         )}`,
       ),
@@ -54,7 +71,7 @@ export function SchedulePage() {
   const peopleQ = useQuery({
     queryKey: ["people"],
     queryFn: () => api.get<Person[]>("/people"),
-    enabled: can("assign_staff") && can("manage_people"),
+    enabled: canAssign,
   });
 
   const activityById = useMemo(
@@ -66,15 +83,13 @@ export function SchedulePage() {
     [peopleQ.data],
   );
 
-  const byDay = useMemo(() => {
-    const map = new Map<string, Shift[]>();
-    for (let i = 0; i < 7; i++) map.set(weekStart.add(i, "day").format("YYYY-MM-DD"), []);
-    for (const s of shiftsQ.data ?? []) {
-      const key = dayjs(s.starts_at).format("YYYY-MM-DD");
-      map.get(key)?.push(s);
-    }
-    return map;
-  }, [shiftsQ.data, weekStart]);
+  const shiftsByDay = useMemo(() => {
+    const set = new Set(activityFilter.map(Number));
+    const filtered = (shiftsQ.data ?? []).filter(
+      (s) => set.size === 0 || set.has(s.activity_id),
+    );
+    return groupByDay(filtered);
+  }, [shiftsQ.data, activityFilter]);
 
   const assignM = useMutation({
     mutationFn: (v: { shiftId: number; personId: number }) =>
@@ -89,152 +104,139 @@ export function SchedulePage() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
-  const canAssign = can("assign_staff") && can("manage_people");
-  const peopleOptions = (peopleQ.data ?? []).map((p) => ({
-    value: String(p.id),
-    label: p.full_name,
+  const ctx: ScheduleCtx = {
+    activityById,
+    personById,
+    peopleOptions: (peopleQ.data ?? []).map((p) => ({ value: String(p.id), label: p.full_name })),
+    canManageShifts,
+    canAssign,
+    timeFormat,
+    onEditShift: setEditingShift,
+    onAddShift: (d) => setAddingOn(d.toDate()),
+    onAssign: (shiftId, personId) => assignM.mutate({ shiftId, personId }),
+    onUnassign: (shiftId, assignmentId) => unassignM.mutate({ shiftId, assignmentId }),
+  };
+
+  // --- navigation ---
+  function navigate(dir: 1 | -1) {
+    if (view === "month") setAnchor(anchor.add(dir, "month"));
+    else if (view === "week") setAnchor(anchor.add(dir * 7, "day"));
+    else setAnchor(anchor.add(dir, "day"));
+  }
+  function selectDay(d: Dayjs) {
+    setAnchor(d);
+    setView("day");
+  }
+  function selectWeek(ws: Dayjs) {
+    setAnchor(ws);
+    setView("week");
+  }
+  function zoomOut() {
+    if (view === "day") setView("week");
+    else if (view === "week") setView("month");
+  }
+
+  const title =
+    view === "month"
+      ? anchor.format("MMMM YYYY")
+      : view === "week"
+        ? `${mondayOf(anchor).format("D MMM")} – ${mondayOf(anchor).add(6, "day").format("D MMM YYYY")}`
+        : anchor.format("ddd D MMM YYYY");
+
+  const activityOptions = (activitiesQ.data ?? []).map((a) => ({
+    value: String(a.id),
+    label: a.name,
   }));
+  const addDefault =
+    view === "day" ? anchor : view === "week" ? mondayOf(anchor) : anchor.startOf("month");
 
   return (
     <Stack>
-      <Group justify="space-between" wrap="wrap">
-        <Group>
-          <Title order={2}>Schedule</Title>
+      <Group justify="space-between" wrap="wrap" gap="sm">
+        <Group gap="xs">
+          <Button
+            variant="subtle"
+            px={6}
+            onClick={zoomOut}
+            disabled={view === "month"}
+            leftSection={view !== "month" ? <IconChevronUp size={16} /> : undefined}
+          >
+            <Text fw={700} size="lg">
+              {title}
+            </Text>
+          </Button>
           {canManageShifts && (
-            <Button size="xs" onClick={() => setAddingOn(weekStart.toDate())}>
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => setAddingOn(addDefault.toDate())}
+            >
               Add shift
             </Button>
           )}
         </Group>
-        <Group>
-          <ActionIcon
-            variant="default"
-            onClick={() => setWeekStart(weekStart.subtract(7, "day"))}
-            aria-label="Previous week"
-          >
-            <IconChevronLeft size={18} />
-          </ActionIcon>
-          <Button variant="default" onClick={() => setWeekStart(mondayOf(dayjs()))}>
-            {weekStart.format("D MMM")} – {weekStart.add(6, "day").format("D MMM YYYY")}
-          </Button>
-          <ActionIcon
-            variant="default"
-            onClick={() => setWeekStart(weekStart.add(7, "day"))}
-            aria-label="Next week"
-          >
-            <IconChevronRight size={18} />
-          </ActionIcon>
+
+        <Group gap="xs" wrap="wrap">
+          <MultiSelect
+            size="xs"
+            w={200}
+            placeholder={activityFilter.length ? undefined : "All activities"}
+            data={activityOptions}
+            value={activityFilter}
+            onChange={setActivityFilter}
+            clearable
+            searchable
+            comboboxProps={{ withinPortal: true }}
+          />
+          <SegmentedControl
+            size="xs"
+            value={view}
+            onChange={(v) => setView(v as View)}
+            data={[
+              { label: "Month", value: "month" },
+              { label: "Week", value: "week" },
+              { label: "Day", value: "day" },
+            ]}
+          />
+          <Group gap={4} wrap="nowrap">
+            <ActionIcon variant="default" onClick={() => navigate(-1)} aria-label="Previous">
+              <IconChevronLeft size={18} />
+            </ActionIcon>
+            <Button variant="default" size="xs" onClick={() => setAnchor(dayjs())}>
+              Today
+            </Button>
+            <ActionIcon variant="default" onClick={() => navigate(1)} aria-label="Next">
+              <IconChevronRight size={18} />
+            </ActionIcon>
+          </Group>
         </Group>
       </Group>
 
       {shiftsQ.isLoading ? (
         <Loader />
+      ) : view === "month" ? (
+        <MonthView
+          anchor={anchor}
+          shiftsByDay={shiftsByDay}
+          ctx={ctx}
+          onSelectDay={selectDay}
+          onSelectWeek={selectWeek}
+        />
+      ) : view === "week" ? (
+        <WeekView
+          weekStart={mondayOf(anchor)}
+          shiftsByDay={shiftsByDay}
+          ctx={ctx}
+          onSelectDay={selectDay}
+        />
       ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 7 }} spacing="xs">
-          {[...byDay.entries()].map(([day, shifts]) => (
-            <div key={day}>
-              <Text
-                fw={600}
-                size="sm"
-                pb={4}
-                mb={6}
-                style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
-              >
-                {dayjs(day).format("ddd D MMM")}
-              </Text>
-              <Stack gap={6}>
-                {shifts.length === 0 && (
-                  <Text size="xs" c="dimmed">
-                    —
-                  </Text>
-                )}
-                {shifts.map((s) => {
-                  const activity = activityById.get(s.activity_id);
-                  const color = activity?.color ?? "#2f855a";
-                  const label = s.description || activity?.name || "Shift";
-                  const assigned = s.assignments.length;
-                  const needed = s.headcount;
-                  const fillColor = assigned === 0 ? "red" : assigned < needed ? "yellow" : "teal";
-                  return (
-                    <Paper
-                      key={s.id}
-                      radius="sm"
-                      p={6}
-                      bg="var(--mantine-color-default)"
-                      style={{ borderLeft: `4px solid ${color}` }}
-                    >
-                      <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
-                        <Text size="sm" fw={600} lineClamp={2}>
-                          {label}
-                        </Text>
-                        <Group gap={2} wrap="nowrap">
-                          <Badge size="sm" variant="light" color={fillColor} aria-label="Staffing">
-                            {assigned}/{needed}
-                          </Badge>
-                          {canManageShifts && (
-                            <ActionIcon
-                              size="xs"
-                              variant="subtle"
-                              onClick={() => setEditingShift(s)}
-                              aria-label="Edit shift"
-                            >
-                              <IconPencil size={12} />
-                            </ActionIcon>
-                          )}
-                        </Group>
-                      </Group>
-                      <Text size="xs" c="dimmed">
-                        {formatISOTime(s.starts_at, timeFormat)}–
-                        {formatISOTime(s.ends_at, timeFormat)}
-                        {s.description ? ` · ${activity?.name ?? ""}` : ""}
-                      </Text>
-                      <Stack gap={2} mt={6}>
-                        {s.assignments.map((a) => (
-                          <Group key={a.id} justify="space-between" gap={4} wrap="nowrap">
-                            <Text size="xs">
-                              {personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
-                            </Text>
-                            {canAssign && (
-                              <ActionIcon
-                                size="xs"
-                                variant="subtle"
-                                color="red"
-                                onClick={() =>
-                                  unassignM.mutate({ shiftId: s.id, assignmentId: a.id })
-                                }
-                                aria-label="Remove"
-                              >
-                                <IconX size={12} />
-                              </ActionIcon>
-                            )}
-                          </Group>
-                        ))}
-                        {canAssign && (
-                          <Select
-                            size="xs"
-                            placeholder="Assign…"
-                            searchable
-                            data={peopleOptions}
-                            value={null}
-                            onChange={(val) =>
-                              val && assignM.mutate({ shiftId: s.id, personId: Number(val) })
-                            }
-                            comboboxProps={{ withinPortal: true }}
-                          />
-                        )}
-                      </Stack>
-                    </Paper>
-                  );
-                })}
-              </Stack>
-            </div>
-          ))}
-        </SimpleGrid>
+        <DayView day={anchor} shifts={shiftsByDay.get(anchor.format(DAY_KEY)) ?? []} ctx={ctx} />
       )}
 
       <ShiftModal
         shift={editingShift}
-        defaultDate={addingOn ?? weekStart.toDate()}
+        defaultDate={addingOn ?? anchor.toDate()}
         opened={editingShift !== null || addingOn !== null}
         onClose={() => {
           setEditingShift(null);
