@@ -45,8 +45,16 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         {formatISOTime(shift.ends_at, ctx.timeFormat)}
         {shift.description ? ` · ${activity?.name ?? ""}` : ""}
       </Text>
-      {(shift.assignments.length > 0 || ctx.canAssign) && <Divider mt={6} mb={4} />}
+      <Divider mt={6} mb={4} />
+      <Text fz={10} fw={700} c="dimmed" tt="uppercase" mb={2}>
+        Staff
+      </Text>
       <Stack gap={4}>
+        {shift.assignments.length === 0 && (
+          <Text size="xs" c="dimmed">
+            None
+          </Text>
+        )}
         {shift.assignments.map((a) => (
           <Group
             key={a.id}
