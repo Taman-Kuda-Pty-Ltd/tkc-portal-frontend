@@ -90,6 +90,7 @@ export function TimeGrid({
                       radius="sm"
                       bg="var(--mantine-color-default)"
                       style={{
+                        border: "1px solid var(--mantine-color-default-border)",
                         borderLeft: `3px solid ${v.color}`,
                         overflow: "hidden",
                         boxShadow: "0 1px 2px rgba(0,0,0,0.08)",

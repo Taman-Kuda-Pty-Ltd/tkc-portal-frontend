@@ -15,7 +15,10 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
       radius="sm"
       p={6}
       bg="var(--mantine-color-default)"
-      style={{ borderLeft: `4px solid ${v.color}` }}
+      style={{
+        border: "1px solid var(--mantine-color-default-border)",
+        borderLeft: `4px solid ${v.color}`,
+      }}
     >
       <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
         <Text size="sm" fw={600} lineClamp={2}>
