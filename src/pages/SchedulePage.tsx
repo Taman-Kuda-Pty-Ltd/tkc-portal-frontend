@@ -21,6 +21,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ShiftModal } from "../components/ShiftModal";
 import { DayView } from "../components/schedule/DayView";
 import { MonthView } from "../components/schedule/MonthView";
+import { TimeGrid } from "../components/schedule/TimeGrid";
 import { WeekView } from "../components/schedule/WeekView";
 import type { ScheduleCtx } from "../components/schedule/types";
 import { DAY_KEY, groupByDay, mondayOf } from "../lib/dates";
@@ -34,9 +35,13 @@ export function SchedulePage() {
   const qc = useQueryClient();
 
   const LENS_KEY = "tkc_activity_lens";
+  const LAYOUT_KEY = "tkc_schedule_layout";
   const [view, setView] = useState<View>("week");
   const [anchor, setAnchor] = useState<Dayjs>(() => dayjs());
-  // Which activity "lens" is active: "all" or a specific activity id (as string).
+  const [layout, setLayout] = useState<"list" | "time">(
+    () => (localStorage.getItem(LAYOUT_KEY) as "list" | "time") || "list",
+  );
+  // Which activity "lens" is active: "all" or a specific lens id (as string).
   const [lens, setLens] = useState<string>(() => localStorage.getItem(LENS_KEY) || "all");
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingOn, setAddingOn] = useState<Date | null>(null);
@@ -108,6 +113,10 @@ export function SchedulePage() {
     const next = v ?? "all";
     setLens(next);
     localStorage.setItem(LENS_KEY, next);
+  }
+  function chooseLayout(v: string) {
+    setLayout(v as "list" | "time");
+    localStorage.setItem(LAYOUT_KEY, v);
   }
 
   const assignM = useMutation({
@@ -193,6 +202,17 @@ export function SchedulePage() {
         </Group>
 
         <Group gap="xs" wrap="wrap">
+          {view !== "month" && (
+            <SegmentedControl
+              size="xs"
+              value={layout}
+              onChange={chooseLayout}
+              data={[
+                { label: "List", value: "list" },
+                { label: "Time", value: "time" },
+              ]}
+            />
+          )}
           <SegmentedControl
             size="xs"
             value={view}
@@ -259,12 +279,23 @@ export function SchedulePage() {
           onSelectWeek={selectWeek}
         />
       ) : view === "week" ? (
-        <WeekView
-          weekStart={mondayOf(anchor)}
-          shiftsByDay={shiftsByDay}
-          ctx={ctx}
-          onSelectDay={selectDay}
-        />
+        layout === "time" ? (
+          <TimeGrid
+            days={Array.from({ length: 7 }, (_, i) => mondayOf(anchor).add(i, "day"))}
+            shiftsByDay={shiftsByDay}
+            ctx={ctx}
+            onSelectDay={selectDay}
+          />
+        ) : (
+          <WeekView
+            weekStart={mondayOf(anchor)}
+            shiftsByDay={shiftsByDay}
+            ctx={ctx}
+            onSelectDay={selectDay}
+          />
+        )
+      ) : layout === "time" ? (
+        <TimeGrid days={[anchor]} shiftsByDay={shiftsByDay} ctx={ctx} />
       ) : (
         <DayView day={anchor} shifts={shiftsByDay.get(anchor.format(DAY_KEY)) ?? []} ctx={ctx} />
       )}
