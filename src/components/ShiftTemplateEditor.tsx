@@ -16,7 +16,7 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, RecurrenceUnit, Role, Template } from "../api/types";
+import type { Activity, RecurrenceUnit, Role, ShiftTemplate } from "../api/types";
 import { RECURRENCE_OPTIONS, WEEKDAYS } from "../lib/constants";
 import { TimeField } from "./TimeField";
 
@@ -46,12 +46,12 @@ function emptySlot(): SlotDraft {
   };
 }
 
-export function TemplateEditor({
+export function ShiftTemplateEditor({
   template,
   opened,
   onClose,
 }: {
-  template: Template | null;
+  template: ShiftTemplate | null;
   opened: boolean;
   onClose: () => void;
 }) {
@@ -119,11 +119,11 @@ export function TemplateEditor({
       }));
       const body = { name, description, recurrence, slots: payloadSlots };
       return template
-        ? api.patch(`/templates/${template.id}`, body)
-        : api.post("/templates", body);
+        ? api.patch(`/shift-templates/${template.id}`, body)
+        : api.post("/shift-templates", body);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["templates"] });
+      qc.invalidateQueries({ queryKey: ["shift-templates"] });
       onClose();
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),

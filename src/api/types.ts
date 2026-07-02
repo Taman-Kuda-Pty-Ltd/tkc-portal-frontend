@@ -36,9 +36,9 @@ export type RecurrenceUnit = "daily" | "weekly" | "fortnightly" | "monthly";
 export type ShiftStatus = "scheduled" | "cancelled";
 export type AssignmentStatus = "assigned" | "confirmed" | "declined";
 
-export interface TemplateSlot {
+export interface ShiftTemplateSlot {
   id: number;
-  template_id: number;
+  shift_template_id: number;
   activity_id: number;
   role_id: number | null;
   description: string | null;
@@ -51,16 +51,16 @@ export interface TemplateSlot {
   notes: string | null;
 }
 
-export interface Template {
+export interface ShiftTemplate {
   id: number;
   name: string;
   description: string | null;
   recurrence: RecurrenceUnit;
   is_active: boolean;
-  slots: TemplateSlot[];
+  slots: ShiftTemplateSlot[];
 }
 
-export interface TemplateApplyResult {
+export interface ShiftTemplateApplyResult {
   requested_count: number;
   duplicate_count: number;
   created_count: number;
@@ -86,6 +86,6 @@ export interface Shift {
   headcount: number;
   status: ShiftStatus;
   notes: string | null;
-  source_template_id: number | null;
+  source_shift_template_id: number | null;
   assignments: Assignment[];
 }

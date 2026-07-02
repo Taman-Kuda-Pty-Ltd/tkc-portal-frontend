@@ -7,7 +7,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { RolesPage } from "./pages/RolesPage";
 import { SchedulePage } from "./pages/SchedulePage";
-import { TemplatesPage } from "./pages/TemplatesPage";
+import { ShiftTemplatesPage } from "./pages/ShiftTemplatesPage";
 
 export default function App() {
   const { me, loading } = useAuth();
@@ -33,7 +33,7 @@ export default function App() {
     <AppLayout>
       <Routes>
         <Route path="/schedule" element={<SchedulePage />} />
-        <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/templates" element={<ShiftTemplatesPage />} />
         <Route path="/activities" element={<ActivitiesPage />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/roles" element={<RolesPage />} />

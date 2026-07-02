@@ -15,22 +15,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
-import type { Template, TemplateApplyResult } from "../api/types";
+import type { ShiftTemplate, ShiftTemplateApplyResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { TemplateEditor } from "../components/TemplateEditor";
+import { ShiftTemplateEditor } from "../components/ShiftTemplateEditor";
 
-export function TemplatesPage() {
+export function ShiftTemplatesPage() {
   const { can } = useAuth();
   const qc = useQueryClient();
-  const [applyFor, setApplyFor] = useState<Template | null>(null);
+  const [applyFor, setApplyFor] = useState<ShiftTemplate | null>(null);
   const [range, setRange] = useState<[Date | null, Date | null]>([null, null]);
-  const [preview, setPreview] = useState<TemplateApplyResult | null>(null);
-  const [editing, setEditing] = useState<Template | null>(null);
+  const [preview, setPreview] = useState<ShiftTemplateApplyResult | null>(null);
+  const [editing, setEditing] = useState<ShiftTemplate | null>(null);
   const [creating, setCreating] = useState(false);
 
   const templatesQ = useQuery({
-    queryKey: ["templates"],
-    queryFn: () => api.get<Template[]>("/templates"),
+    queryKey: ["shift-templates"],
+    queryFn: () => api.get<ShiftTemplate[]>("/shift-templates"),
   });
 
   function closeApply() {
@@ -50,7 +50,10 @@ export function TemplatesPage() {
   // Step 1: dry run to find out how many shifts (and duplicates) would result.
   const previewM = useMutation({
     mutationFn: () =>
-      api.post<TemplateApplyResult>(`/templates/${applyFor!.id}/apply`, applyBody({ dry_run: true })),
+      api.post<ShiftTemplateApplyResult>(
+        `/shift-templates/${applyFor!.id}/apply`,
+        applyBody({ dry_run: true }),
+      ),
     onSuccess: (res) => setPreview(res),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
@@ -58,8 +61,8 @@ export function TemplatesPage() {
   // Step 2: actually create, optionally skipping duplicates.
   const commitM = useMutation({
     mutationFn: (skipDuplicates: boolean) =>
-      api.post<TemplateApplyResult>(
-        `/templates/${applyFor!.id}/apply`,
+      api.post<ShiftTemplateApplyResult>(
+        `/shift-templates/${applyFor!.id}/apply`,
         applyBody({ skip_duplicates: skipDuplicates }),
       ),
     onSuccess: (res) => {
@@ -74,12 +77,12 @@ export function TemplatesPage() {
   });
 
   const deleteM = useMutation({
-    mutationFn: (id: number) => api.del(`/templates/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["templates"] }),
+    mutationFn: (id: number) => api.del(`/shift-templates/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shift-templates"] }),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
-  const canManageTemplates = can("manage_templates");
+  const canManageTemplates = can("manage_shift_templates");
   const canApply = can("manage_shifts");
 
   return (
@@ -143,7 +146,7 @@ export function TemplatesPage() {
         </Stack>
       )}
 
-      <TemplateEditor
+      <ShiftTemplateEditor
         template={editing}
         opened={editing !== null || creating}
         onClose={() => {
