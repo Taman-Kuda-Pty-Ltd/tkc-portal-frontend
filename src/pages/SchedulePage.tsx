@@ -2,9 +2,9 @@ import {
   ActionIcon,
   Badge,
   Button,
-  Card,
   Group,
   Loader,
+  Paper,
   Select,
   SimpleGrid,
   Stack,
@@ -130,13 +130,19 @@ export function SchedulePage() {
       {shiftsQ.isLoading ? (
         <Loader />
       ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4, xl: 7 }} spacing="sm">
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 7 }} spacing="xs">
           {[...byDay.entries()].map(([day, shifts]) => (
-            <Card key={day} withBorder padding="xs">
-              <Text fw={600} size="sm" mb="xs">
+            <div key={day}>
+              <Text
+                fw={600}
+                size="sm"
+                pb={4}
+                mb={6}
+                style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+              >
                 {dayjs(day).format("ddd D MMM")}
               </Text>
-              <Stack gap="xs">
+              <Stack gap={6}>
                 {shifts.length === 0 && (
                   <Text size="xs" c="dimmed">
                     —
@@ -150,12 +156,11 @@ export function SchedulePage() {
                   const needed = s.headcount;
                   const fillColor = assigned === 0 ? "red" : assigned < needed ? "yellow" : "teal";
                   return (
-                    <Card
+                    <Paper
                       key={s.id}
-                      withBorder
                       radius="sm"
-                      padding="xs"
-                      bg="var(--mantine-color-body)"
+                      p={6}
+                      bg="var(--mantine-color-default)"
                       style={{ borderLeft: `4px solid ${color}` }}
                     >
                       <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
@@ -218,11 +223,11 @@ export function SchedulePage() {
                           />
                         )}
                       </Stack>
-                    </Card>
+                    </Paper>
                   );
                 })}
               </Stack>
-            </Card>
+            </div>
           ))}
         </SimpleGrid>
       )}
