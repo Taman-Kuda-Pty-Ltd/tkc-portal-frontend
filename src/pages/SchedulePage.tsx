@@ -11,7 +11,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconPencil, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -19,6 +19,7 @@ import { useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Activity, Person, Shift } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { ShiftModal } from "../components/ShiftModal";
 
 function mondayOf(d: dayjs.Dayjs): dayjs.Dayjs {
   const dow = (d.day() + 6) % 7; // 0 = Monday
@@ -30,6 +31,9 @@ export function SchedulePage() {
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState(() => mondayOf(dayjs()));
   const weekEnd = weekStart.add(7, "day");
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [addingOn, setAddingOn] = useState<Date | null>(null);
+  const canManageShifts = can("manage_shifts");
 
   const shiftsQ = useQuery({
     queryKey: ["shifts", weekStart.format("YYYY-MM-DD")],
@@ -91,7 +95,14 @@ export function SchedulePage() {
   return (
     <Stack>
       <Group justify="space-between" wrap="wrap">
-        <Title order={2}>Schedule</Title>
+        <Group>
+          <Title order={2}>Schedule</Title>
+          {canManageShifts && (
+            <Button size="xs" onClick={() => setAddingOn(weekStart.toDate())}>
+              Add shift
+            </Button>
+          )}
+        </Group>
         <Group>
           <ActionIcon
             variant="default"
@@ -132,7 +143,7 @@ export function SchedulePage() {
                   const activity = activityById.get(s.activity_id);
                   return (
                     <Card key={s.id} withBorder radius="sm" padding="xs" bg="var(--mantine-color-body)">
-                      <Group gap={6} mb={4} wrap="nowrap">
+                      <Group gap={6} mb={4} wrap="nowrap" justify="space-between">
                         <Badge
                           size="sm"
                           variant="filled"
@@ -141,6 +152,16 @@ export function SchedulePage() {
                         >
                           {activity?.name ?? "Activity"}
                         </Badge>
+                        {canManageShifts && (
+                          <ActionIcon
+                            size="xs"
+                            variant="subtle"
+                            onClick={() => setEditingShift(s)}
+                            aria-label="Edit shift"
+                          >
+                            <IconPencil size={12} />
+                          </ActionIcon>
+                        )}
                       </Group>
                       <Text size="xs" c="dimmed">
                         {dayjs(s.starts_at).format("HH:mm")}–{dayjs(s.ends_at).format("HH:mm")}
@@ -189,6 +210,16 @@ export function SchedulePage() {
           ))}
         </SimpleGrid>
       )}
+
+      <ShiftModal
+        shift={editingShift}
+        defaultDate={addingOn ?? weekStart.toDate()}
+        opened={editingShift !== null || addingOn !== null}
+        onClose={() => {
+          setEditingShift(null);
+          setAddingOn(null);
+        }}
+      />
     </Stack>
   );
 }

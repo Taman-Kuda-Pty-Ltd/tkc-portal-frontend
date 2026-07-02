@@ -2,7 +2,10 @@ import { Center, Loader } from "@mantine/core";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { AppLayout } from "./components/AppLayout";
+import { ActivitiesPage } from "./pages/ActivitiesPage";
 import { LoginPage } from "./pages/LoginPage";
+import { PeoplePage } from "./pages/PeoplePage";
+import { RolesPage } from "./pages/RolesPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 
@@ -31,6 +34,9 @@ export default function App() {
       <Routes>
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/activities" element={<ActivitiesPage />} />
+        <Route path="/people" element={<PeoplePage />} />
+        <Route path="/roles" element={<RolesPage />} />
         <Route path="*" element={<Navigate to="/schedule" replace />} />
       </Routes>
     </AppLayout>

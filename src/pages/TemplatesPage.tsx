@@ -11,17 +11,21 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { Shift, Template } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { TemplateEditor } from "../components/TemplateEditor";
 
 export function TemplatesPage() {
   const { can } = useAuth();
+  const qc = useQueryClient();
   const [applyFor, setApplyFor] = useState<Template | null>(null);
   const [range, setRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [editing, setEditing] = useState<Template | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const templatesQ = useQuery({
     queryKey: ["templates"],
@@ -45,14 +49,24 @@ export function TemplatesPage() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
-  const canManage = can("manage_shifts");
+  const deleteM = useMutation({
+    mutationFn: (id: number) => api.del(`/templates/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["templates"] }),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const canManageTemplates = can("manage_templates");
+  const canApply = can("manage_shifts");
 
   return (
     <Stack>
-      <Title order={2}>Templates</Title>
+      <Group justify="space-between">
+        <Title order={2}>Templates</Title>
+        {canManageTemplates && <Button onClick={() => setCreating(true)}>New template</Button>}
+      </Group>
       <Text size="sm" c="dimmed">
         Reusable recurring patterns. Applying one generates independent shifts you
-        can then edit on the schedule. (Slot editing UI coming in the next iteration.)
+        can then edit on the schedule.
       </Text>
 
       {templatesQ.isLoading ? (
@@ -78,16 +92,41 @@ export function TemplatesPage() {
                     </Text>
                   )}
                 </div>
-                {canManage && (
-                  <Button variant="light" onClick={() => setApplyFor(t)}>
-                    Apply…
-                  </Button>
-                )}
+                <Group gap="xs">
+                  {canManageTemplates && (
+                    <>
+                      <Button variant="subtle" onClick={() => setEditing(t)}>
+                        Edit
+                      </Button>
+                      <Button
+                        variant="subtle"
+                        color="red"
+                        onClick={() => deleteM.mutate(t.id)}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  )}
+                  {canApply && (
+                    <Button variant="light" onClick={() => setApplyFor(t)}>
+                      Apply…
+                    </Button>
+                  )}
+                </Group>
               </Group>
             </Card>
           ))}
         </Stack>
       )}
+
+      <TemplateEditor
+        template={editing}
+        opened={editing !== null || creating}
+        onClose={() => {
+          setEditing(null);
+          setCreating(false);
+        }}
+      />
 
       <Modal
         opened={!!applyFor}

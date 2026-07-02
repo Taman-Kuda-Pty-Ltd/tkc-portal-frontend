@@ -8,7 +8,14 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconCalendar, IconLogout, IconTemplate } from "@tabler/icons-react";
+import {
+  IconCalendar,
+  IconLogout,
+  IconTemplate,
+  IconTag,
+  IconUsers,
+  IconShieldLock,
+} from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -16,6 +23,9 @@ import { useAuth } from "../auth/AuthContext";
 const NAV = [
   { to: "/schedule", label: "Schedule", icon: IconCalendar, cap: "view_schedule" },
   { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
+  { to: "/activities", label: "Activities", icon: IconTag, cap: "manage_activities" },
+  { to: "/people", label: "People", icon: IconUsers, cap: "manage_people" },
+  { to: "/roles", label: "Roles", icon: IconShieldLock, cap: "manage_roles" },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
