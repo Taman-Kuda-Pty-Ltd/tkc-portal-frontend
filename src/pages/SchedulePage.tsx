@@ -154,6 +154,7 @@ export function SchedulePage() {
                   const label = s.description || activity?.name || "Shift";
                   const assigned = s.assignments.length;
                   const needed = s.headcount;
+                  const fullyStaffed = assigned >= needed;
                   const fillColor = assigned === 0 ? "red" : assigned < needed ? "yellow" : "teal";
                   return (
                     <Paper
@@ -161,7 +162,13 @@ export function SchedulePage() {
                       radius="sm"
                       p={6}
                       bg="var(--mantine-color-default)"
-                      style={{ borderLeft: `4px solid ${color}` }}
+                      style={{
+                        border: `1px solid ${color}`,
+                        // Left edge filled only when fully staffed — a secondary
+                        // cue to the assigned/needed badge. Inset shadow so the
+                        // content never shifts between states.
+                        boxShadow: fullyStaffed ? `inset 5px 0 0 0 ${color}` : undefined,
+                      }}
                     >
                       <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
                         <Text size="sm" fw={600} lineClamp={2}>
