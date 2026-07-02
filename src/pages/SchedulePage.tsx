@@ -1,11 +1,12 @@
 import {
   ActionIcon,
+  Box,
   Button,
   Group,
   Loader,
-  MultiSelect,
   SegmentedControl,
   Stack,
+  Tabs,
   Text,
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight, IconChevronUp, IconPlus } from "@tabler/icons-react";
@@ -32,9 +33,11 @@ export function SchedulePage() {
   const { timeFormat } = useSettings();
   const qc = useQueryClient();
 
+  const LENS_KEY = "tkc_activity_lens";
   const [view, setView] = useState<View>("week");
   const [anchor, setAnchor] = useState<Dayjs>(() => dayjs());
-  const [activityFilter, setActivityFilter] = useState<string[]>([]);
+  // Which activity "lens" is active: "all" or a specific activity id (as string).
+  const [lens, setLens] = useState<string>(() => localStorage.getItem(LENS_KEY) || "all");
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingOn, setAddingOn] = useState<Date | null>(null);
 
@@ -84,12 +87,18 @@ export function SchedulePage() {
   );
 
   const shiftsByDay = useMemo(() => {
-    const set = new Set(activityFilter.map(Number));
-    const filtered = (shiftsQ.data ?? []).filter(
-      (s) => set.size === 0 || set.has(s.activity_id),
-    );
+    const filtered =
+      lens === "all"
+        ? (shiftsQ.data ?? [])
+        : (shiftsQ.data ?? []).filter((s) => String(s.activity_id) === lens);
     return groupByDay(filtered);
-  }, [shiftsQ.data, activityFilter]);
+  }, [shiftsQ.data, lens]);
+
+  function chooseLens(v: string | null) {
+    const next = v ?? "all";
+    setLens(next);
+    localStorage.setItem(LENS_KEY, next);
+  }
 
   const assignM = useMutation({
     mutationFn: (v: { shiftId: number; personId: number }) =>
@@ -143,10 +152,7 @@ export function SchedulePage() {
         ? `${mondayOf(anchor).format("D MMM")} – ${mondayOf(anchor).add(6, "day").format("D MMM YYYY")}`
         : anchor.format("ddd D MMM YYYY");
 
-  const activityOptions = (activitiesQ.data ?? []).map((a) => ({
-    value: String(a.id),
-    label: a.name,
-  }));
+  const activeActivities = (activitiesQ.data ?? []).filter((a) => a.is_active);
   const addDefault =
     view === "day" ? anchor : view === "week" ? mondayOf(anchor) : anchor.startOf("month");
 
@@ -178,17 +184,6 @@ export function SchedulePage() {
         </Group>
 
         <Group gap="xs" wrap="wrap">
-          <MultiSelect
-            size="xs"
-            w={200}
-            placeholder={activityFilter.length ? undefined : "All activities"}
-            data={activityOptions}
-            value={activityFilter}
-            onChange={setActivityFilter}
-            clearable
-            searchable
-            comboboxProps={{ withinPortal: true }}
-          />
           <SegmentedControl
             size="xs"
             value={view}
@@ -212,6 +207,27 @@ export function SchedulePage() {
           </Group>
         </Group>
       </Group>
+
+      <Tabs value={lens} onChange={chooseLens} variant="default">
+        <Tabs.List>
+          <Tabs.Tab value="all">All</Tabs.Tab>
+          {activeActivities.map((a) => (
+            <Tabs.Tab
+              key={a.id}
+              value={String(a.id)}
+              leftSection={
+                <Box
+                  w={9}
+                  h={9}
+                  style={{ borderRadius: "50%", background: a.color ?? "#2f855a" }}
+                />
+              }
+            >
+              {a.name}
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+      </Tabs>
 
       {shiftsQ.isLoading ? (
         <Loader />
