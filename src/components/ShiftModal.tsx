@@ -1,4 +1,4 @@
-import { Button, Group, Modal, NumberInput, Select, Stack, Textarea } from "@mantine/core";
+import { Button, Group, Modal, NumberInput, Select, Stack, Textarea, TextInput } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { TimeField } from "./TimeField";
 import { notifications } from "@mantine/notifications";
@@ -26,6 +26,7 @@ export function ShiftModal({
   const qc = useQueryClient();
   const [activityId, setActivityId] = useState<string | null>(null);
   const [roleId, setRoleId] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date>(defaultDate);
   const [start, setStart] = useState("08:00");
   const [end, setEnd] = useState("12:00");
@@ -43,6 +44,7 @@ export function ShiftModal({
     if (shift) {
       setActivityId(String(shift.activity_id));
       setRoleId(shift.role_id ? String(shift.role_id) : null);
+      setDescription(shift.description ?? "");
       setDate(dayjs(shift.starts_at).toDate());
       setStart(dayjs(shift.starts_at).format("HH:mm"));
       setEnd(dayjs(shift.ends_at).format("HH:mm"));
@@ -51,6 +53,7 @@ export function ShiftModal({
     } else {
       setActivityId(null);
       setRoleId(null);
+      setDescription("");
       setDate(defaultDate);
       setStart("08:00");
       setEnd("12:00");
@@ -64,6 +67,7 @@ export function ShiftModal({
       const body = {
         activity_id: Number(activityId),
         role_id: roleId ? Number(roleId) : null,
+        description: description.trim() || null,
         starts_at: toDateTime(date, start),
         ends_at: toDateTime(date, end),
         headcount,
@@ -95,6 +99,12 @@ export function ShiftModal({
   return (
     <Modal opened={opened} onClose={onClose} title={shift ? "Edit shift" : "Add shift"}>
       <Stack>
+        <TextInput
+          label="Description"
+          placeholder="Optional label (defaults to the activity name)"
+          value={description}
+          onChange={(e) => setDescription(e.currentTarget.value)}
+        />
         <Select
           label="Activity"
           data={activityOptions}

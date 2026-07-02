@@ -41,6 +41,7 @@ export interface TemplateSlot {
   template_id: number;
   activity_id: number;
   role_id: number | null;
+  description: string | null;
   weekday: number | null;
   week_in_cycle: number | null;
   day_of_month: number | null;
@@ -79,6 +80,7 @@ export interface Shift {
   id: number;
   activity_id: number;
   role_id: number | null;
+  description: string | null;
   starts_at: string;
   ends_at: string;
   headcount: number;

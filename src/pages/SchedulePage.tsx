@@ -144,32 +144,44 @@ export function SchedulePage() {
                 )}
                 {shifts.map((s) => {
                   const activity = activityById.get(s.activity_id);
+                  const color = activity?.color ?? "#2f855a";
+                  const label = s.description || activity?.name || "Shift";
+                  const assigned = s.assignments.length;
+                  const needed = s.headcount;
+                  const fillColor = assigned === 0 ? "red" : assigned < needed ? "yellow" : "teal";
                   return (
-                    <Card key={s.id} withBorder radius="sm" padding="xs" bg="var(--mantine-color-body)">
-                      <Group gap={6} mb={4} wrap="nowrap" justify="space-between">
-                        <Badge
-                          size="sm"
-                          variant="filled"
-                          color={activity?.color ? undefined : "teal"}
-                          styles={activity?.color ? { root: { background: activity.color } } : undefined}
-                        >
-                          {activity?.name ?? "Activity"}
-                        </Badge>
-                        {canManageShifts && (
-                          <ActionIcon
-                            size="xs"
-                            variant="subtle"
-                            onClick={() => setEditingShift(s)}
-                            aria-label="Edit shift"
-                          >
-                            <IconPencil size={12} />
-                          </ActionIcon>
-                        )}
+                    <Card
+                      key={s.id}
+                      withBorder
+                      radius="sm"
+                      padding="xs"
+                      bg="var(--mantine-color-body)"
+                      style={{ borderLeft: `4px solid ${color}` }}
+                    >
+                      <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
+                        <Text size="sm" fw={600} lineClamp={2}>
+                          {label}
+                        </Text>
+                        <Group gap={2} wrap="nowrap">
+                          <Badge size="sm" variant="light" color={fillColor} aria-label="Staffing">
+                            {assigned}/{needed}
+                          </Badge>
+                          {canManageShifts && (
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              onClick={() => setEditingShift(s)}
+                              aria-label="Edit shift"
+                            >
+                              <IconPencil size={12} />
+                            </ActionIcon>
+                          )}
+                        </Group>
                       </Group>
                       <Text size="xs" c="dimmed">
                         {formatISOTime(s.starts_at, timeFormat)}–
                         {formatISOTime(s.ends_at, timeFormat)}
-                        {s.headcount > 1 ? ` · needs ${s.headcount}` : ""}
+                        {s.description ? ` · ${activity?.name ?? ""}` : ""}
                       </Text>
                       <Stack gap={2} mt={6}>
                         {s.assignments.map((a) => (

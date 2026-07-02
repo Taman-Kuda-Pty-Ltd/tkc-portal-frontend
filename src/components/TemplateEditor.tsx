@@ -23,6 +23,7 @@ import { TimeField } from "./TimeField";
 interface SlotDraft {
   activity_id: string | null;
   role_id: string | null;
+  description: string;
   weekday: string | null;
   week_in_cycle: string | null;
   day_of_month: number | null;
@@ -35,6 +36,7 @@ function emptySlot(): SlotDraft {
   return {
     activity_id: null,
     role_id: null,
+    description: "",
     weekday: "0",
     week_in_cycle: "0",
     day_of_month: 1,
@@ -75,6 +77,7 @@ export function TemplateEditor({
         template.slots.map((s) => ({
           activity_id: String(s.activity_id),
           role_id: s.role_id ? String(s.role_id) : null,
+          description: s.description ?? "",
           weekday: s.weekday !== null ? String(s.weekday) : "0",
           week_in_cycle: s.week_in_cycle !== null ? String(s.week_in_cycle) : "0",
           day_of_month: s.day_of_month ?? 1,
@@ -105,6 +108,7 @@ export function TemplateEditor({
       const payloadSlots = slots.map((s) => ({
         activity_id: Number(s.activity_id),
         role_id: s.role_id ? Number(s.role_id) : null,
+        description: s.description.trim() || null,
         weekday:
           recurrence === "weekly" || recurrence === "fortnightly" ? Number(s.weekday) : null,
         week_in_cycle: recurrence === "fortnightly" ? Number(s.week_in_cycle) : null,
@@ -156,8 +160,9 @@ export function TemplateEditor({
 
         <Divider label="Slots" labelPosition="left" />
         <Text size="xs" c="dimmed">
-          Each slot is one recurring shift. Role is optional (leave as “Any”).
-          “People” is how many staff the shift needs.
+          Each slot is one recurring shift. Description is an optional calendar
+          label (falls back to the activity name). Role is optional (leave as
+          “Any”). “People” is how many staff the shift needs.
           {recurrence === "daily" && " Daily slots repeat every day in the applied range."}
         </Text>
 
@@ -165,6 +170,13 @@ export function TemplateEditor({
           {slots.map((s, i) => (
             <Paper key={i} withBorder p="sm" radius="sm">
               <Group gap="sm" align="flex-end" wrap="wrap">
+                <TextInput
+                  label="Description"
+                  placeholder="Optional label"
+                  value={s.description}
+                  onChange={(e) => updateSlot(i, { description: e.currentTarget.value })}
+                  w={160}
+                />
                 <Select
                   label="Activity"
                   data={activityOptions}
