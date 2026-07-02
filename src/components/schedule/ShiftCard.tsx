@@ -46,7 +46,7 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         {shift.description ? ` · ${activity?.name ?? ""}` : ""}
       </Text>
       <Divider mt={6} mb={4} />
-      <Text fz={10} fw={700} c="dimmed" tt="uppercase" mb={2}>
+      <Text size="xs" fw={700} tt="uppercase" mb={3} style={{ letterSpacing: 0.6 }}>
         Staff
       </Text>
       <Stack gap={4}>

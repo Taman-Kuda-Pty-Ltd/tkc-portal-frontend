@@ -5,6 +5,7 @@ import {
   Group,
   Menu,
   NavLink,
+  NumberInput,
   ScrollArea,
   SegmentedControl,
   Stack,
@@ -39,7 +40,7 @@ const NAV = [
 export function AppLayout({ children }: { children: ReactNode }) {
   const [opened, { toggle, close }] = useDisclosure();
   const { me, logout, can } = useAuth();
-  const { timeFormat, setTimeFormat } = useSettings();
+  const { timeFormat, setTimeFormat, workDayStart, workDayEnd, setWorkDay } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -81,6 +82,27 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       { label: "24-hour", value: "24h" },
                     ]}
                   />
+                  <Text size="xs" c="dimmed" mt={4}>
+                    Work day (time view shading)
+                  </Text>
+                  <Group gap={6} grow>
+                    <NumberInput
+                      size="xs"
+                      aria-label="Work day start hour"
+                      min={0}
+                      max={23}
+                      value={workDayStart}
+                      onChange={(v) => setWorkDay(Number(v) || 0, workDayEnd)}
+                    />
+                    <NumberInput
+                      size="xs"
+                      aria-label="Work day end hour"
+                      min={1}
+                      max={24}
+                      value={workDayEnd}
+                      onChange={(v) => setWorkDay(workDayStart, Number(v) || 24)}
+                    />
+                  </Group>
                 </Stack>
               </Menu.Dropdown>
             </Menu>
