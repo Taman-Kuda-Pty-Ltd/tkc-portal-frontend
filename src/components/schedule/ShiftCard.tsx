@@ -1,5 +1,5 @@
 import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text } from "@mantine/core";
-import { IconPencil, IconPlus, IconUser, IconX } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconX } from "@tabler/icons-react";
 import { formatISOTime } from "../../lib/time";
 import type { Shift } from "../../api/types";
 import { shiftVisual } from "./types";
@@ -48,34 +48,34 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
       {(shift.assignments.length > 0 || ctx.canAssign) && <Divider mt={6} mb={4} />}
       <Stack gap={4}>
         {shift.assignments.map((a) => (
-          <Badge
+          <Group
             key={a.id}
-            variant="light"
-            color="gray"
-            size="sm"
-            radius="sm"
-            fullWidth
-            leftSection={<IconUser size={11} />}
-            rightSection={
-              ctx.canAssign ? (
-                <ActionIcon
-                  size="xs"
-                  variant="transparent"
-                  color="gray"
-                  onClick={() => ctx.onUnassign(shift.id, a.id)}
-                  aria-label="Remove"
-                >
-                  <IconX size={11} />
-                </ActionIcon>
-              ) : undefined
-            }
-            styles={{
-              root: { textTransform: "none" },
-              label: { fontWeight: 500 },
+            justify="space-between"
+            gap={6}
+            wrap="nowrap"
+            pl={8}
+            pr={2}
+            py={2}
+            style={{
+              background: "var(--mantine-color-gray-light)",
+              borderRadius: "var(--mantine-radius-sm)",
             }}
           >
-            {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
-          </Badge>
+            <Text size="sm" fw={600} lineClamp={1}>
+              {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
+            </Text>
+            {ctx.canAssign && (
+              <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="red"
+                onClick={() => ctx.onUnassign(shift.id, a.id)}
+                aria-label="Remove"
+              >
+                <IconX size={14} />
+              </ActionIcon>
+            )}
+          </Group>
         ))}
         {ctx.canAssign && (
           <Select
