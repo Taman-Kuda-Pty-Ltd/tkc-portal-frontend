@@ -1,5 +1,5 @@
-import { ActionIcon, Badge, Group, Paper, Select, Stack, Text } from "@mantine/core";
-import { IconPencil, IconX } from "@tabler/icons-react";
+import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { IconPencil, IconPlus, IconUser, IconX } from "@tabler/icons-react";
 import { formatISOTime } from "../../lib/time";
 import type { Shift } from "../../api/types";
 import { shiftVisual } from "./types";
@@ -45,29 +45,44 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         {formatISOTime(shift.ends_at, ctx.timeFormat)}
         {shift.description ? ` · ${activity?.name ?? ""}` : ""}
       </Text>
-      <Stack gap={2} mt={6}>
+      {(shift.assignments.length > 0 || ctx.canAssign) && <Divider mt={6} mb={4} />}
+      <Stack gap={4}>
         {shift.assignments.map((a) => (
-          <Group key={a.id} justify="space-between" gap={4} wrap="nowrap">
-            <Text size="xs">
-              {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
-            </Text>
-            {ctx.canAssign && (
-              <ActionIcon
-                size="xs"
-                variant="subtle"
-                color="red"
-                onClick={() => ctx.onUnassign(shift.id, a.id)}
-                aria-label="Remove"
-              >
-                <IconX size={12} />
-              </ActionIcon>
-            )}
-          </Group>
+          <Badge
+            key={a.id}
+            variant="light"
+            color="gray"
+            size="sm"
+            radius="sm"
+            fullWidth
+            leftSection={<IconUser size={11} />}
+            rightSection={
+              ctx.canAssign ? (
+                <ActionIcon
+                  size="xs"
+                  variant="transparent"
+                  color="gray"
+                  onClick={() => ctx.onUnassign(shift.id, a.id)}
+                  aria-label="Remove"
+                >
+                  <IconX size={11} />
+                </ActionIcon>
+              ) : undefined
+            }
+            styles={{
+              root: { textTransform: "none" },
+              label: { fontWeight: 500 },
+            }}
+          >
+            {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
+          </Badge>
         ))}
         {ctx.canAssign && (
           <Select
             size="xs"
+            variant="filled"
             placeholder="Assign…"
+            leftSection={<IconPlus size={12} />}
             searchable
             data={ctx.peopleOptions}
             value={null}
