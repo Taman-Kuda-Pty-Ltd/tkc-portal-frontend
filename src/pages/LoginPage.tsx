@@ -9,6 +9,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useState } from "react";
+import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 export function LoginPage() {
@@ -24,8 +25,14 @@ export function LoginPage() {
     setError(null);
     try {
       await login(email, password);
-    } catch {
-      setError("Incorrect email or password.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError("Incorrect email or password.");
+      } else if (err instanceof ApiError) {
+        setError(`Server error (${err.status}). Is the database seeded?`);
+      } else {
+        setError("Can't reach the server. Is the backend running on :8000?");
+      }
       setBusy(false);
     }
   }
