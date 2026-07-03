@@ -143,7 +143,7 @@ export function ShiftTemplateEditor({
   const invalid = !name || slots.length === 0 || slots.some((s) => !s.activity_id);
 
   return (
-    <Modal opened={opened} onClose={onClose} title={template ? "Edit template" : "New template"} size="lg">
+    <Modal opened={opened} onClose={onClose} title={template ? "Edit template" : "New template"} size="lg" closeOnClickOutside={false}>
       <Stack>
         <Group grow align="flex-start">
           <TextInput

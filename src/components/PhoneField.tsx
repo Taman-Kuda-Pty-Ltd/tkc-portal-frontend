@@ -20,12 +20,14 @@ export function PhoneField({
   onChange,
   required,
   error,
+  disabled,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
   error?: string | null;
+  disabled?: boolean;
 }) {
   return (
     <Input.Wrapper label={label} required={required} error={error}>
@@ -36,6 +38,7 @@ export function PhoneField({
         labels={LABELS}
         value={value || undefined}
         onChange={(v) => onChange(v ?? "")}
+        disabled={disabled}
       />
     </Input.Wrapper>
   );
