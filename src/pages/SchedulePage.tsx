@@ -139,7 +139,7 @@ export function SchedulePage() {
     canManageShifts,
     canAssign,
     timeFormat,
-    onEditShift: setEditingShift,
+    onOpenShift: setEditingShift,
     onAddShift: (d) => setAddingOn(d.toDate()),
     onAssign: (shiftId, personId) => assignM.mutate({ shiftId, personId }),
     onUnassign: (shiftId, assignmentId) => unassignM.mutate({ shiftId, assignmentId }),
@@ -304,6 +304,7 @@ export function SchedulePage() {
         shift={editingShift}
         defaultDate={addingOn ?? anchor.toDate()}
         opened={editingShift !== null || addingOn !== null}
+        canEdit={canManageShifts}
         onClose={() => {
           setEditingShift(null);
           setAddingOn(null);

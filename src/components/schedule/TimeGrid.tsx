@@ -208,7 +208,7 @@ export function TimeGrid({
                 return (
                   <UnstyledButton
                     key={p.shift.id}
-                    onClick={() => ctx.onEditShift(p.shift)}
+                    onClick={() => ctx.onOpenShift(p.shift)}
                     style={{
                       position: "absolute",
                       top: `${p.topPct}%`,

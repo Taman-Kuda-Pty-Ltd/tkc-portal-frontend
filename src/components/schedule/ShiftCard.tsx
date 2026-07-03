@@ -1,5 +1,5 @@
-import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text } from "@mantine/core";
-import { IconPencil, IconPlus, IconX } from "@tabler/icons-react";
+import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
+import { IconPlus, IconX } from "@tabler/icons-react";
 import { formatISOTime } from "../../lib/time";
 import type { Shift } from "../../api/types";
 import { shiftVisual } from "./types";
@@ -21,24 +21,18 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
       }}
     >
       <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
-        <Text size="sm" fw={600} lineClamp={2}>
-          {v.label}
-        </Text>
-        <Group gap={2} wrap="nowrap">
-          <Badge size="sm" variant="light" color={v.fillColor} aria-label="Staffing">
-            {v.assigned}/{v.needed}
-          </Badge>
-          {ctx.canManageShifts && (
-            <ActionIcon
-              size="xs"
-              variant="subtle"
-              onClick={() => ctx.onEditShift(shift)}
-              aria-label="Edit shift"
-            >
-              <IconPencil size={12} />
-            </ActionIcon>
-          )}
-        </Group>
+        <UnstyledButton
+          onClick={() => ctx.onOpenShift(shift)}
+          style={{ flex: 1, textAlign: "left" }}
+          title="View shift"
+        >
+          <Text size="sm" fw={600} lineClamp={2}>
+            {v.label}
+          </Text>
+        </UnstyledButton>
+        <Badge size="sm" variant="light" color={v.fillColor} aria-label="Staffing">
+          {v.assigned}/{v.needed}
+        </Badge>
       </Group>
       <Text size="xs" c="dimmed">
         {formatISOTime(shift.starts_at, ctx.timeFormat)}–

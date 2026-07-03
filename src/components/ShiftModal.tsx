@@ -1,6 +1,6 @@
 import { Button, Group, Modal, NumberInput, Select, Stack, Textarea, TextInput } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
 import { TimeField } from "./TimeField";
+import { DateField } from "./DateField";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -17,17 +17,20 @@ export function ShiftModal({
   defaultDate,
   opened,
   onClose,
+  canEdit,
 }: {
   shift: Shift | null;
   defaultDate: Date;
   opened: boolean;
   onClose: () => void;
+  canEdit: boolean;
 }) {
   const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
   const [activityId, setActivityId] = useState<string | null>(null);
   const [roleId, setRoleId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState<Date>(defaultDate);
+  const [date, setDate] = useState<Date | null>(defaultDate);
   const [start, setStart] = useState("08:00");
   const [end, setEnd] = useState("12:00");
   const [headcount, setHeadcount] = useState(1);
@@ -41,6 +44,7 @@ export function ShiftModal({
 
   useEffect(() => {
     if (!opened) return;
+    setEditing(shift === null); // new shift opens straight into edit
     if (shift) {
       setActivityId(String(shift.activity_id));
       setRoleId(shift.role_id ? String(shift.role_id) : null);
@@ -68,8 +72,8 @@ export function ShiftModal({
         activity_id: Number(activityId),
         role_id: roleId ? Number(roleId) : null,
         description: description.trim() || null,
-        starts_at: toDateTime(date, start),
-        ends_at: toDateTime(date, end),
+        starts_at: date ? toDateTime(date, start) : null,
+        ends_at: date ? toDateTime(date, end) : null,
         headcount,
         notes: notes || null,
       };
@@ -95,14 +99,21 @@ export function ShiftModal({
     .filter((a) => a.is_active)
     .map((a) => ({ value: String(a.id), label: a.name }));
   const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
+  const ro = !editing;
 
   return (
-    <Modal opened={opened} onClose={onClose} title={shift ? "Edit shift" : "Add shift"}>
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      closeOnClickOutside={false}
+      title={shift ? (editing ? "Edit shift" : "Shift") : "Add shift"}
+    >
       <Stack>
         <TextInput
           label="Description"
           placeholder="Optional label (defaults to the activity name)"
           value={description}
+          disabled={ro}
           onChange={(e) => setDescription(e.currentTarget.value)}
         />
         <Select
@@ -111,6 +122,7 @@ export function ShiftModal({
           value={activityId}
           onChange={setActivityId}
           required
+          disabled={ro}
           comboboxProps={{ withinPortal: true }}
         />
         <Select
@@ -120,43 +132,48 @@ export function ShiftModal({
           onChange={setRoleId}
           placeholder="Any"
           clearable
+          disabled={ro}
           comboboxProps={{ withinPortal: true }}
         />
-        <DatePickerInput
-          label="Date"
-          value={date}
-          onChange={(d) => d && setDate(d)}
-          required
-        />
+        <DateField label="Date" value={date} onChange={setDate} required disabled={ro} />
         <Group>
-          <TimeField label="Start" value={start} onChange={setStart} />
-          <TimeField label="End" value={end} onChange={setEnd} />
+          <TimeField label="Start" value={start} onChange={setStart} disabled={ro} />
+          <TimeField label="End" value={end} onChange={setEnd} disabled={ro} />
         </Group>
         <NumberInput
           label="People needed"
           min={1}
           value={headcount}
+          disabled={ro}
           onChange={(v) => setHeadcount(Number(v) || 1)}
         />
         <Textarea
           label="Notes"
           value={notes}
+          disabled={ro}
           onChange={(e) => setNotes(e.currentTarget.value)}
           autosize
           minRows={2}
         />
-        <Group justify="space-between">
-          {shift ? (
-            <Button color="red" variant="light" loading={deleteM.isPending} onClick={() => deleteM.mutate()}>
-              Delete
+        {editing ? (
+          <Group justify="space-between">
+            {shift ? (
+              <Button color="red" variant="light" loading={deleteM.isPending} onClick={() => deleteM.mutate()}>
+                Delete
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
+              Save
             </Button>
-          ) : (
-            <span />
-          )}
-          <Button loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
-            Save
-          </Button>
-        </Group>
+          </Group>
+        ) : (
+          <Group justify="flex-end">
+            <Button variant="default" onClick={onClose}>Close</Button>
+            {canEdit && <Button onClick={() => setEditing(true)}>Edit</Button>}
+          </Group>
+        )}
       </Stack>
     </Modal>
   );

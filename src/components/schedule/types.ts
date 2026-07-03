@@ -10,7 +10,7 @@ export interface ScheduleCtx {
   canManageShifts: boolean;
   canAssign: boolean;
   timeFormat: TimeFormat;
-  onEditShift: (s: Shift) => void;
+  onOpenShift: (s: Shift) => void;
   onAddShift: (d: Dayjs) => void;
   onAssign: (shiftId: number, personId: number) => void;
   onUnassign: (shiftId: number, assignmentId: number) => void;

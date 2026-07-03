@@ -9,7 +9,7 @@ export function ShiftChip({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
   const v = shiftVisual(shift, ctx);
   return (
     <UnstyledButton
-      onClick={() => ctx.canManageShifts && ctx.onEditShift(shift)}
+      onClick={() => ctx.onOpenShift(shift)}
       style={{ display: "block", width: "100%" }}
       title={`${v.label} · ${v.assigned}/${v.needed} assigned`}
     >

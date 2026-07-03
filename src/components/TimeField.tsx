@@ -17,11 +17,13 @@ export function TimeField({
   value,
   onChange,
   w,
+  disabled,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
   w?: number | string;
+  disabled?: boolean;
 }) {
   const { timeFormat } = useSettings();
   const { hour, minute } = parseHM(value);
@@ -51,6 +53,7 @@ export function TimeField({
           setHour24(period === "PM" ? base + 12 : base);
         }}
         allowDeselect={false}
+        disabled={disabled}
         comboboxProps={{ withinPortal: true }}
         w={is12 ? 64 : 72}
         aria-label="Hour"
@@ -61,6 +64,7 @@ export function TimeField({
         value={String(minute).padStart(2, "0")}
         onChange={(v) => v !== null && onChange(toHM(hour, Number(v)))}
         allowDeselect={false}
+        disabled={disabled}
         comboboxProps={{ withinPortal: true }}
         w={72}
         aria-label="Minute"
@@ -75,6 +79,7 @@ export function TimeField({
             setHour24(v === "PM" ? base + 12 : base);
           }}
           allowDeselect={false}
+          disabled={disabled}
           comboboxProps={{ withinPortal: true }}
           w={72}
           aria-label="AM/PM"
