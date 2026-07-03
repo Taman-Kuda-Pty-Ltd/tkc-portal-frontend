@@ -39,6 +39,40 @@ export interface Activity {
   is_active: boolean;
 }
 
+export type StaffType = "employee" | "contractor" | "volunteer" | "other";
+export type EmploymentBasis = "full_time" | "part_time" | "casual";
+export type TaxResidency = "resident" | "non_resident" | "working_holiday_maker";
+export type SuperFundType = "apra" | "smsf";
+export type CredentialType =
+  | "wwcc"
+  | "first_aid"
+  | "coaching"
+  | "police_check"
+  | "drivers_licence"
+  | "other";
+export type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
+
+export interface Invitation {
+  id: number;
+  person_id: number;
+  status: InvitationStatus;
+  expires_at: string;
+  given_name: string;
+  family_name: string;
+  email: string | null;
+  email_sent: boolean;
+  email_error: string | null;
+}
+
+export interface OnboardingContext {
+  given_name: string;
+  family_name: string;
+  email: string | null;
+  mobile: string | null;
+  staff_type: StaffType;
+  expires_at: string;
+}
+
 export type SmtpSecurity = "none" | "starttls" | "ssl";
 
 export interface EmailSettings {

@@ -6,6 +6,7 @@ import {
   Modal,
   MultiSelect,
   PasswordInput,
+  Select,
   SimpleGrid,
   Stack,
   Switch,
@@ -16,9 +17,17 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Person, Role } from "../api/types";
+import type { Invitation, Person, Role, StaffType } from "../api/types";
+import { useAuth } from "../auth/AuthContext";
+
+const STAFF_TYPES = [
+  { value: "employee", label: "Employee" },
+  { value: "contractor", label: "Contractor" },
+  { value: "volunteer", label: "Volunteer" },
+  { value: "other", label: "Other" },
+];
 
 interface Draft {
   given_name: string;
@@ -44,14 +53,48 @@ const EMPTY: Draft = {
   role_ids: [],
 };
 
+interface InviteDraft {
+  given_name: string;
+  family_name: string;
+  email: string;
+  mobile: string;
+  staff_type: StaffType;
+  role_ids: string[];
+}
+
+const EMPTY_INVITE: InviteDraft = {
+  given_name: "",
+  family_name: "",
+  email: "",
+  mobile: "",
+  staff_type: "employee",
+  role_ids: [],
+};
+
 export function PeoplePage() {
   const qc = useQueryClient();
+  const { can } = useAuth();
+  const canInvite = can("manage_onboarding");
+
   const [editing, setEditing] = useState<Person | null>(null);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [inviting, setInviting] = useState(false);
+  const [invite, setInvite] = useState<InviteDraft>(EMPTY_INVITE);
 
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
+  const invitesQ = useQuery({
+    queryKey: ["invitations"],
+    queryFn: () => api.get<Invitation[]>("/invitations"),
+    enabled: canInvite,
+  });
+
+  const pendingByPerson = useMemo(() => {
+    const m = new Map<number, Invitation>();
+    for (const i of invitesQ.data ?? []) if (i.status === "pending") m.set(i.person_id, i);
+    return m;
+  }, [invitesQ.data]);
 
   useEffect(() => {
     if (editing)
@@ -68,6 +111,16 @@ export function PeoplePage() {
       });
     else if (creating) setDraft(EMPTY);
   }, [editing, creating]);
+
+  useEffect(() => {
+    if (inviting) setInvite(EMPTY_INVITE);
+  }, [inviting]);
+
+  const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["people"] });
+    qc.invalidateQueries({ queryKey: ["invitations"] });
+  };
 
   const saveM = useMutation({
     mutationFn: () => {
@@ -89,15 +142,51 @@ export function PeoplePage() {
       return api.post("/people", { ...core, password: draft.password || null });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["people"] });
+      refresh();
       setEditing(null);
       setCreating(false);
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
-  const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
-  const open = editing !== null || creating;
+  const inviteM = useMutation({
+    mutationFn: () =>
+      api.post<Invitation>("/invitations", { ...invite, role_ids: invite.role_ids.map(Number) }),
+    onSuccess: (inv) => {
+      refresh();
+      setInviting(false);
+      if (inv.email_sent) {
+        notifications.show({ color: "teal", message: `Invitation emailed to ${inv.email}.` });
+      } else {
+        notifications.show({
+          color: "yellow",
+          autoClose: 9000,
+          message: `Invite created but email failed: ${inv.email_error ?? "check Settings → Email"}. You can resend later.`,
+        });
+      }
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const resendM = useMutation({
+    mutationFn: (id: number) => api.post<Invitation>(`/invitations/${id}/resend`),
+    onSuccess: (inv) => {
+      refresh();
+      notifications.show({
+        color: inv.email_sent ? "teal" : "yellow",
+        message: inv.email_sent ? "Invitation resent." : `Resend failed: ${inv.email_error}`,
+      });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const revokeM = useMutation({
+    mutationFn: (id: number) => api.post(`/invitations/${id}/revoke`),
+    onSuccess: refresh,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const editOpen = editing !== null || creating;
 
   function statusBadge(p: Person) {
     if (!p.is_active) return <Badge color="gray" variant="light">Disabled</Badge>;
@@ -109,13 +198,18 @@ export function PeoplePage() {
     <Stack>
       <Group justify="space-between">
         <Title order={2}>People</Title>
-        <Button onClick={() => setCreating(true)}>Add person</Button>
+        <Group gap="xs">
+          {canInvite && <Button onClick={() => setInviting(true)}>Invite</Button>}
+          <Button variant="default" onClick={() => setCreating(true)}>
+            Add manually
+          </Button>
+        </Group>
       </Group>
 
       {peopleQ.isLoading ? (
         <Loader />
       ) : (
-        <Table.ScrollContainer minWidth={560}>
+        <Table.ScrollContainer minWidth={620}>
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
@@ -127,34 +221,117 @@ export function PeoplePage() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {(peopleQ.data ?? []).map((p) => (
-                <Table.Tr key={p.id}>
-                  <Table.Td>{p.full_name}</Table.Td>
-                  <Table.Td>{p.email ?? <Text c="dimmed" size="sm">—</Text>}</Table.Td>
-                  <Table.Td>
-                    <Group gap={4}>
-                      {p.roles.map((r) => (
-                        <Badge key={r.id} size="sm" variant="light">
-                          {r.name}
-                        </Badge>
-                      ))}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>{statusBadge(p)}</Table.Td>
-                  <Table.Td>
-                    <Button size="xs" variant="subtle" onClick={() => setEditing(p)}>
-                      Edit
-                    </Button>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
+              {(peopleQ.data ?? []).map((p) => {
+                const pending = pendingByPerson.get(p.id);
+                return (
+                  <Table.Tr key={p.id}>
+                    <Table.Td>{p.full_name}</Table.Td>
+                    <Table.Td>{p.email ?? <Text c="dimmed" size="sm">—</Text>}</Table.Td>
+                    <Table.Td>
+                      <Group gap={4}>
+                        {p.roles.map((r) => (
+                          <Badge key={r.id} size="sm" variant="light">
+                            {r.name}
+                          </Badge>
+                        ))}
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>{statusBadge(p)}</Table.Td>
+                    <Table.Td>
+                      <Group gap={4} justify="flex-end" wrap="nowrap">
+                        {pending && (
+                          <>
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              loading={resendM.isPending}
+                              onClick={() => resendM.mutate(pending.id)}
+                            >
+                              Resend
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              color="red"
+                              onClick={() => revokeM.mutate(pending.id)}
+                            >
+                              Revoke
+                            </Button>
+                          </>
+                        )}
+                        <Button size="xs" variant="subtle" onClick={() => setEditing(p)}>
+                          Edit
+                        </Button>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
             </Table.Tbody>
           </Table>
         </Table.ScrollContainer>
       )}
 
+      {/* Invite modal */}
+      <Modal opened={inviting} onClose={() => setInviting(false)} title="Invite a person" size="lg">
+        <Stack>
+          <Text size="sm" c="dimmed">
+            They'll get an email with a link to complete their own onboarding
+            (personal, tax, super and bank details) and set a password.
+          </Text>
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <TextInput
+              label="Given name"
+              value={invite.given_name}
+              onChange={(e) => setInvite({ ...invite, given_name: e.currentTarget.value })}
+              required
+            />
+            <TextInput
+              label="Family name"
+              value={invite.family_name}
+              onChange={(e) => setInvite({ ...invite, family_name: e.currentTarget.value })}
+              required
+            />
+            <TextInput
+              label="Email"
+              type="email"
+              value={invite.email}
+              onChange={(e) => setInvite({ ...invite, email: e.currentTarget.value })}
+              required
+            />
+            <TextInput
+              label="Mobile"
+              value={invite.mobile}
+              onChange={(e) => setInvite({ ...invite, mobile: e.currentTarget.value })}
+            />
+            <Select
+              label="Type"
+              data={STAFF_TYPES}
+              value={invite.staff_type}
+              onChange={(v) => setInvite({ ...invite, staff_type: (v as StaffType) ?? "employee" })}
+              allowDeselect={false}
+            />
+          </SimpleGrid>
+          <MultiSelect
+            label="Roles"
+            data={roleOptions}
+            value={invite.role_ids}
+            onChange={(v) => setInvite({ ...invite, role_ids: v })}
+            searchable
+          />
+          <Button
+            loading={inviteM.isPending}
+            disabled={!invite.given_name || !invite.family_name || !invite.email}
+            onClick={() => inviteM.mutate()}
+          >
+            Send invitation
+          </Button>
+        </Stack>
+      </Modal>
+
+      {/* Add / edit modal */}
       <Modal
-        opened={open}
+        opened={editOpen}
         onClose={() => {
           setEditing(null);
           setCreating(false);
