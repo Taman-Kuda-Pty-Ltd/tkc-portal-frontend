@@ -47,6 +47,7 @@ export function TimeGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const detailed = days.length === 1; // day view has room for more per block
   const hours = Array.from({ length: SPAN }, (_, i) => RANGE.start + i);
   const todayKey = now.format(DAY_KEY);
   const nowTop = (now.hour() + now.minute() / 60) * HOUR_HEIGHT;
@@ -167,6 +168,7 @@ export function TimeGrid({
                 {/* shift blocks */}
                 {positioned.map((p) => {
                   const v = shiftVisual(p.shift, ctx);
+                  const activity = ctx.activityById.get(p.shift.activity_id);
                   return (
                     <UnstyledButton
                       key={p.shift.id}
@@ -192,14 +194,21 @@ export function TimeGrid({
                           boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                         }}
                       >
-                        <Text fz={10} fw={600} lineClamp={1}>
+                        <Text fz={detailed ? 12 : 10} fw={600} lineClamp={1}>
                           {v.label}
                         </Text>
-                        <Text fz={9} c={v.assigned < v.needed ? "red" : "dimmed"} lineClamp={1}>
-                          {formatISOTime(p.shift.starts_at, ctx.timeFormat)} · {v.assigned}/{v.needed}
+                        <Text fz={detailed ? 10 : 9} c={v.assigned < v.needed ? "red" : "dimmed"} lineClamp={1}>
+                          {formatISOTime(p.shift.starts_at, ctx.timeFormat)}
+                          {detailed ? `–${formatISOTime(p.shift.ends_at, ctx.timeFormat)}` : ""} ·{" "}
+                          {v.assigned}/{v.needed}
                         </Text>
+                        {detailed && p.shift.description && activity && (
+                          <Text fz={9} c="dimmed" lineClamp={1}>
+                            {activity.name}
+                          </Text>
+                        )}
                         {p.shift.assignments.map((a) => (
-                          <Text key={a.id} fz={9} fw={500} lineClamp={1}>
+                          <Text key={a.id} fz={detailed ? 10 : 9} fw={500} lineClamp={1}>
                             {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
                           </Text>
                         ))}
