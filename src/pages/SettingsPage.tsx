@@ -9,7 +9,7 @@ export function SettingsPage() {
   const { timeFormat, setTimeFormat, workDayStart, workDayEnd, setWorkDay } = useSettings();
 
   return (
-    <Stack gap="md" maw={860}>
+    <Stack gap="md" maw={860} w="100%" mx="auto">
       <Title order={2}>Settings</Title>
 
       <Accordion multiple defaultValue={["preferences"]} variant="separated">
