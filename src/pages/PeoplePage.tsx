@@ -15,7 +15,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
+import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -350,8 +350,9 @@ export function PeoplePage() {
               value={invite.position_title}
               onChange={(e) => setInvite({ ...invite, position_title: e.currentTarget.value })}
             />
-            <DatePickerInput
+            <DateInput
               label="Start date"
+              valueFormat="DD/MM/YYYY"
               value={invite.start_date}
               onChange={(d) => setInvite({ ...invite, start_date: d })}
             />
