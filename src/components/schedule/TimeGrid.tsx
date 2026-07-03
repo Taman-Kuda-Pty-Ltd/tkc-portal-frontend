@@ -1,4 +1,5 @@
-import { Paper, Text, UnstyledButton } from "@mantine/core";
+import { Box, Modal, Paper, Text, UnstyledButton } from "@mantine/core";
+import { IconNote } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +37,7 @@ export function TimeGrid({
   const { workDayStart, workDayEnd } = useSettings();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => dayjs());
+  const [notesShift, setNotesShift] = useState<Shift | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(dayjs()), 60_000);
@@ -66,6 +68,7 @@ export function TimeGrid({
   });
 
   return (
+    <>
     <div ref={scrollRef} style={{ maxHeight: "70vh", overflow: "auto", position: "relative" }}>
       {/* header row — sticky to the top while scrolling vertically */}
       <div style={{ display: "flex", position: "sticky", top: 0, zIndex: 3, background: SURFACE }}>
@@ -194,6 +197,10 @@ export function TimeGrid({
               {blocks.map((p) => {
                 const v = shiftVisual(p.shift, ctx);
                 const activity = ctx.activityById.get(p.shift.activity_id);
+                const notes = p.shift.notes?.trim();
+                const heightPx = (p.heightPct / 100) * GRID_HEIGHT;
+                const showNotes = !!notes && heightPx >= 150;
+                const showNoteIcon = !!notes && !showNotes;
                 return (
                   <UnstyledButton
                     key={p.shift.id}
@@ -212,6 +219,7 @@ export function TimeGrid({
                       p={3}
                       radius="sm"
                       style={{
+                        position: "relative",
                         background: BLOCK_BG,
                         border: "1px solid var(--mantine-color-default-border)",
                         borderLeft: `3px solid ${v.color}`,
@@ -219,6 +227,25 @@ export function TimeGrid({
                         boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                       }}
                     >
+                      {showNoteIcon && (
+                        <Box
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNotesShift(p.shift);
+                          }}
+                          title="View notes"
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            right: 2,
+                            cursor: "pointer",
+                            lineHeight: 0,
+                            color: "var(--mantine-color-dimmed)",
+                          }}
+                        >
+                          <IconNote size={13} />
+                        </Box>
+                      )}
                       <Text fz={detailed ? 12 : 10} fw={600} lineClamp={1}>
                         {v.label}
                       </Text>
@@ -253,6 +280,17 @@ export function TimeGrid({
                           </Text>
                         ))
                       )}
+                      {showNotes && (
+                        <Text
+                          fz={9}
+                          c="dimmed"
+                          mt={4}
+                          lineClamp={3}
+                          style={{ whiteSpace: "pre-wrap" }}
+                        >
+                          {notes}
+                        </Text>
+                      )}
                     </Paper>
                   </UnstyledButton>
                 );
@@ -262,5 +300,25 @@ export function TimeGrid({
         })}
       </div>
     </div>
+
+    <Modal
+      opened={!!notesShift}
+      onClose={() => setNotesShift(null)}
+      title="Notes"
+    >
+      {notesShift && (
+        <>
+          <Text fw={600} mb={6}>
+            {notesShift.description ||
+              ctx.activityById.get(notesShift.activity_id)?.name ||
+              "Shift"}
+          </Text>
+          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+            {notesShift.notes}
+          </Text>
+        </>
+      )}
+    </Modal>
+    </>
   );
 }

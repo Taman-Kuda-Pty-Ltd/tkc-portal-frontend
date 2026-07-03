@@ -45,6 +45,11 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         {formatISOTime(shift.ends_at, ctx.timeFormat)}
         {shift.description ? ` · ${activity?.name ?? ""}` : ""}
       </Text>
+      {shift.notes?.trim() && (
+        <Text size="xs" c="dimmed" mt={4} style={{ whiteSpace: "pre-wrap" }}>
+          {shift.notes}
+        </Text>
+      )}
       <Divider mt={6} mb={4} />
       <Text size="xs" fw={700} tt="uppercase" mb={3} style={{ letterSpacing: 0.6 }}>
         Staff
