@@ -50,7 +50,7 @@ export function SettingsPage() {
                       max={23}
                       value={workDayStart}
                       onChange={(v) => setWorkDay(Number(v) || 0, workDayEnd)}
-                      styles={{ input: { textAlign: "right", paddingRight: 14 } }}
+                      styles={{ input: { textAlign: "right" } }}
                     />
                     <Text size="sm" c="dimmed">
                       to
@@ -62,7 +62,7 @@ export function SettingsPage() {
                       max={24}
                       value={workDayEnd}
                       onChange={(v) => setWorkDay(workDayStart, Number(v) || 24)}
-                      styles={{ input: { textAlign: "right", paddingRight: 14 } }}
+                      styles={{ input: { textAlign: "right" } }}
                     />
                     <Text size="xs" c="dimmed">
                       (shaded on the time view)
