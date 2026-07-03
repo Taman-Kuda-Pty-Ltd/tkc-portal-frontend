@@ -233,21 +233,22 @@ export function TimeGrid({
                         </Text>
                       )}
                       <Text
-                        fz={detailed ? 11 : 10}
+                        fz={9}
                         fw={700}
                         tt="uppercase"
-                        mt={4}
-                        style={{ letterSpacing: 0.5 }}
+                        c="dimmed"
+                        mt={3}
+                        style={{ letterSpacing: 0.4 }}
                       >
                         Staff
                       </Text>
                       {p.shift.assignments.length === 0 ? (
-                        <Text fz={detailed ? 11 : 10} c="dimmed" lineClamp={1}>
+                        <Text fz={detailed ? 12 : 11} c="dimmed" lineClamp={1}>
                           None
                         </Text>
                       ) : (
                         p.shift.assignments.map((a) => (
-                          <Text key={a.id} fz={detailed ? 13 : 12} fw={700} lineClamp={1}>
+                          <Text key={a.id} fz={detailed ? 12 : 11} fw={600} lineClamp={1}>
                             {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
                           </Text>
                         ))
