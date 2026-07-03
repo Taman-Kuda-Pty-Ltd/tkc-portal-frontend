@@ -2,14 +2,18 @@ import { createContext, useCallback, useContext, useState } from "react";
 import type { ReactNode } from "react";
 
 export type TimeFormat = "12h" | "24h";
+export type DateFormat = "DD/MM/YYYY" | "MM/DD/YYYY";
 
 const KEY = "tkc_time_format";
+const DATE_KEY = "tkc_date_format";
 const WD_START = "tkc_workday_start";
 const WD_END = "tkc_workday_end";
 
 interface SettingsState {
   timeFormat: TimeFormat;
   setTimeFormat: (f: TimeFormat) => void;
+  dateFormat: DateFormat;
+  setDateFormat: (f: DateFormat) => void;
   /** Work-day window (hours 0-24) — used to highlight the time-grid. */
   workDayStart: number;
   workDayEnd: number;
@@ -27,12 +31,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(
     () => (localStorage.getItem(KEY) as TimeFormat) || "12h",
   );
+  const [dateFormat, setDateFormatState] = useState<DateFormat>(
+    () => (localStorage.getItem(DATE_KEY) as DateFormat) || "DD/MM/YYYY",
+  );
   const [workDayStart, setStart] = useState(() => readInt(WD_START, 8));
   const [workDayEnd, setEnd] = useState(() => readInt(WD_END, 20));
 
   const setTimeFormat = useCallback((f: TimeFormat) => {
     localStorage.setItem(KEY, f);
     setTimeFormatState(f);
+  }, []);
+
+  const setDateFormat = useCallback((f: DateFormat) => {
+    localStorage.setItem(DATE_KEY, f);
+    setDateFormatState(f);
   }, []);
 
   const setWorkDay = useCallback((start: number, end: number) => {
@@ -46,7 +58,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   return (
     <SettingsContext.Provider
-      value={{ timeFormat, setTimeFormat, workDayStart, workDayEnd, setWorkDay }}
+      value={{
+        timeFormat,
+        setTimeFormat,
+        dateFormat,
+        setDateFormat,
+        workDayStart,
+        workDayEnd,
+        setWorkDay,
+      }}
     >
       {children}
     </SettingsContext.Provider>

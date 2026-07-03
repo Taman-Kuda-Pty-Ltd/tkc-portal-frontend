@@ -16,15 +16,22 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { DateInput, DatePickerInput } from "@mantine/dates";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, setToken } from "../api/client";
+import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import type { CredentialType, OnboardingContext } from "../api/types";
+
+const STAFF_TYPE_LABEL: Record<string, string> = {
+  employee: "Employee",
+  contractor: "Contractor",
+  volunteer: "Volunteer",
+  other: "Other",
+};
 
 const CREDENTIAL_TYPES = [
   { value: "wwcc", label: "Working With Children Check" },
@@ -187,6 +194,8 @@ export function OnboardingPage() {
     if (!phoneOk(personal.mobile)) return setError("Enter a valid mobile number.");
     if (emergency.name && !phoneOk(emergency.phone)) return setError("Enter a valid emergency contact phone.");
     if (isMinor && !phoneOk(guardian.phone)) return setError("Enter a valid guardian phone.");
+    if (isEmployee && !tax.tfn.trim() && !tax.tfn_not_provided)
+      return setError("Provide a Tax File Number, or tick 'I have not provided a TFN'.");
     if (isEmployee || isContractor) {
       if (!bank.account_name || !bank.bsb || !bank.account_number)
         return setError("Bank account name, BSB and account number are required.");
@@ -236,10 +245,9 @@ export function OnboardingPage() {
               onChange={(e) => setPersonal({ ...personal, family_name: e.currentTarget.value })} />
             <TextInput label="Middle name/s" value={personal.middle_names}
               onChange={(e) => setPersonal({ ...personal, middle_names: e.currentTarget.value })} />
-            <TextInput label="Display name" description="Shown on the schedule" value={displayName}
+            <TextInput label="Display name" value={displayName}
               onChange={(e) => { setDisplayEdited(true); setDisplayName(e.currentTarget.value); }} />
-            <DateInput label="Date of birth" required valueFormat="DD/MM/YYYY" value={dob} onChange={setDob}
-              maxDate={new Date()} />
+            <DateField label="Date of birth" required value={dob} onChange={setDob} maxDate={new Date()} />
             <PhoneField label="Mobile" value={personal.mobile}
               onChange={(v) => setPersonal({ ...personal, mobile: v })} />
           </SimpleGrid>
@@ -247,36 +255,40 @@ export function OnboardingPage() {
 
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Address</Title>
-          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <Stack>
             <TextInput label="Address line 1" value={address.line1}
               onChange={(e) => setAddress({ ...address, line1: e.currentTarget.value })} />
             <TextInput label="Address line 2" value={address.line2}
               onChange={(e) => setAddress({ ...address, line2: e.currentTarget.value })} />
-            <TextInput label="Suburb" value={address.suburb}
-              onChange={(e) => setAddress({ ...address, suburb: e.currentTarget.value })} />
-            <TextInput label="State" value={address.state}
-              onChange={(e) => setAddress({ ...address, state: e.currentTarget.value })} />
-            <TextInput label="Postcode" value={address.postcode}
-              onChange={(e) => setAddress({ ...address, postcode: e.currentTarget.value })} />
-          </SimpleGrid>
+            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+              <TextInput label="Suburb" value={address.suburb}
+                onChange={(e) => setAddress({ ...address, suburb: e.currentTarget.value })} />
+              <TextInput label="State" value={address.state}
+                onChange={(e) => setAddress({ ...address, state: e.currentTarget.value })} />
+              <TextInput label="Postcode" value={address.postcode}
+                onChange={(e) => setAddress({ ...address, postcode: e.currentTarget.value })} />
+            </SimpleGrid>
+          </Stack>
         </Paper>
 
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Emergency contact</Title>
-          <SimpleGrid cols={{ base: 1, sm: 3 }}>
-            <TextInput label="Name" value={emergency.name}
-              onChange={(e) => setEmergency({ ...emergency, name: e.currentTarget.value })} />
-            <TextInput label="Relationship" value={emergency.relationship}
-              onChange={(e) => setEmergency({ ...emergency, relationship: e.currentTarget.value })} />
+          <Stack>
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <TextInput label="Name" value={emergency.name}
+                onChange={(e) => setEmergency({ ...emergency, name: e.currentTarget.value })} />
+              <TextInput label="Relationship" value={emergency.relationship}
+                onChange={(e) => setEmergency({ ...emergency, relationship: e.currentTarget.value })} />
+            </SimpleGrid>
             <PhoneField label="Phone" value={emergency.phone}
               onChange={(v) => setEmergency({ ...emergency, phone: v })} />
-          </SimpleGrid>
+          </Stack>
         </Paper>
 
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Engagement</Title>
           <Stack gap={4}>
-            <Text size="sm"><b>Type:</b> {staffType}</Text>
+            <Text size="sm"><b>Type:</b> {STAFF_TYPE_LABEL[staffType] ?? staffType}</Text>
             {isEmployee && ctxQ.data?.employment_basis && (
               <Text size="sm"><b>Employment basis:</b> {BASIS_LABEL[ctxQ.data.employment_basis]}</Text>
             )}
@@ -398,7 +410,7 @@ export function OnboardingPage() {
                   onChange={(v) => setCreds(creds.map((x, ix) => ix === i ? { ...x, credential_type: (v as CredentialType) ?? "other" } : x))} />
                 <TextInput label="Number" value={c.identifier}
                   onChange={(e) => setCreds(creds.map((x, ix) => ix === i ? { ...x, identifier: e.currentTarget.value } : x))} />
-                <DatePickerInput label="Expires" value={c.expires_on}
+                <DateField label="Expires" value={c.expires_on}
                   onChange={(d) => setCreds(creds.map((x, ix) => ix === i ? { ...x, expires_on: d } : x))} />
                 <ActionIcon color="red" variant="subtle" mb={6}
                   onClick={() => setCreds(creds.filter((_, ix) => ix !== i))}>

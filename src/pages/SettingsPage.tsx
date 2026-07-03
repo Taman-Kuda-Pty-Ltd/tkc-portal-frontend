@@ -7,7 +7,8 @@ import { LensesPage } from "./LensesPage";
 
 export function SettingsPage() {
   const { can } = useAuth();
-  const { timeFormat, setTimeFormat, workDayStart, workDayEnd, setWorkDay } = useSettings();
+  const { timeFormat, setTimeFormat, dateFormat, setDateFormat, workDayStart, workDayEnd, setWorkDay } =
+    useSettings();
 
   return (
     <Stack gap="md" maw={1080} w="100%" mx="auto">
@@ -35,6 +36,19 @@ export function SettingsPage() {
                     data={[
                       { label: "12-hour", value: "12h" },
                       { label: "24-hour", value: "24h" },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <Text size="sm" fw={500} mb={4}>
+                    Date format
+                  </Text>
+                  <SegmentedControl
+                    value={dateFormat}
+                    onChange={(v) => setDateFormat(v as "DD/MM/YYYY" | "MM/DD/YYYY")}
+                    data={[
+                      { label: "DD/MM/YYYY", value: "DD/MM/YYYY" },
+                      { label: "MM/DD/YYYY", value: "MM/DD/YYYY" },
                     ]}
                   />
                 </div>

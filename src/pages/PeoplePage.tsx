@@ -16,7 +16,6 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -24,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { EmploymentBasis, Invitation, Person, Role, StaffType } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { DateField } from "../components/DateField";
 import { PhoneField } from "../components/PhoneField";
 
 interface ReDraft {
@@ -404,6 +404,7 @@ export function PeoplePage() {
         onClose={() => { setInviting(false); setDupPerson(null); }}
         title="Invite a person"
         size="lg"
+        closeOnClickOutside={false}
       >
         <Stack>
           {dupAlert}
@@ -460,9 +461,8 @@ export function PeoplePage() {
               value={invite.position_title}
               onChange={(e) => setInvite({ ...invite, position_title: e.currentTarget.value })}
             />
-            <DateInput
+            <DateField
               label="Start date"
-              valueFormat="DD/MM/YYYY"
               value={invite.start_date}
               onChange={(d) => setInvite({ ...invite, start_date: d })}
             />
@@ -477,13 +477,21 @@ export function PeoplePage() {
             onChange={(v) => setInvite({ ...invite, role_ids: v })}
             searchable
           />
-          <Button
-            loading={inviteM.isPending}
-            disabled={!invite.given_name || !invite.family_name || !invite.email}
-            onClick={() => inviteM.mutate()}
-          >
-            Send invitation
-          </Button>
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => { setInviting(false); setDupPerson(null); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              loading={inviteM.isPending}
+              disabled={!invite.given_name || !invite.family_name || !invite.email}
+              onClick={() => inviteM.mutate()}
+            >
+              Send invitation
+            </Button>
+          </Group>
         </Stack>
       </Modal>
 
@@ -493,6 +501,7 @@ export function PeoplePage() {
         onClose={() => setReonboarding(null)}
         title={`Re-onboard ${reonboarding?.full_name ?? ""}`}
         size="lg"
+        closeOnClickOutside={false}
       >
         <Stack>
           <Text size="sm" c="dimmed">
@@ -525,9 +534,8 @@ export function PeoplePage() {
               value={reDraft.position_title}
               onChange={(e) => setReDraft({ ...reDraft, position_title: e.currentTarget.value })}
             />
-            <DateInput
+            <DateField
               label="Start date"
-              valueFormat="DD/MM/YYYY"
               value={reDraft.start_date}
               onChange={(d) => setReDraft({ ...reDraft, start_date: d })}
             />
@@ -555,6 +563,7 @@ export function PeoplePage() {
         }}
         title={editing ? `Edit ${editing.full_name}` : "Add person"}
         size="lg"
+        closeOnClickOutside={false}
       >
         <Stack>
           {dupAlert}
