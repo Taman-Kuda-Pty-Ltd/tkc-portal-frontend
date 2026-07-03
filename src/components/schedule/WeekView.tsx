@@ -40,11 +40,6 @@ export function WeekView({
               </Text>
             </UnstyledButton>
             <Stack gap={6}>
-              {shifts.length === 0 && (
-                <Text size="xs" c="dimmed">
-                  —
-                </Text>
-              )}
               {shifts.map((s) => (
                 <ShiftCard key={s.id} shift={s} ctx={ctx} />
               ))}
