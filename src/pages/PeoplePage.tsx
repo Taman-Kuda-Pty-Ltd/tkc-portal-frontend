@@ -15,12 +15,15 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Invitation, Person, Role, StaffType } from "../api/types";
+import type { EmploymentBasis, Invitation, Person, Role, StaffType } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { PhoneField } from "../components/PhoneField";
 
 const STAFF_TYPES = [
   { value: "employee", label: "Employee" },
@@ -59,6 +62,9 @@ interface InviteDraft {
   email: string;
   mobile: string;
   staff_type: StaffType;
+  employment_basis: EmploymentBasis | "";
+  position_title: string;
+  start_date: Date | null;
   role_ids: string[];
 }
 
@@ -68,6 +74,9 @@ const EMPTY_INVITE: InviteDraft = {
   email: "",
   mobile: "",
   staff_type: "employee",
+  employment_basis: "",
+  position_title: "",
+  start_date: null,
   role_ids: [],
 };
 
@@ -151,7 +160,20 @@ export function PeoplePage() {
 
   const inviteM = useMutation({
     mutationFn: () =>
-      api.post<Invitation>("/invitations", { ...invite, role_ids: invite.role_ids.map(Number) }),
+      api.post<Invitation>("/invitations", {
+        given_name: invite.given_name,
+        family_name: invite.family_name,
+        email: invite.email,
+        mobile: invite.mobile || null,
+        staff_type: invite.staff_type,
+        employment_basis:
+          invite.staff_type === "employee" && invite.employment_basis
+            ? invite.employment_basis
+            : null,
+        position_title: invite.position_title || null,
+        start_date: invite.start_date ? dayjs(invite.start_date).format("YYYY-MM-DD") : null,
+        role_ids: invite.role_ids.map(Number),
+      }),
     onSuccess: (inv) => {
       refresh();
       setInviting(false);
@@ -299,10 +321,10 @@ export function PeoplePage() {
               onChange={(e) => setInvite({ ...invite, email: e.currentTarget.value })}
               required
             />
-            <TextInput
+            <PhoneField
               label="Mobile"
               value={invite.mobile}
-              onChange={(e) => setInvite({ ...invite, mobile: e.currentTarget.value })}
+              onChange={(v) => setInvite({ ...invite, mobile: v })}
             />
             <Select
               label="Type"
@@ -311,7 +333,32 @@ export function PeoplePage() {
               onChange={(v) => setInvite({ ...invite, staff_type: (v as StaffType) ?? "employee" })}
               allowDeselect={false}
             />
+            {invite.staff_type === "employee" && (
+              <Select
+                label="Employment basis"
+                data={[
+                  { value: "full_time", label: "Full-time" },
+                  { value: "part_time", label: "Part-time" },
+                  { value: "casual", label: "Casual" },
+                ]}
+                value={invite.employment_basis || null}
+                onChange={(v) => setInvite({ ...invite, employment_basis: (v as EmploymentBasis) || "" })}
+              />
+            )}
+            <TextInput
+              label="Position / title"
+              value={invite.position_title}
+              onChange={(e) => setInvite({ ...invite, position_title: e.currentTarget.value })}
+            />
+            <DatePickerInput
+              label="Start date"
+              value={invite.start_date}
+              onChange={(d) => setInvite({ ...invite, start_date: d })}
+            />
           </SimpleGrid>
+          <Text size="xs" c="dimmed">
+            Type, basis, position and start date are set here and shown (read-only) during onboarding.
+          </Text>
           <MultiSelect
             label="Roles"
             data={roleOptions}

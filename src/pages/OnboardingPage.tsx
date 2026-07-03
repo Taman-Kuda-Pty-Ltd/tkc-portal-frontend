@@ -16,13 +16,14 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
+import { DateInput, DatePickerInput } from "@mantine/dates";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, setToken } from "../api/client";
+import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import type { CredentialType, OnboardingContext } from "../api/types";
 
 const CREDENTIAL_TYPES = [
@@ -34,7 +35,14 @@ const CREDENTIAL_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+const BASIS_LABEL: Record<string, string> = {
+  full_time: "Full-time",
+  part_time: "Part-time",
+  casual: "Casual",
+};
+
 const fmt = (d: Date | null) => (d ? dayjs(d).format("YYYY-MM-DD") : null);
+const phoneOk = (v: string) => !v || isValidPhoneNumber(v);
 
 interface CredRow {
   credential_type: CredentialType;
@@ -50,28 +58,17 @@ export function OnboardingPage() {
     retry: false,
   });
 
-  // Sections
   const [personal, setPersonal] = useState({
     given_name: "",
     middle_names: "",
     family_name: "",
-    preferred_name: "",
     mobile: "",
   });
+  const [displayName, setDisplayName] = useState("");
+  const [displayEdited, setDisplayEdited] = useState(false);
   const [dob, setDob] = useState<Date | null>(null);
-  const [address, setAddress] = useState({
-    line1: "",
-    line2: "",
-    suburb: "",
-    state: "",
-    postcode: "",
-  });
+  const [address, setAddress] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
   const [emergency, setEmergency] = useState({ name: "", relationship: "", phone: "" });
-  const [employment, setEmployment] = useState({
-    employment_basis: "" as "" | "full_time" | "part_time" | "casual",
-    position_title: "",
-  });
-  const [startDate, setStartDate] = useState<Date | null>(null);
   const [tax, setTax] = useState({
     tfn: "",
     tfn_not_provided: false,
@@ -91,20 +88,9 @@ export function OnboardingPage() {
     smsf_bank_account: "",
   });
   const [bank, setBank] = useState({ account_name: "", bank_name: "", bsb: "", account_number: "" });
-  const [business, setBusiness] = useState({
-    legal_name: "",
-    trading_name: "",
-    abn: "",
-    gst_registered: false,
-  });
+  const [business, setBusiness] = useState({ legal_name: "", trading_name: "", abn: "", gst_registered: false });
   const [creds, setCreds] = useState<CredRow[]>([]);
-  const [guardian, setGuardian] = useState({
-    guardian_name: "",
-    relationship: "",
-    phone: "",
-    email: "",
-    consent_given: false,
-  });
+  const [guardian, setGuardian] = useState({ guardian_name: "", relationship: "", phone: "", email: "", consent_given: false });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pin, setPin] = useState("");
@@ -120,6 +106,14 @@ export function OnboardingPage() {
       }));
   }, [ctxQ.data]);
 
+  // Default display name = given + first initial of family, until manually edited.
+  useEffect(() => {
+    if (!displayEdited) {
+      const f = personal.family_name.trim();
+      setDisplayName(`${personal.given_name} ${f ? f[0].toUpperCase() : ""}`.trim());
+    }
+  }, [personal.given_name, personal.family_name, displayEdited]);
+
   const staffType = ctxQ.data?.staff_type ?? "employee";
   const isEmployee = staffType === "employee";
   const isContractor = staffType === "contractor";
@@ -131,15 +125,11 @@ export function OnboardingPage() {
         given_name: personal.given_name,
         middle_names: personal.middle_names || null,
         family_name: personal.family_name,
-        preferred_name: personal.preferred_name || null,
+        preferred_name: displayName || null,
         date_of_birth: fmt(dob),
         mobile: personal.mobile || null,
         address: address.line1 || address.suburb ? address : null,
         emergency_contacts: emergency.name ? [emergency] : [],
-        staff_type: staffType,
-        employment_basis: isEmployee && employment.employment_basis ? employment.employment_basis : null,
-        position_title: employment.position_title || null,
-        start_date: fmt(startDate),
         tax: isEmployee ? tax : null,
         superannuation: isEmployee ? supera : null,
         bank: isEmployee || isContractor ? bank : null,
@@ -157,7 +147,7 @@ export function OnboardingPage() {
       }),
     onSuccess: (res) => {
       setToken(res.access_token);
-      window.location.assign("/schedule"); // hard reload so auth re-initialises
+      window.location.assign("/schedule");
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -165,9 +155,17 @@ export function OnboardingPage() {
   function submit() {
     setError(null);
     if (!personal.given_name || !personal.family_name) return setError("Please enter your name.");
+    if (!dob) return setError("Date of birth is required.");
+    if (!phoneOk(personal.mobile)) return setError("Enter a valid mobile number.");
+    if (emergency.name && !phoneOk(emergency.phone)) return setError("Enter a valid emergency contact phone.");
+    if (isMinor && !phoneOk(guardian.phone)) return setError("Enter a valid guardian phone.");
+    if (isEmployee || isContractor) {
+      if (!bank.account_name || !bank.bsb || !bank.account_number)
+        return setError("Bank account name, BSB and account number are required.");
+    }
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     if (password !== confirm) return setError("Passwords do not match.");
-    if (pin && !/^\d{4,6}$/.test(pin)) return setError("PIN must be 4–6 digits.");
+    if (pin && !/^\d{6,8}$/.test(pin)) return setError("PIN must be 6–8 digits.");
     submitM.mutate();
   }
 
@@ -208,11 +206,12 @@ export function OnboardingPage() {
               onChange={(e) => setPersonal({ ...personal, family_name: e.currentTarget.value })} />
             <TextInput label="Middle name/s" value={personal.middle_names}
               onChange={(e) => setPersonal({ ...personal, middle_names: e.currentTarget.value })} />
-            <TextInput label="Preferred name" value={personal.preferred_name}
-              onChange={(e) => setPersonal({ ...personal, preferred_name: e.currentTarget.value })} />
-            <DatePickerInput label="Date of birth" value={dob} onChange={setDob} />
-            <TextInput label="Mobile" value={personal.mobile}
-              onChange={(e) => setPersonal({ ...personal, mobile: e.currentTarget.value })} />
+            <TextInput label="Display name" description="Shown on the schedule" value={displayName}
+              onChange={(e) => { setDisplayEdited(true); setDisplayName(e.currentTarget.value); }} />
+            <DateInput label="Date of birth" required valueFormat="DD/MM/YYYY" value={dob} onChange={setDob}
+              maxDate={new Date()} />
+            <PhoneField label="Mobile" value={personal.mobile}
+              onChange={(v) => setPersonal({ ...personal, mobile: v })} />
           </SimpleGrid>
         </Paper>
 
@@ -239,45 +238,44 @@ export function OnboardingPage() {
               onChange={(e) => setEmergency({ ...emergency, name: e.currentTarget.value })} />
             <TextInput label="Relationship" value={emergency.relationship}
               onChange={(e) => setEmergency({ ...emergency, relationship: e.currentTarget.value })} />
-            <TextInput label="Phone" value={emergency.phone}
-              onChange={(e) => setEmergency({ ...emergency, phone: e.currentTarget.value })} />
+            <PhoneField label="Phone" value={emergency.phone}
+              onChange={(v) => setEmergency({ ...emergency, phone: v })} />
           </SimpleGrid>
         </Paper>
 
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Engagement</Title>
-          <Text size="sm" c="dimmed" mb="xs">You've been invited as: <b>{staffType}</b></Text>
-          <SimpleGrid cols={{ base: 1, sm: 2 }}>
-            {isEmployee && (
-              <Select label="Employment basis" data={[
-                { value: "full_time", label: "Full-time" },
-                { value: "part_time", label: "Part-time" },
-                { value: "casual", label: "Casual" },
-              ]} value={employment.employment_basis || null}
-                onChange={(v) => setEmployment({ ...employment, employment_basis: (v as never) || "" })} />
+          <Stack gap={4}>
+            <Text size="sm"><b>Type:</b> {staffType}</Text>
+            {isEmployee && ctxQ.data?.employment_basis && (
+              <Text size="sm"><b>Employment basis:</b> {BASIS_LABEL[ctxQ.data.employment_basis]}</Text>
             )}
-            <TextInput label="Position / title" value={employment.position_title}
-              onChange={(e) => setEmployment({ ...employment, position_title: e.currentTarget.value })} />
-            <DatePickerInput label="Start date" value={startDate} onChange={setStartDate} />
-          </SimpleGrid>
+            {ctxQ.data?.position_title && (
+              <Text size="sm"><b>Position:</b> {ctxQ.data.position_title}</Text>
+            )}
+            {ctxQ.data?.start_date && (
+              <Text size="sm"><b>Start date:</b> {dayjs(ctxQ.data.start_date).format("D MMM YYYY")}</Text>
+            )}
+            <Text size="xs" c="dimmed">These were set by your manager. Contact them if anything's wrong.</Text>
+          </Stack>
         </Paper>
 
         {isEmployee && (
           <Paper withBorder p="md">
             <Title order={4} mb="sm">Tax</Title>
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label="Tax File Number" value={tax.tfn} disabled={tax.tfn_not_provided}
-                onChange={(e) => setTax({ ...tax, tfn: e.currentTarget.value })} />
+            <Stack>
               <Select label="Residency for tax" data={[
                 { value: "resident", label: "Australian resident" },
                 { value: "non_resident", label: "Non-resident" },
                 { value: "working_holiday_maker", label: "Working holiday maker" },
               ]} value={tax.residency} allowDeselect={false}
                 onChange={(v) => setTax({ ...tax, residency: (v as never) ?? "resident" })} />
-            </SimpleGrid>
-            <Stack gap={6} mt="sm">
-              <Checkbox label="I have not provided a TFN" checked={tax.tfn_not_provided}
-                onChange={(e) => setTax({ ...tax, tfn_not_provided: e.currentTarget.checked })} />
+              <div>
+                <TextInput label="Tax File Number" value={tax.tfn} disabled={tax.tfn_not_provided}
+                  onChange={(e) => setTax({ ...tax, tfn: e.currentTarget.value })} />
+                <Checkbox mt={6} label="I have not provided a TFN" checked={tax.tfn_not_provided}
+                  onChange={(e) => setTax({ ...tax, tfn_not_provided: e.currentTarget.checked })} />
+              </div>
               <Checkbox label="Claim the tax-free threshold" checked={tax.claim_tax_free_threshold}
                 onChange={(e) => setTax({ ...tax, claim_tax_free_threshold: e.currentTarget.checked })} />
               <Checkbox label="I have a study/training support loan (HELP/HECS/STSL)" checked={tax.has_study_loan}
@@ -326,13 +324,13 @@ export function OnboardingPage() {
           <Paper withBorder p="md">
             <Title order={4} mb="sm">Bank account</Title>
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label="Account name" value={bank.account_name}
+              <TextInput label="Account name" required value={bank.account_name}
                 onChange={(e) => setBank({ ...bank, account_name: e.currentTarget.value })} />
               <TextInput label="Bank name" value={bank.bank_name}
                 onChange={(e) => setBank({ ...bank, bank_name: e.currentTarget.value })} />
-              <TextInput label="BSB" value={bank.bsb}
+              <TextInput label="BSB" required value={bank.bsb}
                 onChange={(e) => setBank({ ...bank, bsb: e.currentTarget.value })} />
-              <TextInput label="Account number" value={bank.account_number}
+              <TextInput label="Account number" required value={bank.account_number}
                 onChange={(e) => setBank({ ...bank, account_number: e.currentTarget.value })} />
             </SimpleGrid>
           </Paper>
@@ -390,8 +388,8 @@ export function OnboardingPage() {
                 onChange={(e) => setGuardian({ ...guardian, guardian_name: e.currentTarget.value })} />
               <TextInput label="Relationship" value={guardian.relationship}
                 onChange={(e) => setGuardian({ ...guardian, relationship: e.currentTarget.value })} />
-              <TextInput label="Phone" value={guardian.phone}
-                onChange={(e) => setGuardian({ ...guardian, phone: e.currentTarget.value })} />
+              <PhoneField label="Phone" value={guardian.phone}
+                onChange={(v) => setGuardian({ ...guardian, phone: v })} />
               <TextInput label="Email" value={guardian.email}
                 onChange={(e) => setGuardian({ ...guardian, email: e.currentTarget.value })} />
             </SimpleGrid>
@@ -407,9 +405,9 @@ export function OnboardingPage() {
               onChange={(e) => setPassword(e.currentTarget.value)} />
             <PasswordInput label="Confirm password" value={confirm} required
               onChange={(e) => setConfirm(e.currentTarget.value)} />
-            <TextInput label="PIN (optional, 4–6 digits)" value={pin}
+            <TextInput label="PIN (optional, 6–8 digits)" value={pin}
               description="For quick check-in on shared terminals (coming soon)"
-              onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 6))} />
+              onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
           </SimpleGrid>
         </Paper>
 

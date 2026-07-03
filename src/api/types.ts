@@ -70,6 +70,9 @@ export interface OnboardingContext {
   email: string | null;
   mobile: string | null;
   staff_type: StaffType;
+  employment_basis: EmploymentBasis | null;
+  position_title: string | null;
+  start_date: string | null;
   expires_at: string;
 }
 
