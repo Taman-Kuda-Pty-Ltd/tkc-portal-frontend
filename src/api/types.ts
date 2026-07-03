@@ -17,9 +17,16 @@ export interface Role {
 
 export interface Person {
   id: number;
-  email: string;
-  full_name: string;
+  given_name: string;
+  middle_names: string | null;
+  family_name: string;
+  preferred_name: string | null;
+  email: string | null;
+  mobile: string | null;
+  date_of_birth: string | null;
   is_active: boolean;
+  onboarded: boolean;
+  full_name: string; // computed display name
   roles: Role[];
 }
 
