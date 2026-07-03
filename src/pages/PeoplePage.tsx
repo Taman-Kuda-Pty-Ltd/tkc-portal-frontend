@@ -1,5 +1,6 @@
 import {
   Alert,
+  Anchor,
   Badge,
   Button,
   Group,
@@ -20,6 +21,7 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { EmploymentBasis, Invitation, Person, Role, StaffType } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -91,6 +93,7 @@ const EMPTY_INVITE: InviteDraft = {
 
 export function PeoplePage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { can } = useAuth();
   const canInvite = can("manage_onboarding");
 
@@ -333,7 +336,9 @@ export function PeoplePage() {
                 const pending = pendingByPerson.get(p.id);
                 return (
                   <Table.Tr key={p.id}>
-                    <Table.Td>{p.full_name}</Table.Td>
+                    <Table.Td>
+                      <Anchor onClick={() => navigate(`/people/${p.id}`)}>{p.full_name}</Anchor>
+                    </Table.Td>
                     <Table.Td>{p.email ?? <Text c="dimmed" size="sm">—</Text>}</Table.Td>
                     <Table.Td>
                       <Group gap={4}>

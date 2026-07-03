@@ -70,6 +70,84 @@ export interface OnboardingCredential {
   expires_on: string | null;
 }
 
+export interface EngagementDetail {
+  id: number;
+  engagement_type: StaffType;
+  employment_basis: EmploymentBasis | null;
+  position_title: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+  business: {
+    legal_name: string | null;
+    trading_name: string | null;
+    abn: string | null;
+    gst_registered: boolean;
+  } | null;
+  has_tax: boolean;
+  has_super: boolean;
+  has_bank: boolean;
+  can_view_sensitive: boolean;
+  tax: {
+    tfn: string | null;
+    tfn_not_provided: boolean;
+    residency: TaxResidency;
+    claim_tax_free_threshold: boolean;
+    has_study_loan: boolean;
+    extra_withholding: boolean;
+  } | null;
+  superannuation: {
+    fund_type: SuperFundType;
+    fund_name: string | null;
+    fund_usi: string | null;
+    fund_abn: string | null;
+    member_number: string | null;
+    esa: string | null;
+    smsf_bank_bsb: string | null;
+    smsf_bank_account: string | null;
+  } | null;
+  bank: {
+    account_name: string | null;
+    bank_name: string | null;
+    bsb: string | null;
+    account_number: string | null;
+  } | null;
+}
+
+export interface PersonDetail {
+  id: number;
+  given_name: string;
+  middle_names: string | null;
+  family_name: string;
+  preferred_name: string | null;
+  full_name: string;
+  email: string | null;
+  mobile: string | null;
+  date_of_birth: string | null;
+  is_active: boolean;
+  onboarded: boolean;
+  roles: Role[];
+  address: {
+    line1: string | null;
+    line2: string | null;
+    suburb: string | null;
+    state: string | null;
+    postcode: string | null;
+    country: string;
+  } | null;
+  emergency_contacts: { id: number; name: string; relationship: string | null; phone: string | null }[];
+  credentials: {
+    id: number;
+    credential_type: CredentialType;
+    label: string | null;
+    identifier: string | null;
+    issued_on: string | null;
+    expires_on: string | null;
+    notes: string | null;
+  }[];
+  engagements: EngagementDetail[];
+}
+
 export interface OnboardingContext {
   has_account: boolean;
   given_name: string;
