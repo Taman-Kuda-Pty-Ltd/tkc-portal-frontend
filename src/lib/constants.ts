@@ -29,4 +29,7 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   view_schedule: "View schedule",
   check_in: "Check in / out",
   view_reports: "View reports",
+  manage_settings: "Manage settings",
+  manage_onboarding: "Manage onboarding",
+  view_sensitive: "View sensitive data",
 };

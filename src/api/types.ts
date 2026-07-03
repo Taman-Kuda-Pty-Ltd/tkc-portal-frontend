@@ -39,6 +39,19 @@ export interface Activity {
   is_active: boolean;
 }
 
+export type SmtpSecurity = "none" | "starttls" | "ssl";
+
+export interface EmailSettings {
+  enabled: boolean;
+  host: string | null;
+  port: number;
+  security: SmtpSecurity;
+  username: string | null;
+  from_email: string | null;
+  from_name: string | null;
+  has_password: boolean;
+}
+
 export interface ScheduleLens {
   id: number;
   name: string;
