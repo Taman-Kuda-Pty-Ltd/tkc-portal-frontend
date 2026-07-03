@@ -76,7 +76,7 @@ export function ActivitiesPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={2}>Activities</Title>
+        <Title order={3}>Activities</Title>
         <Button onClick={() => setCreating(true)}>New activity</Button>
       </Group>
       <Text size="sm" c="dimmed">

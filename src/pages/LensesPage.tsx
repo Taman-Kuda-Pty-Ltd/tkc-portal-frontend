@@ -92,7 +92,7 @@ export function LensesPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={2}>Schedule lenses</Title>
+        <Title order={3}>Schedule lenses</Title>
         <Button onClick={() => setCreating(true)}>New lens</Button>
       </Group>
       <Text size="sm" c="dimmed">

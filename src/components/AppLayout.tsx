@@ -1,28 +1,12 @@
-import {
-  ActionIcon,
-  AppShell,
-  Burger,
-  Group,
-  Menu,
-  NavLink,
-  NumberInput,
-  ScrollArea,
-  SegmentedControl,
-  Stack,
-  Text,
-  UnstyledButton,
-} from "@mantine/core";
+import { AppShell, Burger, Group, NavLink, ScrollArea, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconSettings } from "@tabler/icons-react";
-import { useSettings } from "../settings/SettingsContext";
 import {
   IconCalendar,
   IconLogout,
-  IconTemplate,
-  IconTag,
-  IconStack2,
-  IconUsers,
+  IconSettings,
   IconShieldLock,
+  IconTemplate,
+  IconUsers,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
@@ -31,8 +15,6 @@ import { useAuth } from "../auth/AuthContext";
 const NAV = [
   { to: "/schedule", label: "Schedule", icon: IconCalendar, cap: "view_schedule" },
   { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
-  { to: "/activities", label: "Activities", icon: IconTag, cap: "manage_activities" },
-  { to: "/lenses", label: "Lenses", icon: IconStack2, cap: "manage_schedule_lenses" },
   { to: "/people", label: "People", icon: IconUsers, cap: "manage_people" },
   { to: "/roles", label: "Roles", icon: IconShieldLock, cap: "manage_roles" },
 ];
@@ -40,7 +22,6 @@ const NAV = [
 export function AppLayout({ children }: { children: ReactNode }) {
   const [opened, { toggle, close }] = useDisclosure();
   const { me, logout, can } = useAuth();
-  const { timeFormat, setTimeFormat, workDayStart, workDayEnd, setWorkDay } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -56,57 +37,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Text fw={700}>Taman Kuda Club</Text>
           </Group>
-          <Group gap="xs">
-            <Text size="sm" c="dimmed" visibleFrom="xs">
-              {me?.full_name}
-            </Text>
-            <Menu shadow="md" width={220} position="bottom-end" closeOnItemClick={false}>
-              <Menu.Target>
-                <ActionIcon variant="subtle" aria-label="Settings">
-                  <IconSettings size={18} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>Settings</Menu.Label>
-                <Stack gap={4} px="sm" py="xs">
-                  <Text size="xs" c="dimmed">
-                    Time format
-                  </Text>
-                  <SegmentedControl
-                    size="xs"
-                    fullWidth
-                    value={timeFormat}
-                    onChange={(v) => setTimeFormat(v as "12h" | "24h")}
-                    data={[
-                      { label: "12-hour", value: "12h" },
-                      { label: "24-hour", value: "24h" },
-                    ]}
-                  />
-                  <Text size="xs" c="dimmed" mt={4}>
-                    Work day (time view shading)
-                  </Text>
-                  <Group gap={6} grow>
-                    <NumberInput
-                      size="xs"
-                      aria-label="Work day start hour"
-                      min={0}
-                      max={23}
-                      value={workDayStart}
-                      onChange={(v) => setWorkDay(Number(v) || 0, workDayEnd)}
-                    />
-                    <NumberInput
-                      size="xs"
-                      aria-label="Work day end hour"
-                      min={1}
-                      max={24}
-                      value={workDayEnd}
-                      onChange={(v) => setWorkDay(workDayStart, Number(v) || 24)}
-                    />
-                  </Group>
-                </Stack>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
+          <Text size="sm" c="dimmed" visibleFrom="xs">
+            {me?.full_name}
+          </Text>
         </Group>
       </AppShell.Header>
 
@@ -125,17 +58,30 @@ export function AppLayout({ children }: { children: ReactNode }) {
           ))}
         </AppShell.Section>
         <AppShell.Section>
-          <UnstyledButton
-            onClick={() => {
-              logout();
-              navigate("/login");
-            }}
-          >
-            <Group gap="xs" c="dimmed">
-              <IconLogout size={18} />
-              <Text size="sm">Sign out</Text>
-            </Group>
-          </UnstyledButton>
+          <Stack gap="sm">
+            <UnstyledButton
+              onClick={() => {
+                navigate("/settings");
+                close();
+              }}
+            >
+              <Group gap="xs" c={location.pathname.startsWith("/settings") ? undefined : "dimmed"}>
+                <IconSettings size={18} />
+                <Text size="sm">Settings</Text>
+              </Group>
+            </UnstyledButton>
+            <UnstyledButton
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+            >
+              <Group gap="xs" c="dimmed">
+                <IconLogout size={18} />
+                <Text size="sm">Sign out</Text>
+              </Group>
+            </UnstyledButton>
+          </Stack>
         </AppShell.Section>
       </AppShell.Navbar>
 
