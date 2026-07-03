@@ -198,6 +198,11 @@ export function TimeGrid({
                         <Text fz={9} c={v.assigned < v.needed ? "red" : "dimmed"} lineClamp={1}>
                           {formatISOTime(p.shift.starts_at, ctx.timeFormat)} · {v.assigned}/{v.needed}
                         </Text>
+                        {p.shift.assignments.map((a) => (
+                          <Text key={a.id} fz={9} fw={500} lineClamp={1}>
+                            {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
+                          </Text>
+                        ))}
                       </Paper>
                     </UnstyledButton>
                   );
