@@ -10,7 +10,6 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -91,14 +90,13 @@ export function LensesPage() {
 
   return (
     <Stack>
-      <Group justify="space-between">
-        <Title order={3}>Schedule lenses</Title>
+      <Group justify="space-between" wrap="wrap">
+        <Text size="sm" c="dimmed" maw={520}>
+          A lens focuses the schedule on a group of activities (e.g. “Agistment” =
+          Stablehand + Groom). They appear as the tabs above the calendar.
+        </Text>
         <Button onClick={() => setCreating(true)}>New lens</Button>
       </Group>
-      <Text size="sm" c="dimmed">
-        A lens focuses the schedule on a group of activities (e.g. “Agistment” =
-        Stablehand + Groom). They appear as the tabs above the calendar.
-      </Text>
 
       {lensesQ.isLoading ? (
         <Loader />

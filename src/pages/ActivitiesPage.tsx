@@ -10,7 +10,6 @@ import {
   Table,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -75,14 +74,13 @@ export function ActivitiesPage() {
 
   return (
     <Stack>
-      <Group justify="space-between">
-        <Title order={3}>Activities</Title>
+      <Group justify="space-between" wrap="wrap">
+        <Text size="sm" c="dimmed" maw={520}>
+          The kinds of work a shift represents. Activities tag shifts and drive the
+          hours reports.
+        </Text>
         <Button onClick={() => setCreating(true)}>New activity</Button>
       </Group>
-      <Text size="sm" c="dimmed">
-        The kinds of work a shift represents. Activities tag shifts and drive the
-        hours reports.
-      </Text>
 
       {q.isLoading ? (
         <Loader />
