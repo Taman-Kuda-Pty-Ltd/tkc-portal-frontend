@@ -77,6 +77,7 @@ export interface EngagementDetail {
   position_title: string | null;
   start_date: string | null;
   end_date: string | null;
+  end_reason: string | null;
   is_active: boolean;
   business: {
     legal_name: string | null;
