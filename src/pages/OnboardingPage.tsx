@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Autocomplete,
   Button,
   Center,
   Checkbox,
@@ -48,8 +49,14 @@ const BASIS_LABEL: Record<string, string> = {
   casual: "Casual",
 };
 
+const RELATIONSHIPS = ["Parent", "Guardian", "Spouse", "Partner", "Sibling", "Child", "Friend", "Grandparent", "Other"];
+
 const fmt = (d: Date | null) => (d ? dayjs(d).format("YYYY-MM-DD") : null);
 const phoneOk = (v: string) => !v || isValidPhoneNumber(v);
+const formatBsb = (v: string) => {
+  const d = v.replace(/\D/g, "").slice(0, 6);
+  return d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d;
+};
 
 interface CredRow {
   credential_type: CredentialType;
@@ -101,6 +108,7 @@ export function OnboardingPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pin, setPin] = useState("");
+  const [changingAuth, setChangingAuth] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -140,6 +148,7 @@ export function OnboardingPage() {
   }, [ctxQ.data]);
 
   const hasAccount = ctxQ.data?.has_account ?? false;
+  const authDisabled = hasAccount && !changingAuth;
 
   // Default display name = given + first initial of family, until manually edited.
   useEffect(() => {
@@ -182,7 +191,8 @@ export function OnboardingPage() {
       }),
     onSuccess: (res) => {
       setToken(res.access_token);
-      window.location.assign("/schedule");
+      sessionStorage.setItem("tkc_welcome", displayName || personal.given_name);
+      window.location.assign("/schedule"); // hard reload so auth re-initialises
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -199,6 +209,8 @@ export function OnboardingPage() {
     if (isEmployee || isContractor) {
       if (!bank.account_name || !bank.bsb || !bank.account_number)
         return setError("Bank account name, BSB and account number are required.");
+      if (bank.bsb.replace(/\D/g, "").length !== 6)
+        return setError("Enter a valid 6-digit BSB (XXX-XXX).");
     }
     if (!hasAccount || password) {
       if (password.length < 8) return setError("Password must be at least 8 characters.");
@@ -277,8 +289,8 @@ export function OnboardingPage() {
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <TextInput label="Name" value={emergency.name}
                 onChange={(e) => setEmergency({ ...emergency, name: e.currentTarget.value })} />
-              <TextInput label="Relationship" value={emergency.relationship}
-                onChange={(e) => setEmergency({ ...emergency, relationship: e.currentTarget.value })} />
+              <Autocomplete label="Relationship" data={RELATIONSHIPS} value={emergency.relationship}
+                onChange={(v) => setEmergency({ ...emergency, relationship: v })} />
             </SimpleGrid>
             <PhoneField label="Phone" value={emergency.phone}
               onChange={(v) => setEmergency({ ...emergency, phone: v })} />
@@ -352,8 +364,8 @@ export function OnboardingPage() {
                 onChange={(e) => setSupera({ ...supera, member_number: e.currentTarget.value })} />
               {supera.fund_type === "smsf" && (
                 <>
-                  <TextInput label="SMSF bank BSB" value={supera.smsf_bank_bsb}
-                    onChange={(e) => setSupera({ ...supera, smsf_bank_bsb: e.currentTarget.value })} />
+                  <TextInput label="SMSF bank BSB" placeholder="XXX-XXX" value={supera.smsf_bank_bsb}
+                    onChange={(e) => setSupera({ ...supera, smsf_bank_bsb: formatBsb(e.currentTarget.value) })} />
                   <TextInput label="SMSF bank account" value={supera.smsf_bank_account}
                     onChange={(e) => setSupera({ ...supera, smsf_bank_account: e.currentTarget.value })} />
                 </>
@@ -370,8 +382,8 @@ export function OnboardingPage() {
                 onChange={(e) => setBank({ ...bank, account_name: e.currentTarget.value })} />
               <TextInput label="Bank name" value={bank.bank_name}
                 onChange={(e) => setBank({ ...bank, bank_name: e.currentTarget.value })} />
-              <TextInput label="BSB" required value={bank.bsb}
-                onChange={(e) => setBank({ ...bank, bsb: e.currentTarget.value })} />
+              <TextInput label="BSB" required placeholder="XXX-XXX" value={bank.bsb}
+                onChange={(e) => setBank({ ...bank, bsb: formatBsb(e.currentTarget.value) })} />
               <TextInput label="Account number" required value={bank.account_number}
                 onChange={(e) => setBank({ ...bank, account_number: e.currentTarget.value })} />
             </SimpleGrid>
@@ -441,19 +453,26 @@ export function OnboardingPage() {
         )}
 
         <Paper withBorder p="md">
-          <Title order={4} mb="sm">{hasAccount ? "Password" : "Set your password"}</Title>
+          <Group justify="space-between" mb="sm">
+            <Title order={4}>{hasAccount ? "Password & PIN" : "Set your password"}</Title>
+            {authDisabled && (
+              <Button variant="light" size="xs" onClick={() => setChangingAuth(true)}>
+                Change password / PIN
+              </Button>
+            )}
+          </Group>
           {hasAccount && (
             <Text size="sm" c="dimmed" mb="sm">
-              You already have an account — leave these blank to keep your current
-              password, or set a new one.
+              You already have an account. Leave these as-is to keep your current
+              password and PIN, or choose “Change password / PIN” to update them.
             </Text>
           )}
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
-            <PasswordInput label="Password" value={password} required={!hasAccount}
+            <PasswordInput label="Password" value={password} required={!hasAccount} disabled={authDisabled}
               onChange={(e) => setPassword(e.currentTarget.value)} />
-            <PasswordInput label="Confirm password" value={confirm} required={!hasAccount}
+            <PasswordInput label="Confirm password" value={confirm} required={!hasAccount} disabled={authDisabled}
               onChange={(e) => setConfirm(e.currentTarget.value)} />
-            <TextInput label="PIN (optional, 6–8 digits)" value={pin}
+            <TextInput label="PIN (6–8 digits)" value={pin} disabled={authDisabled}
               description="For quick check-in on shared terminals (coming soon)"
               onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
           </SimpleGrid>

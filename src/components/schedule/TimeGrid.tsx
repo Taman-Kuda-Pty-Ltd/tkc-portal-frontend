@@ -128,8 +128,9 @@ export function TimeGrid({
         </div>
 
         {/* day columns */}
-        {dayData.map(({ key, blocks, width }) => {
+        {dayData.map(({ key, blocks, width }, idx) => {
           const isToday = key === todayKey;
+          const isLast = idx === dayData.length - 1;
           return (
             <div
               key={key}
@@ -137,6 +138,9 @@ export function TimeGrid({
                 flex: `1 0 ${width}px`,
                 minWidth: width,
                 borderLeft: "1px solid var(--mantine-color-default-border)",
+                borderRight: isLast
+                  ? "1px solid var(--mantine-color-default-border)"
+                  : undefined,
                 position: "relative",
                 height: GRID_HEIGHT,
                 background: gridlines,
