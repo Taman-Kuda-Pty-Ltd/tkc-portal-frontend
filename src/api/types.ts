@@ -205,6 +205,7 @@ export interface ShiftTemplateSlot {
   shift_template_id: number;
   activity_id: number;
   role_id: number | null;
+  assigned_person_id: number | null;
   description: string | null;
   weekday: number | null;
   week_in_cycle: number | null;

@@ -16,13 +16,14 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, RecurrenceUnit, Role, ShiftTemplate } from "../api/types";
+import type { Activity, Person, RecurrenceUnit, Role, ShiftTemplate } from "../api/types";
 import { RECURRENCE_OPTIONS, WEEKDAYS } from "../lib/constants";
 import { TimeField } from "./TimeField";
 
 interface SlotDraft {
   activity_id: string | null;
   role_id: string | null;
+  assigned_person_id: string | null;
   description: string;
   weekday: string | null;
   week_in_cycle: string | null;
@@ -36,6 +37,7 @@ function emptySlot(): SlotDraft {
   return {
     activity_id: null,
     role_id: null,
+    assigned_person_id: null,
     description: "",
     weekday: "0",
     week_in_cycle: "0",
@@ -66,6 +68,7 @@ export function ShiftTemplateEditor({
     queryFn: () => api.get<Activity[]>("/activities"),
   });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
+  const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
 
   useEffect(() => {
     if (!opened) return;
@@ -77,6 +80,7 @@ export function ShiftTemplateEditor({
         template.slots.map((s) => ({
           activity_id: String(s.activity_id),
           role_id: s.role_id ? String(s.role_id) : null,
+          assigned_person_id: s.assigned_person_id ? String(s.assigned_person_id) : null,
           description: s.description ?? "",
           weekday: s.weekday !== null ? String(s.weekday) : "0",
           week_in_cycle: s.week_in_cycle !== null ? String(s.week_in_cycle) : "0",
@@ -98,6 +102,9 @@ export function ShiftTemplateEditor({
     .filter((a) => a.is_active)
     .map((a) => ({ value: String(a.id), label: a.name }));
   const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
+  const peopleOptions = (peopleQ.data ?? [])
+    .filter((p) => p.is_active)
+    .map((p) => ({ value: String(p.id), label: p.full_name }));
 
   function updateSlot(i: number, patch: Partial<SlotDraft>) {
     setSlots((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -108,6 +115,7 @@ export function ShiftTemplateEditor({
       const payloadSlots = slots.map((s) => ({
         activity_id: Number(s.activity_id),
         role_id: s.role_id ? Number(s.role_id) : null,
+        assigned_person_id: s.assigned_person_id ? Number(s.assigned_person_id) : null,
         description: s.description.trim() || null,
         weekday:
           recurrence === "weekly" || recurrence === "fortnightly" ? Number(s.weekday) : null,
@@ -194,6 +202,17 @@ export function ShiftTemplateEditor({
                   placeholder="Any"
                   clearable
                   w={140}
+                  comboboxProps={{ withinPortal: true }}
+                />
+                <Select
+                  label="Assignee"
+                  data={peopleOptions}
+                  value={s.assigned_person_id}
+                  onChange={(v) => updateSlot(i, { assigned_person_id: v })}
+                  placeholder="Unassigned"
+                  clearable
+                  searchable
+                  w={160}
                   comboboxProps={{ withinPortal: true }}
                 />
                 {showWeekday && (
