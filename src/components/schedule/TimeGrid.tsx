@@ -104,10 +104,16 @@ export function TimeGrid({
           return (
             <div
               key={key}
-              style={{ flex: 1, minWidth: 90, borderLeft: "1px solid var(--mantine-color-default-border)" }}
+              style={{
+                flex: 1,
+                minWidth: 90,
+                borderLeft: "1px solid var(--mantine-color-default-border)",
+                position: "relative",
+                height: GRID_HEIGHT,
+                background: gridlines,
+              }}
             >
-              <div style={{ position: "relative", height: GRID_HEIGHT, background: gridlines }}>
-                {/* off-hours shading (before/after the work day) */}
+              {/* off-hours shading (before/after the work day) */}
                 <div
                   style={{
                     position: "absolute",
@@ -196,7 +202,6 @@ export function TimeGrid({
                     </UnstyledButton>
                   );
                 })}
-              </div>
             </div>
           );
         })}
