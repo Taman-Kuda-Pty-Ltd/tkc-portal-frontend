@@ -50,10 +50,15 @@ const CRED_LABEL: Record<string, string> = {
 };
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  const empty = value === null || value === undefined || value === "";
   return (
     <div>
       <Text size="xs" c="dimmed">{label}</Text>
-      <Text size="sm">{value ?? "—"}</Text>
+      {empty ? (
+        <Text size="sm" fs="italic" c="dimmed">Not provided</Text>
+      ) : (
+        <Text size="sm">{value}</Text>
+      )}
     </div>
   );
 }
@@ -73,7 +78,7 @@ export function PersonDetailPage() {
     queryFn: () => api.get<PersonDetail>(`/people/${id}`),
   });
 
-  const fmt = (s: string | null) => (s ? dayjs(s).format(dateFormat) : "—");
+  const fmt = (s: string | null) => (s ? dayjs(s).format(dateFormat) : null);
 
   const engM = useMutation({
     mutationFn: (v: { engId: number; body: Record<string, unknown> }) =>
@@ -90,8 +95,14 @@ export function PersonDetailPage() {
     return <Text c="red">Could not load this person.</Text>;
   const p = q.data;
 
+  const addressLine =
+    p.address &&
+    [p.address.line1, p.address.line2, p.address.suburb, p.address.state, p.address.postcode, p.address.country]
+      .filter(Boolean)
+      .join(", ");
+
   return (
-    <Stack maw={900}>
+    <Stack maw={900} w="100%" mx="auto">
       <Group justify="space-between" wrap="wrap">
         <Group gap="xs">
           <Anchor onClick={() => navigate("/people")} c="dimmed">
@@ -115,6 +126,9 @@ export function PersonDetailPage() {
           <Field label="Email" value={p.email} />
           <Field label="Mobile" value={p.mobile} />
         </SimpleGrid>
+        <div style={{ marginTop: "var(--mantine-spacing-sm)" }}>
+          <Field label="Address" value={addressLine || null} />
+        </div>
         {p.roles.length > 0 && (
           <Group gap={6} mt="sm">
             <Text size="xs" c="dimmed">Roles:</Text>
@@ -122,17 +136,6 @@ export function PersonDetailPage() {
           </Group>
         )}
       </Card>
-
-      {p.address && (
-        <Card withBorder>
-          <Title order={4} mb="sm">Address</Title>
-          <Text size="sm">
-            {[p.address.line1, p.address.line2, p.address.suburb, p.address.state, p.address.postcode, p.address.country]
-              .filter(Boolean)
-              .join(", ") || "—"}
-          </Text>
-        </Card>
-      )}
 
       {p.emergency_contacts.length > 0 && (
         <Card withBorder>
