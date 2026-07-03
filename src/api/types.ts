@@ -64,15 +64,34 @@ export interface Invitation {
   email_error: string | null;
 }
 
+export interface OnboardingCredential {
+  credential_type: CredentialType;
+  identifier: string | null;
+  expires_on: string | null;
+}
+
 export interface OnboardingContext {
+  has_account: boolean;
   given_name: string;
   family_name: string;
+  middle_names: string | null;
+  preferred_name: string | null;
   email: string | null;
   mobile: string | null;
+  date_of_birth: string | null;
   staff_type: StaffType;
   employment_basis: EmploymentBasis | null;
   position_title: string | null;
   start_date: string | null;
+  address: {
+    line1: string | null;
+    line2: string | null;
+    suburb: string | null;
+    state: string | null;
+    postcode: string | null;
+  } | null;
+  emergency_contacts: { name: string; relationship: string | null; phone: string | null }[];
+  credentials: OnboardingCredential[];
   expires_at: string;
 }
 

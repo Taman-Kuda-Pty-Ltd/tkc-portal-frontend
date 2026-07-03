@@ -97,14 +97,42 @@ export function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (ctxQ.data)
-      setPersonal((p) => ({
-        ...p,
-        given_name: ctxQ.data.given_name,
-        family_name: ctxQ.data.family_name,
-        mobile: ctxQ.data.mobile ?? "",
-      }));
+    const d = ctxQ.data;
+    if (!d) return;
+    setPersonal({
+      given_name: d.given_name,
+      middle_names: d.middle_names ?? "",
+      family_name: d.family_name,
+      mobile: d.mobile ?? "",
+    });
+    if (d.preferred_name) {
+      setDisplayName(d.preferred_name);
+      setDisplayEdited(true);
+    }
+    if (d.date_of_birth) setDob(dayjs(d.date_of_birth).toDate());
+    if (d.address)
+      setAddress({
+        line1: d.address.line1 ?? "",
+        line2: d.address.line2 ?? "",
+        suburb: d.address.suburb ?? "",
+        state: d.address.state ?? "",
+        postcode: d.address.postcode ?? "",
+      });
+    if (d.emergency_contacts.length) {
+      const e = d.emergency_contacts[0];
+      setEmergency({ name: e.name, relationship: e.relationship ?? "", phone: e.phone ?? "" });
+    }
+    if (d.credentials.length)
+      setCreds(
+        d.credentials.map((cr) => ({
+          credential_type: cr.credential_type,
+          identifier: cr.identifier ?? "",
+          expires_on: cr.expires_on ? dayjs(cr.expires_on).toDate() : null,
+        })),
+      );
   }, [ctxQ.data]);
+
+  const hasAccount = ctxQ.data?.has_account ?? false;
 
   // Default display name = given + first initial of family, until manually edited.
   useEffect(() => {
@@ -142,7 +170,7 @@ export function OnboardingPage() {
             expires_on: fmt(c.expires_on),
           })),
         guardian: isMinor ? guardian : null,
-        password,
+        password: password || null,
         pin: pin || null,
       }),
     onSuccess: (res) => {
@@ -163,8 +191,10 @@ export function OnboardingPage() {
       if (!bank.account_name || !bank.bsb || !bank.account_number)
         return setError("Bank account name, BSB and account number are required.");
     }
-    if (password.length < 8) return setError("Password must be at least 8 characters.");
-    if (password !== confirm) return setError("Passwords do not match.");
+    if (!hasAccount || password) {
+      if (password.length < 8) return setError("Password must be at least 8 characters.");
+      if (password !== confirm) return setError("Passwords do not match.");
+    }
     if (pin && !/^\d{6,8}$/.test(pin)) return setError("PIN must be 6–8 digits.");
     submitM.mutate();
   }
@@ -399,11 +429,17 @@ export function OnboardingPage() {
         )}
 
         <Paper withBorder p="md">
-          <Title order={4} mb="sm">Set your password</Title>
+          <Title order={4} mb="sm">{hasAccount ? "Password" : "Set your password"}</Title>
+          {hasAccount && (
+            <Text size="sm" c="dimmed" mb="sm">
+              You already have an account — leave these blank to keep your current
+              password, or set a new one.
+            </Text>
+          )}
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
-            <PasswordInput label="Password" value={password} required
+            <PasswordInput label="Password" value={password} required={!hasAccount}
               onChange={(e) => setPassword(e.currentTarget.value)} />
-            <PasswordInput label="Confirm password" value={confirm} required
+            <PasswordInput label="Confirm password" value={confirm} required={!hasAccount}
               onChange={(e) => setConfirm(e.currentTarget.value)} />
             <TextInput label="PIN (optional, 6–8 digits)" value={pin}
               description="For quick check-in on shared terminals (coming soon)"

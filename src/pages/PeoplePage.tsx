@@ -1,4 +1,5 @@
 import {
+  Alert,
   Badge,
   Button,
   Group,
@@ -20,10 +21,18 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type { EmploymentBasis, Invitation, Person, Role, StaffType } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { PhoneField } from "../components/PhoneField";
+
+interface ReDraft {
+  staff_type: StaffType;
+  employment_basis: EmploymentBasis | "";
+  position_title: string;
+  start_date: Date | null;
+  role_ids: string[];
+}
 
 const STAFF_TYPES = [
   { value: "employee", label: "Employee" },
@@ -90,6 +99,15 @@ export function PeoplePage() {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [inviting, setInviting] = useState(false);
   const [invite, setInvite] = useState<InviteDraft>(EMPTY_INVITE);
+  const [reonboarding, setReonboarding] = useState<Person | null>(null);
+  const [reDraft, setReDraft] = useState<ReDraft>({
+    staff_type: "employee",
+    employment_basis: "",
+    position_title: "",
+    start_date: null,
+    role_ids: [],
+  });
+  const [dupPerson, setDupPerson] = useState<Person | null>(null);
 
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
@@ -131,6 +149,20 @@ export function PeoplePage() {
     qc.invalidateQueries({ queryKey: ["invitations"] });
   };
 
+  // On a duplicate-email 409, point at the existing person instead of a raw error.
+  function dupError(e: unknown, email: string): boolean {
+    if (e instanceof ApiError && e.status === 409) {
+      const p = (peopleQ.data ?? []).find(
+        (pp) => (pp.email ?? "").toLowerCase() === email.trim().toLowerCase(),
+      );
+      if (p) {
+        setDupPerson(p);
+        return true;
+      }
+    }
+    return false;
+  }
+
   const saveM = useMutation({
     mutationFn: () => {
       const roleIds = draft.role_ids.map(Number);
@@ -155,7 +187,11 @@ export function PeoplePage() {
       setEditing(null);
       setCreating(false);
     },
-    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+    onError: (e: Error) => {
+      if (!(creating && dupError(e, draft.email))) {
+        notifications.show({ color: "red", message: e.message });
+      }
+    },
   });
 
   const inviteM = useMutation({
@@ -187,6 +223,34 @@ export function PeoplePage() {
         });
       }
     },
+    onError: (e: Error) => {
+      if (!dupError(e, invite.email)) notifications.show({ color: "red", message: e.message });
+    },
+  });
+
+  const reonboardM = useMutation({
+    mutationFn: () =>
+      api.post<Invitation>("/invitations/reonboard", {
+        person_id: reonboarding!.id,
+        staff_type: reDraft.staff_type,
+        employment_basis:
+          reDraft.staff_type === "employee" && reDraft.employment_basis
+            ? reDraft.employment_basis
+            : null,
+        position_title: reDraft.position_title || null,
+        start_date: reDraft.start_date ? dayjs(reDraft.start_date).format("YYYY-MM-DD") : null,
+        role_ids: reDraft.role_ids.map(Number),
+      }),
+    onSuccess: (inv) => {
+      refresh();
+      setReonboarding(null);
+      notifications.show({
+        color: inv.email_sent ? "teal" : "yellow",
+        message: inv.email_sent
+          ? `Re-onboarding link emailed to ${inv.email}.`
+          : `Created but email failed: ${inv.email_error}. Resend from the row.`,
+      });
+    },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
@@ -210,6 +274,26 @@ export function PeoplePage() {
 
   const editOpen = editing !== null || creating;
 
+  const dupAlert = dupPerson && (
+    <Alert color="yellow" title="Email already in use">
+      <Text size="sm">{dupPerson.full_name} already uses that email address.</Text>
+      <Button
+        size="xs"
+        variant="light"
+        mt="xs"
+        onClick={() => {
+          const p = dupPerson;
+          setDupPerson(null);
+          setInviting(false);
+          setCreating(false);
+          setEditing(p);
+        }}
+      >
+        Open {dupPerson.full_name}'s profile
+      </Button>
+    </Alert>
+  );
+
   function statusBadge(p: Person) {
     if (!p.is_active) return <Badge color="gray" variant="light">Disabled</Badge>;
     if (!p.onboarded) return <Badge color="yellow" variant="light">Invited</Badge>;
@@ -221,8 +305,10 @@ export function PeoplePage() {
       <Group justify="space-between">
         <Title order={2}>People</Title>
         <Group gap="xs">
-          {canInvite && <Button onClick={() => setInviting(true)}>Invite</Button>}
-          <Button variant="default" onClick={() => setCreating(true)}>
+          {canInvite && (
+            <Button onClick={() => { setDupPerson(null); setInviting(true); }}>Invite</Button>
+          )}
+          <Button variant="default" onClick={() => { setDupPerson(null); setCreating(true); }}>
             Add manually
           </Button>
         </Group>
@@ -281,6 +367,24 @@ export function PeoplePage() {
                             </Button>
                           </>
                         )}
+                        {p.onboarded && canInvite && (
+                          <Button
+                            size="xs"
+                            variant="subtle"
+                            onClick={() => {
+                              setReDraft({
+                                staff_type: "employee",
+                                employment_basis: "",
+                                position_title: "",
+                                start_date: null,
+                                role_ids: p.roles.map((r) => String(r.id)),
+                              });
+                              setReonboarding(p);
+                            }}
+                          >
+                            Re-onboard
+                          </Button>
+                        )}
                         <Button size="xs" variant="subtle" onClick={() => setEditing(p)}>
                           Edit
                         </Button>
@@ -295,8 +399,14 @@ export function PeoplePage() {
       )}
 
       {/* Invite modal */}
-      <Modal opened={inviting} onClose={() => setInviting(false)} title="Invite a person" size="lg">
+      <Modal
+        opened={inviting}
+        onClose={() => { setInviting(false); setDupPerson(null); }}
+        title="Invite a person"
+        size="lg"
+      >
         <Stack>
+          {dupAlert}
           <Text size="sm" c="dimmed">
             They'll get an email with a link to complete their own onboarding
             (personal, tax, super and bank details) and set a password.
@@ -377,17 +487,77 @@ export function PeoplePage() {
         </Stack>
       </Modal>
 
+      {/* Re-onboard modal */}
+      <Modal
+        opened={reonboarding !== null}
+        onClose={() => setReonboarding(null)}
+        title={`Re-onboard ${reonboarding?.full_name ?? ""}`}
+        size="lg"
+      >
+        <Stack>
+          <Text size="sm" c="dimmed">
+            Set the new engagement, then send {reonboarding?.given_name} a pre-filled
+            onboarding link to add the extra details. Same person and login — they
+            keep their current password.
+          </Text>
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <Select
+              label="Type"
+              data={STAFF_TYPES}
+              value={reDraft.staff_type}
+              onChange={(v) => setReDraft({ ...reDraft, staff_type: (v as StaffType) ?? "employee" })}
+              allowDeselect={false}
+            />
+            {reDraft.staff_type === "employee" && (
+              <Select
+                label="Employment basis"
+                data={[
+                  { value: "full_time", label: "Full-time" },
+                  { value: "part_time", label: "Part-time" },
+                  { value: "casual", label: "Casual" },
+                ]}
+                value={reDraft.employment_basis || null}
+                onChange={(v) => setReDraft({ ...reDraft, employment_basis: (v as EmploymentBasis) || "" })}
+              />
+            )}
+            <TextInput
+              label="Position / title"
+              value={reDraft.position_title}
+              onChange={(e) => setReDraft({ ...reDraft, position_title: e.currentTarget.value })}
+            />
+            <DateInput
+              label="Start date"
+              valueFormat="DD/MM/YYYY"
+              value={reDraft.start_date}
+              onChange={(d) => setReDraft({ ...reDraft, start_date: d })}
+            />
+          </SimpleGrid>
+          <MultiSelect
+            label="Roles"
+            data={roleOptions}
+            value={reDraft.role_ids}
+            onChange={(v) => setReDraft({ ...reDraft, role_ids: v })}
+            searchable
+          />
+          <Button loading={reonboardM.isPending} onClick={() => reonboardM.mutate()}>
+            Send re-onboarding link
+          </Button>
+        </Stack>
+      </Modal>
+
       {/* Add / edit modal */}
       <Modal
         opened={editOpen}
         onClose={() => {
           setEditing(null);
           setCreating(false);
+          setDupPerson(null);
         }}
         title={editing ? `Edit ${editing.full_name}` : "Add person"}
         size="lg"
       >
         <Stack>
+          {dupAlert}
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <TextInput
               label="Given name"
