@@ -74,12 +74,14 @@ export function ActivitiesPage() {
 
   return (
     <Stack>
-      <Group justify="space-between" wrap="wrap">
-        <Text size="sm" c="dimmed" maw={520}>
+      <Group justify="space-between" wrap="nowrap" align="flex-start">
+        <Text size="sm" c="dimmed" style={{ flex: 1 }}>
           The kinds of work a shift represents. Activities tag shifts and drive the
           hours reports.
         </Text>
-        <Button onClick={() => setCreating(true)}>New activity</Button>
+        <Button onClick={() => setCreating(true)} style={{ flexShrink: 0 }}>
+          New activity
+        </Button>
       </Group>
 
       {q.isLoading ? (

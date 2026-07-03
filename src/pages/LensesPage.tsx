@@ -90,12 +90,14 @@ export function LensesPage() {
 
   return (
     <Stack>
-      <Group justify="space-between" wrap="wrap">
-        <Text size="sm" c="dimmed" maw={520}>
+      <Group justify="space-between" wrap="nowrap" align="flex-start">
+        <Text size="sm" c="dimmed" style={{ flex: 1 }}>
           A lens focuses the schedule on a group of activities (e.g. “Agistment” =
           Stablehand + Groom). They appear as the tabs above the calendar.
         </Text>
-        <Button onClick={() => setCreating(true)}>New lens</Button>
+        <Button onClick={() => setCreating(true)} style={{ flexShrink: 0 }}>
+          New lens
+        </Button>
       </Group>
 
       {lensesQ.isLoading ? (
