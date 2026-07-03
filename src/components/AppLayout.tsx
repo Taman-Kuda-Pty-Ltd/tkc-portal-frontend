@@ -4,7 +4,6 @@ import {
   IconCalendar,
   IconLogout,
   IconSettings,
-  IconShieldLock,
   IconTemplate,
   IconUsers,
 } from "@tabler/icons-react";
@@ -16,7 +15,6 @@ const NAV = [
   { to: "/schedule", label: "Schedule", icon: IconCalendar, cap: "view_schedule" },
   { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
   { to: "/people", label: "People", icon: IconUsers, cap: "manage_people" },
-  { to: "/roles", label: "Roles", icon: IconShieldLock, cap: "manage_roles" },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {

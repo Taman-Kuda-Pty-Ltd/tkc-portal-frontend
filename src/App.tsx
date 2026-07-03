@@ -8,7 +8,6 @@ import { LoginPage } from "./pages/LoginPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { PersonDetailPage } from "./pages/PersonDetailPage";
-import { RolesPage } from "./pages/RolesPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ShiftTemplatesPage } from "./pages/ShiftTemplatesPage";
@@ -34,7 +33,6 @@ function AuthedApp() {
         <Route path="/templates" element={<ShiftTemplatesPage />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/people/:id" element={<PersonDetailPage />} />
-        <Route path="/roles" element={<RolesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/schedule" replace />} />
       </Routes>

@@ -10,7 +10,6 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -72,14 +71,15 @@ export function RolesPage() {
 
   return (
     <Stack>
-      <Group justify="space-between">
-        <Title order={2}>Roles</Title>
-        <Button onClick={() => setCreating(true)}>New role</Button>
+      <Group justify="space-between" wrap="nowrap" align="flex-start">
+        <Text size="sm" c="dimmed" style={{ flex: 1 }}>
+          Each role grants a set of capabilities. A person can hold several roles;
+          their permissions are the combination.
+        </Text>
+        <Button style={{ flexShrink: 0 }} onClick={() => setCreating(true)}>
+          New role
+        </Button>
       </Group>
-      <Text size="sm" c="dimmed">
-        Each role grants a set of capabilities. A person can hold several roles;
-        their permissions are the combination.
-      </Text>
 
       {rolesQ.isLoading ? (
         <Loader />

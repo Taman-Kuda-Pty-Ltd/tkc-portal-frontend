@@ -4,6 +4,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
 import { ActivitiesPage } from "./ActivitiesPage";
 import { LensesPage } from "./LensesPage";
+import { RolesPage } from "./RolesPage";
 
 export function SettingsPage() {
   const { can } = useAuth();
@@ -106,6 +107,17 @@ export function SettingsPage() {
             </Accordion.Control>
             <Accordion.Panel>
               <LensesPage />
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {can("manage_roles") && (
+          <Accordion.Item value="roles">
+            <Accordion.Control>
+              <Text fw={600}>Roles</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <RolesPage />
             </Accordion.Panel>
           </Accordion.Item>
         )}
