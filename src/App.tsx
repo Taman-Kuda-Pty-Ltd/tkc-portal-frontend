@@ -12,6 +12,7 @@ import { SchedulePage } from "./pages/SchedulePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ShiftTemplateEditorPage } from "./pages/ShiftTemplateEditorPage";
 import { ShiftTemplatesPage } from "./pages/ShiftTemplatesPage";
+import { TerminalApp } from "./terminal/TerminalApp";
 
 function AuthedApp() {
   useEffect(() => {
@@ -58,6 +59,8 @@ export default function App() {
     <Routes>
       {/* Public: onboarding completion from an invite link */}
       <Route path="/onboard/:token" element={<OnboardingPage />} />
+      {/* Public: kiosk terminal (device-token authenticated) */}
+      <Route path="/terminal" element={<TerminalApp />} />
       {me ? (
         <Route path="/*" element={<AuthedApp />} />
       ) : (

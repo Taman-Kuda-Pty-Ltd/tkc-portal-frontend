@@ -2,6 +2,7 @@ import { Accordion, Group, NumberInput, SegmentedControl, Stack, Text, Title, us
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
+import { TerminalsSection } from "../components/TerminalsSection";
 import { ActivitiesPage } from "./ActivitiesPage";
 import { LensesPage } from "./LensesPage";
 import { RolesPage } from "./RolesPage";
@@ -133,6 +134,17 @@ export function SettingsPage() {
             </Accordion.Control>
             <Accordion.Panel>
               <RolesPage />
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {can("manage_settings") && (
+          <Accordion.Item value="terminals">
+            <Accordion.Control>
+              <Text fw={600}>Terminals</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <TerminalsSection />
             </Accordion.Panel>
           </Accordion.Item>
         )}
