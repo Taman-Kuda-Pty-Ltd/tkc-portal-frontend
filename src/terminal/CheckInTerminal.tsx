@@ -1,4 +1,5 @@
 import {
+  Avatar,
   Badge,
   Box,
   Button,
@@ -31,6 +32,21 @@ const STATUS = {
   checked_in: { label: "On site", color: "teal" },
   checked_out: { label: "Left", color: "blue" },
 } as const;
+
+const AVATAR_COLORS = ["teal", "blue", "grape", "orange", "cyan", "pink", "indigo", "lime"];
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function avatarColor(name: string): string {
+  let sum = 0;
+  for (const c of name) sum += c.charCodeAt(0);
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+}
 
 export function CheckInTerminal({ name }: { name: string }) {
   const [session, setSession] = useState<TerminalSession | null>(null);
@@ -87,25 +103,38 @@ export function CheckInTerminal({ name }: { name: string }) {
       {rosterQ.isLoading ? (
         <Center h="50vh"><Loader /></Center>
       ) : (
-        <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
+        <Box
+          style={{
+            display: "grid",
+            gap: "var(--mantine-spacing-lg)",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          }}
+        >
           {(rosterQ.data ?? []).map((p) => (
             <Card
               key={p.id}
               withBorder
               padding="lg"
               onClick={() => setPinFor(p)}
-              style={{ cursor: "pointer", minHeight: 96 }}
+              style={{ cursor: "pointer" }}
             >
-              <Text fw={700} size="lg" lineClamp={2}>{p.display_name}</Text>
-              <Group gap={6} mt="sm">
-                <Badge size="lg" color={STATUS[p.status].color} variant="light">
-                  {STATUS[p.status].label}
-                </Badge>
-                {!p.has_shift && <Badge size="lg" color="gray" variant="outline">No shift</Badge>}
+              <Group gap="md" wrap="nowrap">
+                <Avatar radius="xl" size={56} color={avatarColor(p.display_name)}>
+                  {initials(p.display_name)}
+                </Avatar>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text fw={700} size="lg" lineClamp={2}>{p.display_name}</Text>
+                  <Group gap={6} mt={4}>
+                    <Badge size="lg" color={STATUS[p.status].color} variant="light">
+                      {STATUS[p.status].label}
+                    </Badge>
+                    {!p.has_shift && <Badge size="lg" color="gray" variant="outline">No shift</Badge>}
+                  </Group>
+                </div>
               </Group>
             </Card>
           ))}
-        </SimpleGrid>
+        </Box>
       )}
     </Stack>
   );
