@@ -2,6 +2,7 @@ import { Accordion, Group, NumberInput, SegmentedControl, Stack, Text, Title, us
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
+import { ResourceListSection } from "../components/ResourceListSection";
 import { TerminalsSection } from "../components/TerminalsSection";
 import { ActivitiesPage } from "./ActivitiesPage";
 import { LensesPage } from "./LensesPage";
@@ -112,6 +113,39 @@ export function SettingsPage() {
             </Accordion.Control>
             <Accordion.Panel>
               <ActivitiesPage />
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {can("manage_activities") && (
+          <Accordion.Item value="facilities">
+            <Accordion.Control>
+              <Text fw={600}>Facilities</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <ResourceListSection path="facilities" addPlaceholder="Add a facility…" />
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {can("manage_activities") && (
+          <Accordion.Item value="horses">
+            <Accordion.Control>
+              <Text fw={600}>Horses</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <ResourceListSection path="horses" addPlaceholder="Add a horse…" />
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {can("manage_activities") && (
+          <Accordion.Item value="students">
+            <Accordion.Control>
+              <Text fw={600}>Students</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <ResourceListSection path="students" addPlaceholder="Add a student…" />
             </Accordion.Panel>
           </Accordion.Item>
         )}
