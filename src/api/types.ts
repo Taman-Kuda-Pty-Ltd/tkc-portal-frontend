@@ -140,6 +140,7 @@ export interface PersonDetail {
   date_of_birth: string | null;
   is_active: boolean;
   onboarded: boolean;
+  has_pin: boolean;
   roles: Role[];
   address: {
     line1: string | null;

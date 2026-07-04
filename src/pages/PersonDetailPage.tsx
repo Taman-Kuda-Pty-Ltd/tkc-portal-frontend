@@ -118,6 +118,8 @@ export function PersonDetailPage() {
   const [retiring, setRetiring] = useState<EngagementDetail | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(new Date());
   const [endReason, setEndReason] = useState("");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinValue, setPinValue] = useState("");
 
   const q = useQuery({ queryKey: ["person", id], queryFn: () => api.get<PersonDetail>(`/people/${id}`) });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles"), enabled: canManage });
@@ -200,6 +202,17 @@ export function PersonDetailPage() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  const pinM = useMutation({
+    mutationFn: (pin: string | null) => api.put(`/people/${id}/pin`, { pin }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["person", id] });
+      setPinOpen(false);
+      setPinValue("");
+      notifications.show({ color: "teal", message: "Check-in PIN updated." });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
   const engM = useMutation({
     mutationFn: (v: { engId: number; body: Record<string, unknown> }) =>
       api.patch(`/people/${id}/engagements/${v.engId}`, v.body),
@@ -277,6 +290,15 @@ export function PersonDetailPage() {
           onChange={(v) => setDraft({ ...draft, role_ids: v })} />
         <Switch mt="sm" label="Active" checked={draft.is_active} disabled={ro}
           onChange={(e) => setDraft({ ...draft, is_active: e.currentTarget.checked })} />
+        {canManage && (
+          <Group mt="sm" gap="sm">
+            <Text size="sm" c="dimmed">Check-in PIN:</Text>
+            <Text size="sm" fw={500}>{p.has_pin ? "Set" : "Not set"}</Text>
+            <Button size="xs" variant="light" onClick={() => { setPinValue(""); setPinOpen(true); }}>
+              {p.has_pin ? "Reset PIN" : "Set PIN"}
+            </Button>
+          </Group>
+        )}
       </Card>
 
       {/* Engagements */}
@@ -475,6 +497,30 @@ export function PersonDetailPage() {
           </Stack>
         </Card>
       )}
+
+      <Modal opened={pinOpen} onClose={() => setPinOpen(false)} title="Check-in PIN">
+        <Stack>
+          <Text size="sm" c="dimmed">
+            Set a 4–8 digit PIN this person enters at a check-in terminal.
+          </Text>
+          <TextInput label="New PIN" value={pinValue} inputMode="numeric" maxLength={8}
+            onChange={(e) => setPinValue(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
+          <Group justify="space-between">
+            {p.has_pin ? (
+              <Button variant="light" color="red" loading={pinM.isPending}
+                onClick={() => pinM.mutate(null)}>
+                Clear PIN
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button loading={pinM.isPending} disabled={pinValue.length < 4}
+              onClick={() => pinM.mutate(pinValue)}>
+              Set PIN
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal opened={retiring !== null} onClose={() => setRetiring(null)} title="Retire engagement" closeOnClickOutside={false}>
         <Stack>
