@@ -91,6 +91,9 @@ const EMPTY_INVITE: InviteDraft = {
   role_ids: [],
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailError = (v: string) => (v.trim() && !EMAIL_RE.test(v.trim()) ? "Enter a valid email address" : null);
+
 export function PeoplePage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -435,6 +438,7 @@ export function PeoplePage() {
               type="email"
               value={invite.email}
               onChange={(e) => setInvite({ ...invite, email: e.currentTarget.value })}
+              error={emailError(invite.email)}
               required
             />
             <PhoneField
@@ -491,7 +495,7 @@ export function PeoplePage() {
             </Button>
             <Button
               loading={inviteM.isPending}
-              disabled={!invite.given_name || !invite.family_name || !invite.email}
+              disabled={!invite.given_name || !invite.family_name || !invite.email || !!emailError(invite.email)}
               onClick={() => inviteM.mutate()}
             >
               Send invitation
@@ -601,6 +605,7 @@ export function PeoplePage() {
               type="email"
               value={draft.email}
               disabled={!!editing}
+              error={emailError(draft.email)}
               onChange={(e) => setDraft({ ...draft, email: e.currentTarget.value })}
             />
             <TextInput
@@ -631,7 +636,7 @@ export function PeoplePage() {
           )}
           <Button
             loading={saveM.isPending}
-            disabled={!draft.given_name || !draft.family_name}
+            disabled={!draft.given_name || !draft.family_name || !!emailError(draft.email)}
             onClick={() => saveM.mutate()}
           >
             Save

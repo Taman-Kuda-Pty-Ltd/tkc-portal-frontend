@@ -1,4 +1,4 @@
-import { Accordion, Group, NumberInput, SegmentedControl, Stack, Text, Title } from "@mantine/core";
+import { Accordion, Group, NumberInput, SegmentedControl, Stack, Text, Title, useMantineColorScheme } from "@mantine/core";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
@@ -10,6 +10,7 @@ export function SettingsPage() {
   const { can } = useAuth();
   const { timeFormat, setTimeFormat, dateFormat, setDateFormat, workDayStart, workDayEnd, setWorkDay } =
     useSettings();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
 
   return (
     <Stack gap="md" maw={1080} w="100%" mx="auto">
@@ -27,6 +28,20 @@ export function SettingsPage() {
                 Saved on this device.
               </Text>
               <Group align="flex-start" gap={48} wrap="wrap">
+                <div>
+                  <Text size="sm" fw={500} mb={4}>
+                    Appearance
+                  </Text>
+                  <SegmentedControl
+                    value={colorScheme}
+                    onChange={(v) => setColorScheme(v as "light" | "dark" | "auto")}
+                    data={[
+                      { label: "Light", value: "light" },
+                      { label: "Dark", value: "dark" },
+                      { label: "Auto", value: "auto" },
+                    ]}
+                  />
+                </div>
                 <div>
                   <Text size="sm" fw={500} mb={4}>
                     Time display

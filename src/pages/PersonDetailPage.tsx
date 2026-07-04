@@ -1,5 +1,7 @@
 import {
+  ActionIcon,
   Anchor,
+  Autocomplete,
   Badge,
   Button,
   Card,
@@ -18,7 +20,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { IconArrowLeft, IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -51,6 +53,7 @@ const CRED_LABEL: Record<string, string> = {
   wwcc: "Working With Children Check", first_aid: "First Aid", coaching: "Coaching accreditation",
   police_check: "Police check", drivers_licence: "Driver's licence", other: "Other",
 };
+const RELATIONSHIPS = ["Parent", "Guardian", "Spouse", "Partner", "Sibling", "Child", "Friend", "Grandparent", "Other"];
 
 const formatBsb = (v: string) => {
   const d = v.replace(/\D/g, "").slice(0, 6);
@@ -86,12 +89,14 @@ function engToDraft(e: EngagementDetail): EngDraft {
     has_study_loan: e.tax?.has_study_loan ?? false,
     fund_type: e.superannuation?.fund_type ?? "apra", fund_name: e.superannuation?.fund_name ?? "",
     fund_usi: e.superannuation?.fund_usi ?? "", member_number: e.superannuation?.member_number ?? "",
-    esa: e.superannuation?.esa ?? "", smsf_bank_bsb: e.superannuation?.smsf_bank_bsb ?? "",
+    esa: e.superannuation?.esa ?? "", smsf_bank_bsb: formatBsb(e.superannuation?.smsf_bank_bsb ?? ""),
     smsf_bank_account: e.superannuation?.smsf_bank_account ?? "",
     account_name: e.bank?.account_name ?? "", bank_name: e.bank?.bank_name ?? "",
-    bsb: e.bank?.bsb ?? "", account_number: e.bank?.account_number ?? "",
+    bsb: formatBsb(e.bank?.bsb ?? ""), account_number: e.bank?.account_number ?? "",
   };
 }
+
+interface EcDraft { name: string; relationship: string; phone: string }
 
 export function PersonDetailPage() {
   const { id = "" } = useParams();
@@ -106,6 +111,7 @@ export function PersonDetailPage() {
     dob: null as Date | null, mobile: "", email: "", is_active: true, role_ids: [] as string[],
   });
   const [addr, setAddr] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
+  const [ecDraft, setEcDraft] = useState<EcDraft[]>([]);
   const [engDrafts, setEngDrafts] = useState<Record<number, EngDraft>>({});
   const [retiring, setRetiring] = useState<EngagementDetail | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(new Date());
@@ -128,6 +134,9 @@ export function PersonDetailPage() {
       line1: p.address?.line1 ?? "", line2: p.address?.line2 ?? "", suburb: p.address?.suburb ?? "",
       state: p.address?.state ?? "", postcode: p.address?.postcode ?? "",
     });
+    setEcDraft(p.emergency_contacts.map((e) => ({
+      name: e.name, relationship: e.relationship ?? "", phone: e.phone ?? "",
+    })));
     setEngDrafts(Object.fromEntries(p.engagements.map((e) => [e.id, engToDraft(e)])));
   }, [p, editing]);
 
@@ -144,6 +153,12 @@ export function PersonDetailPage() {
         line1: addr.line1 || null, line2: addr.line2 || null, suburb: addr.suburb || null,
         state: addr.state || null, postcode: addr.postcode || null,
       });
+      await api.put(
+        `/people/${id}/emergency-contacts`,
+        ecDraft
+          .filter((c) => c.name.trim())
+          .map((c) => ({ name: c.name.trim(), relationship: c.relationship || null, phone: c.phone || null })),
+      );
       for (const e of p?.engagements ?? []) {
         const d = engDrafts[e.id];
         if (!d) continue;
@@ -241,18 +256,20 @@ export function PersonDetailPage() {
             onChange={(v) => setDraft({ ...draft, mobile: v })} />
         </SimpleGrid>
         <Divider my="sm" label="Address" labelPosition="left" />
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+        <Stack gap="sm">
           <TextInput label="Line 1" value={addr.line1} disabled={ro}
             onChange={(e) => setAddr({ ...addr, line1: e.currentTarget.value })} />
           <TextInput label="Line 2" value={addr.line2} disabled={ro}
             onChange={(e) => setAddr({ ...addr, line2: e.currentTarget.value })} />
-          <TextInput label="Suburb" value={addr.suburb} disabled={ro}
-            onChange={(e) => setAddr({ ...addr, suburb: e.currentTarget.value })} />
-          <TextInput label="State" value={addr.state} disabled={ro}
-            onChange={(e) => setAddr({ ...addr, state: e.currentTarget.value })} />
-          <TextInput label="Postcode" value={addr.postcode} disabled={ro}
-            onChange={(e) => setAddr({ ...addr, postcode: e.currentTarget.value })} />
-        </SimpleGrid>
+          <SimpleGrid cols={{ base: 1, sm: 3 }}>
+            <TextInput label="Suburb" value={addr.suburb} disabled={ro}
+              onChange={(e) => setAddr({ ...addr, suburb: e.currentTarget.value })} />
+            <TextInput label="State" value={addr.state} disabled={ro}
+              onChange={(e) => setAddr({ ...addr, state: e.currentTarget.value })} />
+            <TextInput label="Postcode" value={addr.postcode} disabled={ro}
+              onChange={(e) => setAddr({ ...addr, postcode: e.currentTarget.value })} />
+          </SimpleGrid>
+        </Stack>
         <Divider my="sm" />
         <MultiSelect label="Roles" data={roleOptions} value={draft.role_ids} disabled={ro} searchable
           onChange={(v) => setDraft({ ...draft, role_ids: v })} />
@@ -403,18 +420,43 @@ export function PersonDetailPage() {
         </Stack>
       </Card>
 
-      {p.emergency_contacts.length > 0 && (
-        <Card withBorder>
-          <Title order={4} mb="sm">Emergency contacts</Title>
-          <Stack gap={4}>
-            {p.emergency_contacts.map((e) => (
-              <Text key={e.id} size="sm">
-                {e.name}{e.relationship ? ` (${e.relationship})` : ""} — {e.phone ?? "—"}
-              </Text>
-            ))}
+      <Card withBorder>
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Emergency contacts</Title>
+          {editing && (
+            <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
+              onClick={() => setEcDraft([...ecDraft, { name: "", relationship: "", phone: "" }])}>
+              Add contact
+            </Button>
+          )}
+        </Group>
+        {ecDraft.length === 0 ? (
+          <Text size="sm" fs="italic" c="dimmed">None recorded</Text>
+        ) : (
+          <Stack>
+            {ecDraft.map((c, i) => {
+              const upd = (patch: Partial<EcDraft>) =>
+                setEcDraft(ecDraft.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+              return (
+                <Group key={i} align="flex-end" wrap="nowrap" gap="xs">
+                  <TextInput label={i === 0 ? "Name" : undefined} style={{ flex: 1 }} value={c.name} disabled={ro}
+                    onChange={(e) => upd({ name: e.currentTarget.value })} />
+                  <Autocomplete label={i === 0 ? "Relationship" : undefined} data={RELATIONSHIPS} style={{ flex: 1 }}
+                    value={c.relationship} disabled={ro} onChange={(v) => upd({ relationship: v })} />
+                  <PhoneField label={i === 0 ? "Phone" : undefined} value={c.phone} disabled={ro}
+                    onChange={(v) => upd({ phone: v })} />
+                  {editing && (
+                    <ActionIcon color="red" variant="subtle" aria-label="Remove"
+                      onClick={() => setEcDraft(ecDraft.filter((_, idx) => idx !== i))}>
+                      <IconX size={16} />
+                    </ActionIcon>
+                  )}
+                </Group>
+              );
+            })}
           </Stack>
-        </Card>
-      )}
+        )}
+      </Card>
 
       {p.credentials.length > 0 && (
         <Card withBorder>

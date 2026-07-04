@@ -23,3 +23,17 @@
 .tkc-phone .PhoneInputCountryIcon {
   box-shadow: none;
 }
+
+/* Match Mantine's disabled input look so read-only mode is obviously non-editable. */
+.tkc-phone--disabled {
+  background-color: var(--mantine-color-default-hover);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tkc-phone--disabled .PhoneInputInput,
+.tkc-phone--disabled .PhoneInputCountrySelect {
+  color: var(--mantine-color-dimmed);
+  cursor: not-allowed;
+  pointer-events: none;
+}

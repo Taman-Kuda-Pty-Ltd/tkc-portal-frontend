@@ -32,7 +32,7 @@ export function PhoneField({
   return (
     <Input.Wrapper label={label} required={required} error={error}>
       <PhoneInput
-        className="tkc-phone"
+        className={disabled ? "tkc-phone tkc-phone--disabled" : "tkc-phone"}
         international
         defaultCountry="AU"
         labels={LABELS}
