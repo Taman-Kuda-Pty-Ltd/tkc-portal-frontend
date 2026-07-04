@@ -2,6 +2,7 @@ import { Center, Loader, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { CheckInTerminal } from "./CheckInTerminal";
+import { ScheduleDisplay } from "./ScheduleDisplay";
 import { getTerminalToken, setTerminalToken, terminalApi } from "./terminalApi";
 
 /** Kiosk shell. Reads a device token (from a ?token= setup link, stored on the
@@ -47,6 +48,9 @@ export function TerminalApp() {
 
   if (configQ.data.terminal_type === "checkin") {
     return <CheckInTerminal name={configQ.data.name} />;
+  }
+  if (configQ.data.terminal_type === "schedule") {
+    return <ScheduleDisplay name={configQ.data.name} />;
   }
   return (
     <Center h="100vh">

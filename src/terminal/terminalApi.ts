@@ -65,6 +65,26 @@ export interface CoachLessonUpdate {
   notes: string | null;
 }
 
+export interface ScheduleRider {
+  student: string;
+  horse: string | null;
+}
+export interface ScheduleLesson {
+  shift_id: number;
+  starts_at: string;
+  ends_at: string;
+  title: string | null;
+  activity_name: string | null;
+  activity_color: string | null;
+  facility_name: string | null;
+  coaches: string[];
+  riders: ScheduleRider[];
+}
+export interface ScheduleDisplay {
+  heading: string;
+  lessons: ScheduleLesson[];
+}
+
 export class TerminalError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -97,6 +117,7 @@ async function treq<T>(method: string, path: string, body?: unknown): Promise<T>
 
 export const terminalApi = {
   config: () => treq<TerminalConfig>("GET", "/config"),
+  scheduleDisplay: () => treq<ScheduleDisplay>("GET", "/schedule"),
   roster: () => treq<RosterPerson[]>("GET", "/roster"),
   session: (person_id: number, pin: string) =>
     treq<TerminalSession>("POST", "/session", { person_id, pin }),
