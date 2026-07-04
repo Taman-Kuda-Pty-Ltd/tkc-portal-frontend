@@ -42,11 +42,22 @@ export interface ShiftBrief {
   description: string | null;
   coworkers: string[];
   attendance: TerminalAttendance | null;
+  is_lesson: boolean;
+  facility_name: string | null;
+  riders: string[];
+  completed: boolean;
 }
 export interface TerminalSession {
   person_id: number;
   display_name: string;
   shifts: ShiftBrief[];
+  lessons: ShiftBrief[];
+  coaching_attendance: TerminalAttendance | null;
+}
+export interface CoachLessonUpdate {
+  shift_id: number;
+  completed: boolean;
+  notes: string | null;
 }
 
 export class TerminalError extends Error {
@@ -93,4 +104,8 @@ export const terminalApi = {
     hours_worked: number | null,
     notes: string | null,
   ) => treq<TerminalAttendance>("POST", "/check-out", { person_id, pin, shift_id, hours_worked, notes }),
+  coachCheckIn: (person_id: number, pin: string) =>
+    treq<TerminalAttendance>("POST", "/coach-check-in", { person_id, pin }),
+  coachCheckOut: (person_id: number, pin: string, lessons: CoachLessonUpdate[]) =>
+    treq<TerminalAttendance>("POST", "/coach-check-out", { person_id, pin, lessons }),
 };

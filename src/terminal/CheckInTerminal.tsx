@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Center,
+  Checkbox,
   Group,
   Loader,
   NumberInput,
@@ -222,7 +223,7 @@ function PersonView({
           Done
         </Button>
       </Group>
-      {session.shifts.length === 0 && (
+      {session.shifts.length === 0 && session.lessons.length === 0 && (
         <Card withBorder padding="xl">
           <Text size="lg">You have no shift scheduled today.</Text>
         </Card>
@@ -230,7 +231,129 @@ function PersonView({
       {session.shifts.map((s) => (
         <ShiftCheckCard key={s.shift_id} shift={s} personId={session.person_id} pin={pin} onRefresh={onRefresh} />
       ))}
+      {session.lessons.length > 0 && (
+        <CoachingSection
+          key={session.coaching_attendance?.status ?? "none"}
+          session={session}
+          pin={pin}
+          onRefresh={onRefresh}
+        />
+      )}
     </Stack>
+  );
+}
+
+function CoachingSection({
+  session,
+  pin,
+  onRefresh,
+}: {
+  session: TerminalSession;
+  pin: string;
+  onRefresh: () => Promise<void>;
+}) {
+  const coaching = session.coaching_attendance;
+  const [state, setState] = useState<Record<number, { completed: boolean; notes: string }>>(
+    Object.fromEntries(session.lessons.map((l) => [l.shift_id, { completed: l.completed, notes: "" }])),
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      await onRefresh();
+    } catch (e) {
+      setError(e instanceof TerminalError ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const checkedIn = coaching?.status === "checked_in";
+  const done = coaching?.status === "checked_out";
+
+  return (
+    <Card withBorder padding="lg">
+      <Group justify="space-between" mb="sm">
+        <Text fw={700} size="xl">Coaching — today's lessons</Text>
+        {checkedIn && <Badge size="lg" color="teal">On site</Badge>}
+        {done && <Badge size="lg" color="blue">Left</Badge>}
+      </Group>
+
+      <Stack gap="sm">
+        {session.lessons.map((l) => (
+          <Card key={l.shift_id} withBorder radius="sm" bg="var(--mantine-color-default)">
+            <Group justify="space-between" wrap="wrap">
+              <Text fw={600} size="lg">
+                {dayjs(l.starts_at).format("HH:mm")}–{dayjs(l.ends_at).format("HH:mm")}
+                {l.facility_name ? ` · ${l.facility_name}` : ""}
+              </Text>
+              {done && l.completed && <Badge color="teal">Done</Badge>}
+            </Group>
+            {l.riders.length > 0 && (
+              <Text c="dimmed" mt={2}>{l.riders.join(", ")}</Text>
+            )}
+            {checkedIn && (
+              <Stack gap="xs" mt="sm">
+                <Checkbox
+                  size="md"
+                  label="Lesson completed"
+                  checked={state[l.shift_id]?.completed ?? false}
+                  onChange={(e) =>
+                    setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], completed: e.currentTarget.checked } }))
+                  }
+                />
+                <Textarea
+                  placeholder="Horse / training notes (optional)"
+                  value={state[l.shift_id]?.notes ?? ""}
+                  autosize
+                  minRows={1}
+                  onChange={(e) =>
+                    setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], notes: e.currentTarget.value } }))
+                  }
+                />
+              </Stack>
+            )}
+          </Card>
+        ))}
+      </Stack>
+
+      {error && <Text c="red" mt="sm">{error}</Text>}
+
+      {!coaching && (
+        <Button mt="md" size="xl" fullWidth loading={busy}
+          onClick={() => run(() => terminalApi.coachCheckIn(session.person_id, pin))}>
+          Check in for coaching
+        </Button>
+      )}
+      {checkedIn && (
+        <Button mt="md" size="xl" fullWidth color="orange" loading={busy}
+          onClick={() =>
+            run(() =>
+              terminalApi.coachCheckOut(
+                session.person_id,
+                pin,
+                session.lessons.map((l) => ({
+                  shift_id: l.shift_id,
+                  completed: state[l.shift_id]?.completed ?? false,
+                  notes: state[l.shift_id]?.notes?.trim() || null,
+                })),
+              ),
+            )
+          }>
+          Check out
+        </Button>
+      )}
+      {done && (
+        <Text mt="md" size="lg">
+          Checked out at <b>{dayjs(coaching!.checked_out_at!).format("HH:mm")}</b>
+          {coaching!.hours_worked != null ? ` · ${coaching!.hours_worked}h recorded` : ""}.
+        </Text>
+      )}
+    </Card>
   );
 }
 
