@@ -49,7 +49,31 @@ export interface Activity {
   description: string | null;
   color: string | null;
   is_active: boolean;
+  is_lesson: boolean;
   headings: ActivityHeading[];
+}
+
+export interface NamedResource {
+  id: number;
+  name: string;
+  is_active: boolean;
+}
+
+export interface Ride {
+  id: number;
+  student_id: number;
+  student_name: string | null;
+  horse_id: number | null;
+  horse_name: string | null;
+}
+
+export interface Clash {
+  kind: "horse" | "facility";
+  name: string;
+  shift_id: number;
+  shift_label: string;
+  starts_at: string;
+  ends_at: string;
 }
 
 export type StaffType = "employee" | "contractor" | "volunteer" | "other";
@@ -281,8 +305,11 @@ export interface Shift {
   ends_at: string;
   headcount: number;
   status: ShiftStatus;
+  facility_id: number | null;
+  facility_name: string | null;
   source_shift_template_id: number | null;
   assignments: Assignment[];
   notes: ShiftNote[];
   heading_counts: { heading_id: number; count: number }[];
+  rides: Ride[];
 }

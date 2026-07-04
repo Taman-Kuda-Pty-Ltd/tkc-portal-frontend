@@ -29,9 +29,10 @@ interface Draft {
   description: string;
   color: string;
   is_active: boolean;
+  is_lesson: boolean;
 }
 
-const EMPTY: Draft = { slug: "", name: "", abbreviation: "", description: "", color: "#2f855a", is_active: true };
+const EMPTY: Draft = { slug: "", name: "", abbreviation: "", description: "", color: "#2f855a", is_active: true, is_lesson: false };
 
 export function ActivitiesPage() {
   const qc = useQueryClient();
@@ -50,6 +51,7 @@ export function ActivitiesPage() {
         description: editing.description ?? "",
         color: editing.color ?? "#2f855a",
         is_active: editing.is_active,
+        is_lesson: editing.is_lesson,
       });
     else if (creating) setDraft(EMPTY);
   }, [editing, creating]);
@@ -63,6 +65,7 @@ export function ActivitiesPage() {
             description: draft.description,
             color: draft.color,
             is_active: draft.is_active,
+            is_lesson: draft.is_lesson,
           })
         : api.post("/activities", {
             slug: draft.slug,
@@ -70,6 +73,7 @@ export function ActivitiesPage() {
             abbreviation: draft.abbreviation || null,
             description: draft.description,
             color: draft.color,
+            is_lesson: draft.is_lesson,
           }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -183,6 +187,12 @@ export function ActivitiesPage() {
             label="Colour"
             value={draft.color}
             onChange={(v) => setDraft({ ...draft, color: v })}
+          />
+          <Switch
+            label="Lesson activity"
+            description="Adds a facility and riders (student + horse) to its shifts"
+            checked={draft.is_lesson}
+            onChange={(e) => setDraft({ ...draft, is_lesson: e.currentTarget.checked })}
           />
           {editing && (
             <Switch

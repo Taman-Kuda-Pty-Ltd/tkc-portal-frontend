@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Alert,
   Button,
   Divider,
   Group,
@@ -11,7 +12,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconX } from "@tabler/icons-react";
+import { IconPlus, IconX } from "@tabler/icons-react";
 import { TimeField } from "./TimeField";
 import { DateField } from "./DateField";
 import { RichTextField, RichTextView } from "./RichText";
@@ -20,7 +21,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, Role, Shift, ShiftNote } from "../api/types";
+import type { Activity, Clash, NamedResource, Role, Shift, ShiftNote } from "../api/types";
+
+interface RideDraft {
+  student_id: string | null;
+  horse_id: string | null;
+}
 
 function toDateTime(date: Date, time: string): string {
   return `${dayjs(date).format("YYYY-MM-DD")}T${time}:00`;
@@ -53,12 +59,17 @@ export function ShiftModal({
   const [notes, setNotes] = useState<ShiftNote[]>([]);
   const [newNote, setNewNote] = useState("");
   const [headingCounts, setHeadingCounts] = useState<Record<number, number>>({});
+  const [facilityId, setFacilityId] = useState<string | null>(null);
+  const [rides, setRides] = useState<RideDraft[]>([]);
 
   const activitiesQ = useQuery({
     queryKey: ["activities"],
     queryFn: () => api.get<Activity[]>("/activities"),
   });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
+  const facilitiesQ = useQuery({ queryKey: ["facilities"], queryFn: () => api.get<NamedResource[]>("/facilities") });
+  const studentsQ = useQuery({ queryKey: ["students"], queryFn: () => api.get<NamedResource[]>("/students") });
+  const horsesQ = useQuery({ queryKey: ["horses"], queryFn: () => api.get<NamedResource[]>("/horses") });
 
   useEffect(() => {
     if (!opened) return;
@@ -76,6 +87,11 @@ export function ShiftModal({
       setHeadcount(shift.headcount);
       setNotes(shift.notes);
       setHeadingCounts(Object.fromEntries(shift.heading_counts.map((c) => [c.heading_id, c.count])));
+      setFacilityId(shift.facility_id ? String(shift.facility_id) : null);
+      setRides(shift.rides.map((r) => ({
+        student_id: String(r.student_id),
+        horse_id: r.horse_id ? String(r.horse_id) : null,
+      })));
     } else {
       setActivityId(null);
       setRoleId(null);
@@ -88,11 +104,28 @@ export function ShiftModal({
       setHeadcount(1);
       setNotes([]);
       setHeadingCounts({});
+      setFacilityId(null);
+      setRides([]);
     }
   }, [shift, opened, defaultDate]);
 
   const selectedActivity = (activitiesQ.data ?? []).find((a) => a.id === Number(activityId));
   const headings = (selectedActivity?.headings ?? []).filter((h) => h.is_active);
+  const isLesson = !!selectedActivity?.is_lesson;
+  const horseIds = rides.map((r) => r.horse_id).filter(Boolean).map(Number);
+
+  const clashQ = useQuery({
+    queryKey: ["clash", shift?.id, facilityId, horseIds.join(","), date ? dayjs(date).format("YYYY-MM-DD") : "", start, end],
+    queryFn: () =>
+      api.post<Clash[]>("/shifts/clash-check", {
+        shift_id: shift?.id ?? null,
+        starts_at: date ? toDateTime(date, start) : null,
+        ends_at: date ? toDateTime(date, end) : null,
+        facility_id: facilityId ? Number(facilityId) : null,
+        horse_ids: horseIds,
+      }),
+    enabled: editing && isLesson && !!date && (!!facilityId || horseIds.length > 0),
+  });
 
   const saveM = useMutation({
     mutationFn: async () => {
@@ -105,6 +138,7 @@ export function ShiftModal({
         starts_at: date ? toDateTime(date, start) : null,
         ends_at: date ? toDateTime(date, end) : null,
         headcount,
+        facility_id: isLesson && facilityId ? Number(facilityId) : null,
       };
       const saved = shift
         ? await api.patch<Shift>(`/shifts/${shift.id}`, body)
@@ -113,6 +147,14 @@ export function ShiftModal({
         await api.put(
           `/shifts/${saved.id}/heading-counts`,
           headings.map((h) => ({ heading_id: h.id, count: headingCounts[h.id] ?? h.count })),
+        );
+      }
+      if (isLesson) {
+        await api.put(
+          `/shifts/${saved.id}/rides`,
+          rides
+            .filter((r) => r.student_id)
+            .map((r) => ({ student_id: Number(r.student_id), horse_id: r.horse_id ? Number(r.horse_id) : null })),
         );
       }
     },
@@ -155,6 +197,11 @@ export function ShiftModal({
     .filter((a) => a.is_active)
     .map((a) => ({ value: String(a.id), label: a.name }));
   const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
+  const facilityOptions = (facilitiesQ.data ?? []).filter((f) => f.is_active).map((f) => ({ value: String(f.id), label: f.name }));
+  const studentOptions = (studentsQ.data ?? []).filter((s) => s.is_active).map((s) => ({ value: String(s.id), label: s.name }));
+  const horseOptions = (horsesQ.data ?? []).filter((h) => h.is_active).map((h) => ({ value: String(h.id), label: h.name }));
+  const updateRide = (i: number, patch: Partial<RideDraft>) =>
+    setRides(rides.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const ro = !editing;
 
   return (
@@ -196,6 +243,57 @@ export function ShiftModal({
               ))}
             </SimpleGrid>
           </div>
+        )}
+
+        {isLesson && (
+          <>
+            <Divider label="Lesson" labelPosition="left" />
+            <Select label="Facility" data={facilityOptions} value={facilityId} onChange={setFacilityId}
+              placeholder="Choose a facility" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
+            <div>
+              <Group justify="space-between" mb={4}>
+                <Text size="sm" fw={500}>Riders</Text>
+                {!ro && (
+                  <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
+                    onClick={() => setRides([...rides, { student_id: null, horse_id: null }])}>
+                    Add rider
+                  </Button>
+                )}
+              </Group>
+              <Stack gap="xs">
+                {rides.length === 0 && <Text size="sm" c="dimmed">No riders yet.</Text>}
+                {rides.map((r, i) => (
+                  <Group key={i} gap="xs" wrap="nowrap" align="flex-end">
+                    <Select placeholder="Student" data={studentOptions} value={r.student_id} disabled={ro}
+                      searchable style={{ flex: 1 }} onChange={(v) => updateRide(i, { student_id: v })}
+                      comboboxProps={{ withinPortal: true }} />
+                    <Text c="dimmed" pb={8}>on</Text>
+                    <Select placeholder="Horse" data={horseOptions} value={r.horse_id} disabled={ro}
+                      searchable clearable style={{ flex: 1 }} onChange={(v) => updateRide(i, { horse_id: v })}
+                      comboboxProps={{ withinPortal: true }} />
+                    {!ro && (
+                      <ActionIcon color="red" variant="subtle" aria-label="Remove rider"
+                        onClick={() => setRides(rides.filter((_, idx) => idx !== i))}>
+                        <IconX size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
+                ))}
+              </Stack>
+            </div>
+            {editing && (clashQ.data?.length ?? 0) > 0 && (
+              <Alert color="yellow" title="Possible double-booking">
+                <Stack gap={2}>
+                  {clashQ.data!.map((cl, i) => (
+                    <Text key={i} size="sm">
+                      {cl.name} ({cl.kind}) is also in “{cl.shift_label}”{" "}
+                      {dayjs(cl.starts_at).format("HH:mm")}–{dayjs(cl.ends_at).format("HH:mm")}
+                    </Text>
+                  ))}
+                </Stack>
+              </Alert>
+            )}
+          </>
         )}
 
         {editing ? (
