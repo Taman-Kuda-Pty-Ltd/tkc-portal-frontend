@@ -14,19 +14,18 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { ShiftTemplate, ShiftTemplateApplyResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { ShiftTemplateEditor } from "../components/ShiftTemplateEditor";
 
 export function ShiftTemplatesPage() {
   const { can } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [applyFor, setApplyFor] = useState<ShiftTemplate | null>(null);
   const [range, setRange] = useState<[Date | null, Date | null]>([null, null]);
   const [preview, setPreview] = useState<ShiftTemplateApplyResult | null>(null);
-  const [editing, setEditing] = useState<ShiftTemplate | null>(null);
-  const [creating, setCreating] = useState(false);
 
   const templatesQ = useQuery({
     queryKey: ["shift-templates"],
@@ -89,7 +88,7 @@ export function ShiftTemplatesPage() {
     <Stack>
       <Group justify="space-between">
         <Title order={2}>Templates</Title>
-        {canManageTemplates && <Button onClick={() => setCreating(true)}>New template</Button>}
+        {canManageTemplates && <Button onClick={() => navigate("/templates/new")}>New template</Button>}
       </Group>
       <Text size="sm" c="dimmed">
         Reusable recurring patterns. Applying one generates independent shifts you
@@ -122,7 +121,7 @@ export function ShiftTemplatesPage() {
                 <Group gap="xs">
                   {canManageTemplates && (
                     <>
-                      <Button variant="subtle" onClick={() => setEditing(t)}>
+                      <Button variant="subtle" onClick={() => navigate(`/templates/${t.id}`)}>
                         Edit
                       </Button>
                       <Button
@@ -145,15 +144,6 @@ export function ShiftTemplatesPage() {
           ))}
         </Stack>
       )}
-
-      <ShiftTemplateEditor
-        template={editing}
-        opened={editing !== null || creating}
-        onClose={() => {
-          setEditing(null);
-          setCreating(false);
-        }}
-      />
 
       <Modal opened={!!applyFor} onClose={closeApply} title={`Apply "${applyFor?.name ?? ""}"`}>
         <Stack>
