@@ -47,7 +47,13 @@ export function TerminalApp() {
   }
 
   if (configQ.data.terminal_type === "checkin") {
-    return <CheckInTerminal name={configQ.data.name} />;
+    return (
+      <CheckInTerminal
+        name={configQ.data.name}
+        inactivitySeconds={configQ.data.inactivity_seconds}
+        minHours={configQ.data.min_shift_hours}
+      />
+    );
   }
   if (configQ.data.terminal_type === "schedule") {
     return <ScheduleDisplay name={configQ.data.name} />;

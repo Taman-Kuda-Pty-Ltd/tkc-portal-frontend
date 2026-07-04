@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Avatar,
   Badge,
   Box,
@@ -10,6 +11,7 @@ import {
   Loader,
   NumberInput,
   PasswordInput,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -18,14 +20,15 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft, IconPlus } from "@tabler/icons-react";
+import { IconArrowLeft, IconPlus, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RichTextView } from "../components/RichText";
 import {
   terminalApi,
   TerminalError,
+  type LessonClash,
   type RosterPerson,
   type ShiftBrief,
   type TerminalSession,
@@ -52,7 +55,15 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
 
-export function CheckInTerminal({ name }: { name: string }) {
+export function CheckInTerminal({
+  name,
+  inactivitySeconds,
+  minHours,
+}: {
+  name: string;
+  inactivitySeconds: number;
+  minHours: number;
+}) {
   const [session, setSession] = useState<TerminalSession | null>(null);
   const [pin, setPin] = useState("");
   const [pinFor, setPinFor] = useState<RosterPerson | null>(null);
@@ -69,11 +80,29 @@ export function CheckInTerminal({ name }: { name: string }) {
     setPinFor(null);
   }
 
+  // Auto sign-out to the name-select screen after inactivity (0 = never).
+  useEffect(() => {
+    if (inactivitySeconds <= 0 || (!session && !pinFor)) return;
+    let timer: number;
+    const bump = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(reset, inactivitySeconds * 1000);
+    };
+    bump();
+    const events = ["mousedown", "keydown", "touchstart", "pointerdown"] as const;
+    events.forEach((e) => window.addEventListener(e, bump));
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, bump));
+    };
+  }, [session, pinFor, inactivitySeconds]);
+
   if (session) {
     return (
       <PersonView
         session={session}
         pin={pin}
+        minHours={minHours}
         onRefresh={async () => setSession(await terminalApi.session(session.person_id, pin))}
         onDone={() => {
           reset();
@@ -210,11 +239,13 @@ function PinPad({
 function PersonView({
   session,
   pin,
+  minHours,
   onRefresh,
   onDone,
 }: {
   session: TerminalSession;
   pin: string;
+  minHours: number;
   onRefresh: () => Promise<void>;
   onDone: () => void;
 }) {
@@ -232,7 +263,8 @@ function PersonView({
         </Card>
       )}
       {session.shifts.map((s) => (
-        <ShiftCheckCard key={s.shift_id} shift={s} personId={session.person_id} pin={pin} onRefresh={onRefresh} />
+        <ShiftCheckCard key={s.shift_id} shift={s} personId={session.person_id} pin={pin}
+          minHours={minHours} onRefresh={onRefresh} />
       ))}
       {session.lessons.length > 0 && (
         <CoachingSection
@@ -316,29 +348,62 @@ function AdhocTaskCard({
   const [open, setOpen] = useState(false);
   const [activityId, setActivityId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
+  const [riders, setRiders] = useState<{ student_id: string | null; horse_id: string | null }[]>([]);
+  const [stage, setStage] = useState<"form" | "confirm">("form");
+  const [clashes, setClashes] = useState<LessonClash[]>([]);
+  const [decisions, setDecisions] = useState<Record<number, "replace" | "new">>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const actQ = useQuery({
-    queryKey: ["terminal-activities"],
-    queryFn: () => terminalApi.activities(),
-    enabled: open,
-  });
 
-  async function submit() {
-    setBusy(true);
-    setError(null);
-    try {
-      await terminalApi.adhocCheckIn(personId, pin, Number(activityId), title.trim());
-      setOpen(false);
-      setActivityId(null);
-      setTitle("");
-      await onRefresh();
-    } catch (e) {
-      setError(e instanceof TerminalError ? e.message : "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
+  const actQ = useQuery({ queryKey: ["terminal-activities"], queryFn: () => terminalApi.activities(), enabled: open });
+  const studentsQ = useQuery({ queryKey: ["terminal-students"], queryFn: () => terminalApi.students(), enabled: open });
+  const horsesQ = useQuery({ queryKey: ["terminal-horses"], queryFn: () => terminalApi.horses(), enabled: open });
+
+  const activity = (actQ.data ?? []).find((a) => String(a.id) === activityId);
+  const isLesson = !!activity?.is_lesson;
+  const studentIds = riders.map((r) => r.student_id).filter(Boolean).map(Number);
+  const studentName = (id: number) => (studentsQ.data ?? []).find((s) => s.id === id)?.name ?? "Student";
+
+  function resetAll() {
+    setOpen(false); setActivityId(null); setTitle(""); setRiders([]);
+    setStage("form"); setClashes([]); setDecisions({}); setError(null);
   }
+  const updateRider = (i: number, patch: Partial<{ student_id: string | null; horse_id: string | null }>) =>
+    setRiders(riders.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  async function run(fn: () => Promise<unknown>, after?: () => void) {
+    setBusy(true); setError(null);
+    try { await fn(); after?.(); }
+    catch (e) { setError(e instanceof TerminalError ? e.message : "Something went wrong"); }
+    finally { setBusy(false); }
+  }
+
+  const submitNonLesson = () =>
+    run(() => terminalApi.adhocCheckIn(personId, pin, Number(activityId), title.trim()),
+      async () => { resetAll(); await onRefresh(); });
+
+  const continueLesson = () => {
+    if (studentIds.length === 0) return setError("Add at least one student.");
+    run(async () => {
+      const cl = await terminalApi.lessonClashCheck(personId, pin, studentIds);
+      setClashes(cl);
+      const dec: Record<number, "replace" | "new"> = {};
+      studentIds.forEach((id) => (dec[id] = cl.some((c) => c.student_id === id) ? "replace" : "new"));
+      setDecisions(dec);
+      setStage("confirm");
+    });
+  };
+
+  const confirmLesson = () =>
+    run(() =>
+      terminalApi.adhocLessonCheckIn(
+        personId, pin, Number(activityId), title.trim(), null,
+        riders.filter((r) => r.student_id).map((r) => ({
+          student_id: Number(r.student_id), horse_id: r.horse_id ? Number(r.horse_id) : null,
+        })),
+        studentIds.filter((id) => decisions[id] === "replace"),
+      ),
+      async () => { resetAll(); await onRefresh(); });
 
   if (!open) {
     return (
@@ -347,6 +412,48 @@ function AdhocTaskCard({
       </Button>
     );
   }
+
+  if (stage === "confirm") {
+    return (
+      <Card withBorder padding="lg">
+        <Stack>
+          <Text fw={700} size="lg">Confirm coaching</Text>
+          {studentIds.map((id) => {
+            const clash = clashes.find((c) => c.student_id === id);
+            return (
+              <div key={id}>
+                <Text fw={600}>{studentName(id)}</Text>
+                {clash ? (
+                  <Stack gap={4} mt={4}>
+                    <Text size="sm" c="dimmed">
+                      Already booked {dayjs(clash.starts_at).format("HH:mm")} with{" "}
+                      {clash.coach_name ?? "another coach"}.
+                    </Text>
+                    <SegmentedControl
+                      value={decisions[id]}
+                      onChange={(v) => setDecisions((d) => ({ ...d, [id]: v as "replace" | "new" }))}
+                      data={[
+                        { label: "I'm covering (change of coach)", value: "replace" },
+                        { label: "Separate new lesson", value: "new" },
+                      ]}
+                    />
+                  </Stack>
+                ) : (
+                  <Text size="sm" c="dimmed">New lesson.</Text>
+                )}
+              </div>
+            );
+          })}
+          {error && <Text c="red">{error}</Text>}
+          <Group justify="space-between">
+            <Button variant="default" size="lg" onClick={() => setStage("form")}>Back</Button>
+            <Button size="lg" loading={busy} onClick={confirmLesson}>Confirm &amp; check in</Button>
+          </Group>
+        </Stack>
+      </Card>
+    );
+  }
+
   return (
     <Card withBorder padding="lg">
       <Stack>
@@ -355,14 +462,55 @@ function AdhocTaskCard({
         <Select label="Type of work" placeholder="Choose"
           data={(actQ.data ?? []).map((a) => ({ value: String(a.id), label: a.name }))}
           value={activityId} onChange={setActivityId} size="lg" comboboxProps={{ withinPortal: true }} />
-        <TextInput label="What are you doing?" value={title} size="lg"
+        <TextInput label={isLesson ? "Session name" : "What are you doing?"} value={title} size="lg"
           onChange={(e) => setTitle(e.currentTarget.value)} />
+
+        {isLesson && (
+          <div>
+            <Group justify="space-between" mb={4}>
+              <Text size="sm" fw={500}>Students</Text>
+              <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
+                onClick={() => setRiders([...riders, { student_id: null, horse_id: null }])}>
+                Add student
+              </Button>
+            </Group>
+            <Stack gap="xs">
+              {riders.length === 0 && <Text size="sm" c="dimmed">Add the students you're coaching.</Text>}
+              {riders.map((r, i) => (
+                <Group key={i} gap="xs" wrap="nowrap" align="flex-end">
+                  <Select placeholder="Student" searchable style={{ flex: 1 }}
+                    data={(studentsQ.data ?? []).map((s) => ({ value: String(s.id), label: s.name }))}
+                    value={r.student_id} onChange={(v) => updateRider(i, { student_id: v })}
+                    comboboxProps={{ withinPortal: true }} />
+                  <Text c="dimmed" pb={8}>on</Text>
+                  <Select placeholder="Horse" searchable clearable style={{ flex: 1 }}
+                    data={(horsesQ.data ?? []).map((h) => ({ value: String(h.id), label: h.name }))}
+                    value={r.horse_id} onChange={(v) => updateRider(i, { horse_id: v })}
+                    comboboxProps={{ withinPortal: true }} />
+                  <ActionIcon color="red" variant="subtle" aria-label="Remove"
+                    onClick={() => setRiders(riders.filter((_, idx) => idx !== i))}>
+                    <IconX size={16} />
+                  </ActionIcon>
+                </Group>
+              ))}
+            </Stack>
+          </div>
+        )}
+
         {error && <Text c="red">{error}</Text>}
         <Group justify="flex-end">
-          <Button variant="default" size="lg" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button size="lg" loading={busy} disabled={!activityId || !title.trim()} onClick={submit}>
-            Log &amp; check in
-          </Button>
+          <Button variant="default" size="lg" onClick={resetAll}>Cancel</Button>
+          {isLesson ? (
+            <Button size="lg" loading={busy}
+              disabled={!activityId || !title.trim() || riders.every((r) => !r.student_id)}
+              onClick={continueLesson}>
+              Continue
+            </Button>
+          ) : (
+            <Button size="lg" loading={busy} disabled={!activityId || !title.trim()} onClick={submitNonLesson}>
+              Log &amp; check in
+            </Button>
+          )}
         </Group>
       </Stack>
     </Card>
@@ -487,19 +635,21 @@ function ShiftCheckCard({
   shift,
   personId,
   pin,
+  minHours,
   onRefresh,
 }: {
   shift: ShiftBrief;
   personId: number;
   pin: string;
+  minHours: number;
   onRefresh: () => Promise<void>;
 }) {
   const att = shift.attendance;
   const adhoc = shift.is_adhoc;
   const plannedH = dayjs(shift.ends_at).diff(dayjs(shift.starts_at), "minute") / 60;
-  const planned = Math.round(plannedH * 4) / 4;
+  const planned = Math.max(Math.round(plannedH * 4) / 4, minHours);
   const elapsedH = att
-    ? Math.max(0, Math.round((dayjs().diff(dayjs(att.checked_in_at), "minute") / 60) * 4) / 4)
+    ? Math.max(minHours, Math.round((dayjs().diff(dayjs(att.checked_in_at), "minute") / 60) * 4) / 4)
     : planned;
   const [hours, setHours] = useState<number>(planned);
   const [notes, setNotes] = useState("");
@@ -568,7 +718,8 @@ function ShiftCheckCard({
           ) : (
             <>
               <NumberInput label={adhoc ? "Hours worked" : `Hours worked (planned ${planned}h)`}
-                min={0} step={0.25} value={hours}
+                description="Pay is based on the hours you log here, not your check-in/out times."
+                min={minHours} step={0.25} value={hours}
                 onChange={(v) => setHours(Number(v) || 0)} size="lg" />
               <Textarea
                 label={variance

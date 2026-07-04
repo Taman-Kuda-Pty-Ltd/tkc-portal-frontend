@@ -16,6 +16,20 @@ export type TerminalType = "checkin" | "schedule";
 export interface TerminalConfig {
   name: string;
   terminal_type: TerminalType;
+  inactivity_seconds: number;
+  min_shift_hours: number;
+}
+export interface LessonClash {
+  student_id: number;
+  student_name: string;
+  shift_id: number;
+  coach_name: string | null;
+  starts_at: string;
+  ends_at: string;
+}
+export interface AdhocLessonRider {
+  student_id: number;
+  horse_id: number | null;
 }
 export interface RosterPerson {
   id: number;
@@ -51,6 +65,7 @@ export interface ShiftBrief {
 export interface TerminalActivity {
   id: number;
   name: string;
+  is_lesson?: boolean;
 }
 export interface TerminalSession {
   person_id: number;
@@ -134,8 +149,24 @@ export const terminalApi = {
     notes: string | null,
   ) => treq<TerminalAttendance>("POST", "/check-out", { person_id, pin, shift_id, hours_worked, notes }),
   activities: () => treq<TerminalActivity[]>("GET", "/activities"),
+  students: () => treq<TerminalActivity[]>("GET", "/students"),
+  horses: () => treq<TerminalActivity[]>("GET", "/horses"),
   adhocCheckIn: (person_id: number, pin: string, activity_id: number, title: string) =>
     treq<TerminalAttendance>("POST", "/adhoc-check-in", { person_id, pin, activity_id, title }),
+  lessonClashCheck: (person_id: number, pin: string, student_ids: number[]) =>
+    treq<LessonClash[]>("POST", "/lesson-clash-check", { person_id, pin, student_ids }),
+  adhocLessonCheckIn: (
+    person_id: number,
+    pin: string,
+    activity_id: number,
+    title: string,
+    facility_id: number | null,
+    riders: AdhocLessonRider[],
+    replace_student_ids: number[],
+  ) =>
+    treq<TerminalAttendance>("POST", "/adhoc-lesson-check-in", {
+      person_id, pin, activity_id, title, facility_id, riders, replace_student_ids,
+    }),
   coachCheckIn: (person_id: number, pin: string) =>
     treq<TerminalAttendance>("POST", "/coach-check-in", { person_id, pin }),
   coachCheckOut: (person_id: number, pin: string, lessons: CoachLessonUpdate[]) =>
