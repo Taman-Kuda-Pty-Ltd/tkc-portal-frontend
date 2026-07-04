@@ -442,7 +442,8 @@ export function PersonDetailPage() {
                   <TextInput label={i === 0 ? "Name" : undefined} style={{ flex: 1 }} value={c.name} disabled={ro}
                     onChange={(e) => upd({ name: e.currentTarget.value })} />
                   <Autocomplete label={i === 0 ? "Relationship" : undefined} data={RELATIONSHIPS} style={{ flex: 1 }}
-                    value={c.relationship} disabled={ro} onChange={(v) => upd({ relationship: v })} />
+                    value={c.relationship} disabled={ro} onChange={(v) => upd({ relationship: v })}
+                    comboboxProps={{ withinPortal: true }} />
                   <PhoneField label={i === 0 ? "Phone" : undefined} value={c.phone} disabled={ro}
                     onChange={(v) => upd({ phone: v })} />
                   {editing && (
