@@ -7,8 +7,25 @@ import { ShiftChip } from "./ShiftChip";
 import type { ScheduleCtx } from "./types";
 
 const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MAX_CHIPS = 3;
+const MAX_CHIPS = 4;
 const GRID_COLUMNS = "32px repeat(7, minmax(0, 1fr))";
+
+/** Group by activity (each activity ordered by its earliest shift), and within
+ *  each activity order by start time. */
+function sortForMonth(shifts: Shift[]): Shift[] {
+  const firstStart = new Map<number, string>();
+  for (const s of shifts) {
+    const cur = firstStart.get(s.activity_id);
+    if (!cur || s.starts_at < cur) firstStart.set(s.activity_id, s.starts_at);
+  }
+  return [...shifts].sort((a, b) => {
+    const fa = firstStart.get(a.activity_id) ?? "";
+    const fb = firstStart.get(b.activity_id) ?? "";
+    if (fa !== fb) return fa < fb ? -1 : 1;
+    if (a.activity_id !== b.activity_id) return a.activity_id - b.activity_id;
+    return a.starts_at < b.starts_at ? -1 : a.starts_at > b.starts_at ? 1 : 0;
+  });
+}
 
 export function MonthView({
   anchor,
@@ -67,7 +84,7 @@ export function MonthView({
 
             {week.map((day) => {
               const key = day.format(DAY_KEY);
-              const shifts = shiftsByDay.get(key) ?? [];
+              const shifts = sortForMonth(shiftsByDay.get(key) ?? []);
               const inMonth = day.month() === month;
               const isToday = key === today;
               return (

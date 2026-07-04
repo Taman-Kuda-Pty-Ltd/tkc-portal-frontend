@@ -239,7 +239,9 @@ export interface Assignment {
   id: number;
   shift_id: number;
   person_id: number;
+  person_name: string | null;
   role_id: number | null;
+  role_name: string | null;
   status: AssignmentStatus;
   note: string | null;
 }
