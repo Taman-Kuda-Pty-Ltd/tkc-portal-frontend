@@ -1,7 +1,6 @@
 import {
   ActionIcon,
   Anchor,
-  Autocomplete,
   Badge,
   Button,
   Card,
@@ -54,6 +53,9 @@ const CRED_LABEL: Record<string, string> = {
   police_check: "Police check", drivers_licence: "Driver's licence", other: "Other",
 };
 const RELATIONSHIPS = ["Parent", "Guardian", "Spouse", "Partner", "Sibling", "Child", "Friend", "Grandparent", "Other"];
+// Keep any pre-existing free-text value selectable so it isn't silently dropped.
+const relOptions = (current: string) =>
+  current && !RELATIONSHIPS.includes(current) ? [...RELATIONSHIPS, current] : RELATIONSHIPS;
 
 const formatBsb = (v: string) => {
   const d = v.replace(/\D/g, "").slice(0, 6);
@@ -441,9 +443,9 @@ export function PersonDetailPage() {
                 <Group key={i} align="flex-end" wrap="nowrap" gap="xs">
                   <TextInput label={i === 0 ? "Name" : undefined} style={{ flex: 1 }} value={c.name} disabled={ro}
                     onChange={(e) => upd({ name: e.currentTarget.value })} />
-                  <Autocomplete label={i === 0 ? "Relationship" : undefined} data={RELATIONSHIPS} style={{ flex: 1 }}
-                    value={c.relationship} disabled={ro} onChange={(v) => upd({ relationship: v })}
-                    comboboxProps={{ withinPortal: true }} />
+                  <Select label={i === 0 ? "Relationship" : undefined} data={relOptions(c.relationship)} style={{ flex: 1 }}
+                    value={c.relationship || null} disabled={ro} onChange={(v) => upd({ relationship: v || "" })}
+                    placeholder="Select" comboboxProps={{ withinPortal: true }} />
                   <PhoneField label={i === 0 ? "Phone" : undefined} value={c.phone} disabled={ro}
                     onChange={(v) => upd({ phone: v })} />
                   {editing && (

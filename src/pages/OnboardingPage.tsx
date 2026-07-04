@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Autocomplete,
   Button,
   Center,
   Checkbox,
@@ -289,8 +288,9 @@ export function OnboardingPage() {
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <TextInput label="Name" value={emergency.name}
                 onChange={(e) => setEmergency({ ...emergency, name: e.currentTarget.value })} />
-              <Autocomplete label="Relationship" data={RELATIONSHIPS} value={emergency.relationship}
-                onChange={(v) => setEmergency({ ...emergency, relationship: v })} />
+              <Select label="Relationship" data={RELATIONSHIPS} value={emergency.relationship || null}
+                placeholder="Select" comboboxProps={{ withinPortal: true }}
+                onChange={(v) => setEmergency({ ...emergency, relationship: v || "" })} />
             </SimpleGrid>
             <PhoneField label="Phone" value={emergency.phone}
               onChange={(v) => setEmergency({ ...emergency, phone: v })} />
