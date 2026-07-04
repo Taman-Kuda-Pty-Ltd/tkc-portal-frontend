@@ -247,14 +247,13 @@ function ShiftCheckCard({
 }) {
   const att = shift.attendance;
   const plannedH = dayjs(shift.ends_at).diff(dayjs(shift.starts_at), "minute") / 60;
-  const elapsedH = att
-    ? Math.max(0, Math.round((dayjs().diff(dayjs(att.checked_in_at), "minute") / 60) * 4) / 4)
-    : plannedH;
-  const [hours, setHours] = useState<number>(Math.round(plannedH * 4) / 4);
+  const planned = Math.round(plannedH * 4) / 4;
+  const [hours, setHours] = useState<number>(planned);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const variance = Math.abs(hours - planned) > 0.001;
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -305,16 +304,22 @@ function ShiftCheckCard({
         <Stack mt="md">
           <Text>Checked in at <b>{dayjs(att.checked_in_at).format("HH:mm")}</b>.</Text>
           {!checkingOut ? (
-            <Button size="xl" color="orange" onClick={() => { setHours(elapsedH); setCheckingOut(true); }}>
+            <Button size="xl" color="orange" onClick={() => { setHours(planned); setNotes(""); setCheckingOut(true); }}>
               Check out
             </Button>
           ) : (
             <>
-              <NumberInput label="Hours worked" min={0} step={0.25} value={hours}
+              <NumberInput label={`Hours worked (planned ${planned}h)`} min={0} step={0.25} value={hours}
                 onChange={(v) => setHours(Number(v) || 0)} size="lg" />
-              <Textarea label="Notes (optional)" value={notes} minRows={2} autosize size="lg"
-                onChange={(e) => setNotes(e.currentTarget.value)} />
+              <Textarea
+                label={variance
+                  ? `Reason for ${hours < planned ? "shorter" : "longer"} shift (required)`
+                  : "Notes (optional)"}
+                value={notes} minRows={2} autosize size="lg"
+                onChange={(e) => setNotes(e.currentTarget.value)}
+              />
               <Button size="xl" color="orange" loading={busy}
+                disabled={variance && !notes.trim()}
                 onClick={() => run(() => terminalApi.checkOut(personId, pin, shift.shift_id, hours, notes || null))}>
                 Confirm check out
               </Button>
