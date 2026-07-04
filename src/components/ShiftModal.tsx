@@ -4,7 +4,6 @@ import {
   Divider,
   Group,
   Modal,
-  NumberInput,
   Select,
   Stack,
   Text,
@@ -163,8 +162,6 @@ export function ShiftModal({
           <TimeField label="Start" value={start} onChange={setStart} disabled={ro} />
           <TimeField label="End" value={end} onChange={setEnd} disabled={ro} />
         </Group>
-        <NumberInput label="People needed" min={1} value={headcount} disabled={ro}
-          onChange={(v) => setHeadcount(Number(v) || 1)} />
         <RichTextField label="Description" placeholder="Longer detail shown in the day view"
           value={description} disabled={ro} onChange={setDescription} />
 
