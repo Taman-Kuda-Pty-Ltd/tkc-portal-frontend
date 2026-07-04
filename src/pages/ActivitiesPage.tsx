@@ -20,12 +20,13 @@ import type { Activity } from "../api/types";
 interface Draft {
   slug: string;
   name: string;
+  abbreviation: string;
   description: string;
   color: string;
   is_active: boolean;
 }
 
-const EMPTY: Draft = { slug: "", name: "", description: "", color: "#2f855a", is_active: true };
+const EMPTY: Draft = { slug: "", name: "", abbreviation: "", description: "", color: "#2f855a", is_active: true };
 
 export function ActivitiesPage() {
   const qc = useQueryClient();
@@ -40,6 +41,7 @@ export function ActivitiesPage() {
       setDraft({
         slug: editing.slug,
         name: editing.name,
+        abbreviation: editing.abbreviation ?? "",
         description: editing.description ?? "",
         color: editing.color ?? "#2f855a",
         is_active: editing.is_active,
@@ -52,6 +54,7 @@ export function ActivitiesPage() {
       editing
         ? api.patch(`/activities/${editing.id}`, {
             name: draft.name,
+            abbreviation: draft.abbreviation || null,
             description: draft.description,
             color: draft.color,
             is_active: draft.is_active,
@@ -59,6 +62,7 @@ export function ActivitiesPage() {
         : api.post("/activities", {
             slug: draft.slug,
             name: draft.name,
+            abbreviation: draft.abbreviation || null,
             description: draft.description,
             color: draft.color,
           }),
@@ -157,6 +161,13 @@ export function ActivitiesPage() {
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.currentTarget.value })}
             required
+          />
+          <TextInput
+            label="Abbreviation"
+            description="Default compact label for month view, e.g. SH"
+            maxLength={10}
+            value={draft.abbreviation}
+            onChange={(e) => setDraft({ ...draft, abbreviation: e.currentTarget.value })}
           />
           <TextInput
             label="Description"

@@ -18,7 +18,10 @@ export interface ScheduleCtx {
 
 export interface ShiftVisual {
   color: string;
+  /** Short label for week/day views (title, falling back to the activity name). */
   label: string;
+  /** Very compact label for month view. */
+  abbr: string;
   assigned: number;
   needed: number;
   /** red = unassigned, yellow = under, teal = full */
@@ -29,9 +32,11 @@ export function shiftVisual(shift: Shift, ctx: ScheduleCtx): ShiftVisual {
   const activity = ctx.activityById.get(shift.activity_id);
   const assigned = shift.assignments.length;
   const needed = shift.headcount;
+  const label = shift.title || activity?.name || "Shift";
   return {
     color: activity?.color ?? "#2f855a",
-    label: shift.description || activity?.name || "Shift",
+    label,
+    abbr: shift.abbreviation || activity?.abbreviation || label,
     assigned,
     needed,
     fillColor: assigned === 0 ? "red" : assigned < needed ? "yellow" : "teal",

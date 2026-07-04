@@ -20,7 +20,7 @@ export function ShiftChip({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
           style={{ borderRadius: 2, background: v.color, flexShrink: 0 }}
         />
         <Text fz={10} c={v.assigned === 0 ? "red" : undefined} truncate style={{ flex: 1 }}>
-          {formatISOTime(shift.starts_at, ctx.timeFormat)} {v.label}
+          {formatISOTime(shift.starts_at, ctx.timeFormat)} {v.abbr}
         </Text>
         {v.assigned < v.needed && (
           <Text fz={10} c="dimmed" style={{ flexShrink: 0 }}>

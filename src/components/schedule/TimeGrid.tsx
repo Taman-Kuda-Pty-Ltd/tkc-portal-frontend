@@ -1,4 +1,4 @@
-import { Box, Modal, Paper, Text, UnstyledButton } from "@mantine/core";
+import { Box, Modal, Paper, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconNote } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
@@ -201,10 +201,10 @@ export function TimeGrid({
               {blocks.map((p) => {
                 const v = shiftVisual(p.shift, ctx);
                 const activity = ctx.activityById.get(p.shift.activity_id);
-                const notes = p.shift.notes?.trim();
+                const noteCount = p.shift.notes.length;
                 const heightPx = (p.heightPct / 100) * GRID_HEIGHT;
-                const showNotes = !!notes && heightPx >= 150;
-                const showNoteIcon = !!notes && !showNotes;
+                const showNotes = noteCount > 0 && heightPx >= 150;
+                const showNoteIcon = noteCount > 0 && !showNotes;
                 return (
                   <UnstyledButton
                     key={p.shift.id}
@@ -258,7 +258,7 @@ export function TimeGrid({
                         {detailed ? `–${formatISOTime(p.shift.ends_at, ctx.timeFormat)}` : ""} ·{" "}
                         {v.assigned}/{v.needed}
                       </Text>
-                      {detailed && p.shift.description && activity && (
+                      {detailed && p.shift.title && activity && (
                         <Text fz={9} c="dimmed" lineClamp={1}>
                           {activity.name}
                         </Text>
@@ -284,17 +284,13 @@ export function TimeGrid({
                           </Text>
                         ))
                       )}
-                      {showNotes && (
-                        <Text
-                          fz={9}
-                          c="dimmed"
-                          mt={4}
-                          lineClamp={3}
-                          style={{ whiteSpace: "pre-wrap" }}
-                        >
-                          {notes}
-                        </Text>
-                      )}
+                      {showNotes &&
+                        p.shift.notes.slice(0, 3).map((n) => (
+                          <Text key={n.id} fz={9} c="dimmed" mt={4} lineClamp={2}
+                            style={{ whiteSpace: "pre-wrap" }}>
+                            • {n.body}
+                          </Text>
+                        ))}
                     </Paper>
                   </UnstyledButton>
                 );
@@ -313,13 +309,20 @@ export function TimeGrid({
       {notesShift && (
         <>
           <Text fw={600} mb={6}>
-            {notesShift.description ||
+            {notesShift.title ||
               ctx.activityById.get(notesShift.activity_id)?.name ||
               "Shift"}
           </Text>
-          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-            {notesShift.notes}
-          </Text>
+          <Stack gap="xs">
+            {notesShift.notes.map((n) => (
+              <div key={n.id}>
+                <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{n.body}</Text>
+                <Text size="xs" c="dimmed">
+                  {n.author_name ?? "—"} · {dayjs(n.created_at).format("D MMM HH:mm")}
+                </Text>
+              </div>
+            ))}
+          </Stack>
         </>
       )}
     </Modal>

@@ -34,6 +34,7 @@ export interface Activity {
   id: number;
   slug: string;
   name: string;
+  abbreviation: string | null;
   description: string | null;
   color: string | null;
   is_active: boolean;
@@ -206,6 +207,8 @@ export interface ShiftTemplateSlot {
   activity_id: number;
   role_id: number | null;
   assigned_person_ids: number[];
+  abbreviation: string | null;
+  title: string | null;
   description: string | null;
   weekday: number | null;
   week_in_cycle: number | null;
@@ -241,16 +244,27 @@ export interface Assignment {
   note: string | null;
 }
 
+export interface ShiftNote {
+  id: number;
+  shift_id: number;
+  body: string;
+  author_id: number | null;
+  author_name: string | null;
+  created_at: string;
+}
+
 export interface Shift {
   id: number;
   activity_id: number;
   role_id: number | null;
+  abbreviation: string | null;
+  title: string | null;
   description: string | null;
   starts_at: string;
   ends_at: string;
   headcount: number;
   status: ShiftStatus;
-  notes: string | null;
   source_shift_template_id: number | null;
   assignments: Assignment[];
+  notes: ShiftNote[];
 }

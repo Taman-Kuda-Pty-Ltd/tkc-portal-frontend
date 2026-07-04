@@ -37,11 +37,16 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
       <Text size="xs" c="dimmed">
         {formatISOTime(shift.starts_at, ctx.timeFormat)}–
         {formatISOTime(shift.ends_at, ctx.timeFormat)}
-        {shift.description ? ` · ${activity?.name ?? ""}` : ""}
+        {shift.title ? ` · ${activity?.name ?? ""}` : ""}
       </Text>
-      {shift.notes?.trim() && (
+      {shift.description?.trim() && (
         <Text size="xs" c="dimmed" mt={4} style={{ whiteSpace: "pre-wrap" }}>
-          {shift.notes}
+          {shift.description}
+        </Text>
+      )}
+      {shift.notes.length > 0 && (
+        <Text size="xs" c="dimmed" mt={4}>
+          {shift.notes.length} note{shift.notes.length === 1 ? "" : "s"}
         </Text>
       )}
       <Divider mt={6} mb={4} />

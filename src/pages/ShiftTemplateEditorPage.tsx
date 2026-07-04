@@ -12,6 +12,7 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -29,6 +30,8 @@ interface SlotDraft {
   activity_id: string | null;
   role_id: string | null;
   assigned_person_ids: string[];
+  abbreviation: string;
+  title: string;
   description: string;
   weekday: string | null;
   week_in_cycle: string | null;
@@ -40,7 +43,8 @@ interface SlotDraft {
 
 function emptySlot(): SlotDraft {
   return {
-    activity_id: null, role_id: null, assigned_person_ids: [], description: "",
+    activity_id: null, role_id: null, assigned_person_ids: [],
+    abbreviation: "", title: "", description: "",
     weekday: "0", week_in_cycle: "0", day_of_month: 1,
     start_time: "08:00", end_time: "12:00", headcount: 1,
   };
@@ -76,6 +80,8 @@ export function ShiftTemplateEditorPage() {
       activity_id: String(s.activity_id),
       role_id: s.role_id ? String(s.role_id) : null,
       assigned_person_ids: (s.assigned_person_ids ?? []).map(String),
+      abbreviation: s.abbreviation ?? "",
+      title: s.title ?? "",
       description: s.description ?? "",
       weekday: s.weekday !== null ? String(s.weekday) : "0",
       week_in_cycle: s.week_in_cycle !== null ? String(s.week_in_cycle) : "0",
@@ -99,6 +105,8 @@ export function ShiftTemplateEditorPage() {
         activity_id: Number(s.activity_id),
         role_id: s.role_id ? Number(s.role_id) : null,
         assigned_person_ids: s.assigned_person_ids.map(Number),
+        abbreviation: s.abbreviation.trim() || null,
+        title: s.title.trim() || null,
         description: s.description.trim() || null,
         weekday: recurrence === "weekly" || recurrence === "fortnightly" ? Number(s.weekday) : null,
         week_in_cycle: recurrence === "fortnightly" ? Number(s.week_in_cycle) : null,
@@ -176,8 +184,13 @@ export function ShiftTemplateEditorPage() {
             </Group>
 
             <Stack gap="sm">
-              <TextInput label="Description" placeholder="Optional label (falls back to the activity name)"
-                value={s.description} onChange={(e) => updateSlot(i, { description: e.currentTarget.value })} />
+              <Group align="flex-end" gap="sm" wrap="nowrap">
+                <TextInput label="Title" placeholder="Short label (falls back to the activity name)"
+                  style={{ flex: 1 }} value={s.title}
+                  onChange={(e) => updateSlot(i, { title: e.currentTarget.value })} />
+                <TextInput label="Abbreviation" placeholder="e.g. AM" maxLength={10} w={130}
+                  value={s.abbreviation} onChange={(e) => updateSlot(i, { abbreviation: e.currentTarget.value })} />
+              </Group>
 
               <SimpleGrid cols={{ base: 1, sm: 2 }}>
                 <Select label="Activity" data={activityOptions} value={s.activity_id} placeholder="Activity" required
@@ -211,6 +224,10 @@ export function ShiftTemplateEditorPage() {
                   placeholder={s.assigned_person_ids.length ? undefined : "Unassigned"} searchable clearable
                   onChange={(v) => updateSlot(i, { assigned_person_ids: v })} comboboxProps={{ withinPortal: true }} />
               </SimpleGrid>
+
+              <Textarea label="Description" placeholder="Longer detail shown in the day view (optional)"
+                value={s.description} autosize minRows={2}
+                onChange={(e) => updateSlot(i, { description: e.currentTarget.value })} />
             </Stack>
           </Paper>
         ))}
