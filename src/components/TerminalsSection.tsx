@@ -5,16 +5,18 @@ import {
   Card,
   CopyButton,
   Group,
+  Modal,
+  NumberInput,
   Select,
   Stack,
   Switch,
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconTrash } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconSettings } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 
 interface Terminal {
@@ -23,6 +25,7 @@ interface Terminal {
   terminal_type: "checkin" | "schedule";
   token: string;
   is_active: boolean;
+  inactivity_seconds: number;
 }
 
 const TYPE_LABEL: Record<string, string> = { checkin: "Staff check-in", schedule: "Schedule display" };
@@ -31,6 +34,7 @@ export function TerminalsSection() {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [type, setType] = useState<string>("checkin");
+  const [settingsFor, setSettingsFor] = useState<Terminal | null>(null);
 
   const q = useQuery({ queryKey: ["terminals"], queryFn: () => api.get<Terminal[]>("/terminals") });
 
@@ -45,11 +49,6 @@ export function TerminalsSection() {
   const patchM = useMutation({
     mutationFn: (v: { id: number; is_active: boolean }) =>
       api.patch(`/terminals/${v.id}`, { is_active: v.is_active }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["terminals"] }),
-    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
-  });
-  const delM = useMutation({
-    mutationFn: (id: number) => api.del(`/terminals/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["terminals"] }),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
@@ -99,9 +98,8 @@ export function TerminalsSection() {
                 </CopyButton>
                 <Switch label="Active" checked={t.is_active}
                   onChange={(e) => patchM.mutate({ id: t.id, is_active: e.currentTarget.checked })} />
-                <ActionIcon color="red" variant="subtle" aria-label="Delete"
-                  onClick={() => delM.mutate(t.id)}>
-                  <IconTrash size={16} />
+                <ActionIcon variant="subtle" aria-label="Settings" onClick={() => setSettingsFor(t)}>
+                  <IconSettings size={18} />
                 </ActionIcon>
               </Group>
             </Group>
@@ -109,6 +107,58 @@ export function TerminalsSection() {
         ))}
         {(q.data ?? []).length === 0 && <Text size="sm" c="dimmed">No terminals registered yet.</Text>}
       </Stack>
+
+      {settingsFor && (
+        <TerminalSettingsModal terminal={settingsFor} onClose={() => setSettingsFor(null)} />
+      )}
     </Stack>
+  );
+}
+
+function TerminalSettingsModal({ terminal, onClose }: { terminal: Terminal; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState(terminal.name);
+  const [inactivity, setInactivity] = useState<number>(terminal.inactivity_seconds);
+  useEffect(() => {
+    setName(terminal.name);
+    setInactivity(terminal.inactivity_seconds);
+  }, [terminal]);
+
+  const saveM = useMutation({
+    mutationFn: () =>
+      api.patch(`/terminals/${terminal.id}`, { name: name.trim(), inactivity_seconds: inactivity }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["terminals"] });
+      onClose();
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const delM = useMutation({
+    mutationFn: () => api.del(`/terminals/${terminal.id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["terminals"] });
+      onClose();
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  return (
+    <Modal opened onClose={onClose} title={`${terminal.name} settings`}>
+      <Stack>
+        <TextInput label="Device name" value={name} onChange={(e) => setName(e.currentTarget.value)} />
+        <NumberInput label="Auto sign-out after (seconds idle)"
+          description="Returns to the name-select screen. 0 = never."
+          min={0} step={30} value={inactivity} onChange={(v) => setInactivity(Number(v) || 0)} />
+        <Group justify="space-between" mt="sm">
+          <Button variant="light" color="red" loading={delM.isPending}
+            onClick={() => delM.mutate()}>
+            Delete terminal
+          </Button>
+          <Button loading={saveM.isPending} disabled={!name.trim()} onClick={() => saveM.mutate()}>
+            Save
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }

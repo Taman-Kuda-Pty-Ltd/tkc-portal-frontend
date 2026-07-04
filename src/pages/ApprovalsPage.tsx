@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Group, Loader, NumberInput, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Card, Group, Loader, Modal, NumberInput, Stack, Text, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -26,11 +26,11 @@ export function ApprovalsPage() {
   });
 
   return (
-    <Stack maw={780}>
+    <Stack maw={780} w="100%" mx="auto">
       <Title order={2}>Approvals</Title>
       <Text size="sm" c="dimmed">
         Staff-logged extra tasks awaiting review. Approving counts the hours; rejecting
-        discards the entry.
+        needs a reason. Either way the person is emailed the outcome.
       </Text>
       {q.isLoading ? (
         <Loader />
@@ -46,8 +46,11 @@ export function ApprovalsPage() {
 function PendingRow({ item }: { item: PendingShift }) {
   const qc = useQueryClient();
   const [hours, setHours] = useState<number>(item.hours_worked ?? 0);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [reason, setReason] = useState("");
   const done = () => {
     qc.invalidateQueries({ queryKey: ["pending-approval"] });
+    qc.invalidateQueries({ queryKey: ["pending-approval-count"] });
     qc.invalidateQueries({ queryKey: ["shifts"] });
   };
   const approveM = useMutation({
@@ -56,8 +59,8 @@ function PendingRow({ item }: { item: PendingShift }) {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const rejectM = useMutation({
-    mutationFn: () => api.post(`/shifts/${item.shift_id}/reject`),
-    onSuccess: done,
+    mutationFn: () => api.post(`/shifts/${item.shift_id}/reject`, { reason: reason.trim() }),
+    onSuccess: () => { setRejectOpen(false); done(); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const notCheckedOut = !item.checked_out_at;
@@ -84,11 +87,28 @@ function PendingRow({ item }: { item: PendingShift }) {
             onClick={() => approveM.mutate()}>
             Approve
           </Button>
-          <Button variant="light" color="red" loading={rejectM.isPending} onClick={() => rejectM.mutate()}>
+          <Button variant="light" color="red" onClick={() => { setReason(""); setRejectOpen(true); }}>
             Reject
           </Button>
         </Group>
       </Group>
+
+      <Modal opened={rejectOpen} onClose={() => setRejectOpen(false)} title="Reject request">
+        <Stack>
+          <Text size="sm" c="dimmed">
+            The person will be emailed this reason. Required.
+          </Text>
+          <Textarea label="Reason" value={reason} autosize minRows={2}
+            onChange={(e) => setReason(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button color="red" loading={rejectM.isPending} disabled={!reason.trim()}
+              onClick={() => rejectM.mutate()}>
+              Reject
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Card>
   );
 }

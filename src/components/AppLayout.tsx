@@ -1,5 +1,7 @@
-import { AppShell, Burger, Group, NavLink, ScrollArea, Stack, Text, UnstyledButton } from "@mantine/core";
+import { AppShell, Badge, Burger, Group, NavLink, ScrollArea, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../api/client";
 import {
   IconCalendar,
   IconChecklist,
@@ -24,6 +26,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { me, logout, can } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const pendingQ = useQuery({
+    queryKey: ["pending-approval-count"],
+    queryFn: () => api.get<number>("/shifts/pending-approval/count"),
+    enabled: can("manage_shifts"),
+    refetchInterval: 30000,
+  });
 
   return (
     <AppShell
@@ -52,6 +60,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               to={n.to}
               label={n.label}
               leftSection={<n.icon size={18} />}
+              rightSection={
+                n.to === "/approvals" && (pendingQ.data ?? 0) > 0 ? (
+                  <Badge size="sm" color="red" variant="filled">{pendingQ.data}</Badge>
+                ) : undefined
+              }
               active={location.pathname.startsWith(n.to)}
               onClick={close}
             />
