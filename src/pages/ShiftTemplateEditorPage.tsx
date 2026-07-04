@@ -157,13 +157,7 @@ export function ShiftTemplateEditorPage() {
           value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
       </Paper>
 
-      <Group justify="space-between" align="center">
-        <Title order={4}>Slots</Title>
-        <Button variant="light" size="xs" leftSection={<IconPlus size={14} />}
-          onClick={() => setSlots([...slots, emptySlot()])}>
-          Add slot
-        </Button>
-      </Group>
+      <Title order={4}>Slots</Title>
       <Text size="sm" c="dimmed">
         Each slot is one recurring shift. Description is an optional calendar label
         (falls back to the activity name). Role is optional. “People” is how many
@@ -231,6 +225,13 @@ export function ShiftTemplateEditorPage() {
           </Paper>
         ))}
       </Stack>
+
+      <Group>
+        <Button variant="light" leftSection={<IconPlus size={16} />}
+          onClick={() => setSlots([...slots, emptySlot()])}>
+          Add slot
+        </Button>
+      </Group>
 
       <Divider />
       <Group justify="flex-end">

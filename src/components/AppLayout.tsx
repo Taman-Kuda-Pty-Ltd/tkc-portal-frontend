@@ -13,8 +13,8 @@ import { useAuth } from "../auth/AuthContext";
 
 const NAV = [
   { to: "/schedule", label: "Schedule", icon: IconCalendar, cap: "view_schedule" },
-  { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
   { to: "/people", label: "People", icon: IconUsers, cap: "manage_people" },
+  { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
