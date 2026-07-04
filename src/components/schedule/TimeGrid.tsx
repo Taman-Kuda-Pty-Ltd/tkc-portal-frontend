@@ -1,18 +1,18 @@
-import { Box, Modal, Paper, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Box, Group, Modal, Paper, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconNote } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { useEffect, useRef, useState } from "react";
 import type { Shift } from "../../api/types";
 import { DAY_KEY } from "../../lib/dates";
-import { formatHM, formatISOTime } from "../../lib/time";
+import { formatHM } from "../../lib/time";
 import { useSettings } from "../../settings/SettingsContext";
 import { layoutDay } from "./timeLayout";
 import { shiftVisual } from "./types";
 import type { ScheduleCtx } from "./types";
 import { RichTextView, htmlToText } from "../RichText";
 
-const HOUR_HEIGHT = 56; // px per hour
+const HOUR_HEIGHT = 68; // px per hour
 const RANGE = { start: 0, end: 24 }; // midnight to midnight
 const SPAN = RANGE.end - RANGE.start;
 const GRID_HEIGHT = SPAN * HOUR_HEIGHT;
@@ -251,32 +251,23 @@ export function TimeGrid({
                           <IconNote size={13} />
                         </Box>
                       )}
-                      <Text fz={detailed ? 12 : 10} fw={600} lineClamp={1}>
-                        {v.label}
-                      </Text>
-                      <Text fz={detailed ? 10 : 9} c={v.assigned < v.needed ? "red" : "dimmed"} lineClamp={1}>
-                        {formatISOTime(p.shift.starts_at, ctx.timeFormat)}
-                        {detailed ? `–${formatISOTime(p.shift.ends_at, ctx.timeFormat)}` : ""} ·{" "}
-                        {v.assigned}/{v.needed}
-                      </Text>
+                      <Group gap={4} wrap="nowrap" justify="space-between" pr={showNoteIcon ? 14 : 0}>
+                        <Text fz={detailed ? 12 : 10} fw={600} lineClamp={1} style={{ flex: 1 }}>
+                          {v.label}
+                        </Text>
+                        <Text fz={detailed ? 11 : 9} fw={700} style={{ flexShrink: 0 }}
+                          c={v.assigned < v.needed ? "red" : "dimmed"}>
+                          {v.assigned}/{v.needed}
+                        </Text>
+                      </Group>
                       {detailed && p.shift.title && activity && (
                         <Text fz={9} c="dimmed" lineClamp={1}>
                           {activity.name}
                         </Text>
                       )}
-                      <Text
-                        fz={9}
-                        fw={700}
-                        tt="uppercase"
-                        c="dimmed"
-                        mt={3}
-                        style={{ letterSpacing: 0.4 }}
-                      >
-                        Staff
-                      </Text>
                       {p.shift.assignments.length === 0 ? (
                         <Text fz={detailed ? 12 : 11} c="dimmed" lineClamp={1}>
-                          None
+                          Unassigned
                         </Text>
                       ) : (
                         p.shift.assignments.map((a) => (
