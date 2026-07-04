@@ -1,6 +1,12 @@
 import type { Dayjs } from "dayjs";
-import type { Activity, Person, Shift } from "../../api/types";
+import type { Activity, ActivityHeading, Person, Shift } from "../../api/types";
 import type { TimeFormat } from "../../settings/SettingsContext";
+
+/** The target count for a heading on a shift — the shift's override or the default. */
+export function effectiveCount(shift: Shift, heading: ActivityHeading): number {
+  const o = shift.heading_counts.find((c) => c.heading_id === heading.id);
+  return o ? o.count : heading.count;
+}
 
 /** Shared handlers + lookups passed to every schedule view. */
 export interface ScheduleCtx {
@@ -30,10 +36,10 @@ export interface ShiftVisual {
 
 export function shiftVisual(shift: Shift, ctx: ScheduleCtx): ShiftVisual {
   const activity = ctx.activityById.get(shift.activity_id);
-  const headings = activity?.headings ?? [];
+  const headings = (activity?.headings ?? []).filter((h) => h.is_active);
   const assigned = shift.assignments.length;
   const needed = headings.length
-    ? headings.reduce((sum, h) => sum + h.count, 0)
+    ? headings.reduce((sum, h) => sum + effectiveCount(shift, h), 0)
     : shift.headcount;
   const label = shift.title || activity?.name || "Shift";
   return {

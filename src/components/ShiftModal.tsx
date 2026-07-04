@@ -4,7 +4,9 @@ import {
   Divider,
   Group,
   Modal,
+  NumberInput,
   Select,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -50,6 +52,7 @@ export function ShiftModal({
   const [headcount, setHeadcount] = useState(1);
   const [notes, setNotes] = useState<ShiftNote[]>([]);
   const [newNote, setNewNote] = useState("");
+  const [headingCounts, setHeadingCounts] = useState<Record<number, number>>({});
 
   const activitiesQ = useQuery({
     queryKey: ["activities"],
@@ -72,6 +75,7 @@ export function ShiftModal({
       setEnd(dayjs(shift.ends_at).format("HH:mm"));
       setHeadcount(shift.headcount);
       setNotes(shift.notes);
+      setHeadingCounts(Object.fromEntries(shift.heading_counts.map((c) => [c.heading_id, c.count])));
     } else {
       setActivityId(null);
       setRoleId(null);
@@ -83,11 +87,15 @@ export function ShiftModal({
       setEnd("12:00");
       setHeadcount(1);
       setNotes([]);
+      setHeadingCounts({});
     }
   }, [shift, opened, defaultDate]);
 
+  const selectedActivity = (activitiesQ.data ?? []).find((a) => a.id === Number(activityId));
+  const headings = (selectedActivity?.headings ?? []).filter((h) => h.is_active);
+
   const saveM = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const body = {
         activity_id: Number(activityId),
         role_id: roleId ? Number(roleId) : null,
@@ -98,7 +106,15 @@ export function ShiftModal({
         ends_at: date ? toDateTime(date, end) : null,
         headcount,
       };
-      return shift ? api.patch(`/shifts/${shift.id}`, body) : api.post("/shifts", body);
+      const saved = shift
+        ? await api.patch<Shift>(`/shifts/${shift.id}`, body)
+        : await api.post<Shift>("/shifts", body);
+      if (headings.length) {
+        await api.put(
+          `/shifts/${saved.id}/heading-counts`,
+          headings.map((h) => ({ heading_id: h.id, count: headingCounts[h.id] ?? h.count })),
+        );
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["shifts"] });
@@ -164,6 +180,23 @@ export function ShiftModal({
         </Group>
         <RichTextField label="Description" placeholder="Longer detail shown in the day view"
           value={description} disabled={ro} onChange={setDescription} />
+
+        {editing && headings.length > 0 && (
+          <div>
+            <Text size="sm" fw={500} mb={4}>Required (per role)</Text>
+            <SimpleGrid cols={{ base: 2, sm: 3 }}>
+              {headings.map((h) => (
+                <NumberInput
+                  key={h.id}
+                  label={h.label}
+                  min={0}
+                  value={headingCounts[h.id] ?? h.count}
+                  onChange={(v) => setHeadingCounts({ ...headingCounts, [h.id]: Number(v) || 0 })}
+                />
+              ))}
+            </SimpleGrid>
+          </div>
+        )}
 
         {editing ? (
           <Group justify="space-between">

@@ -283,4 +283,5 @@ export interface Shift {
   source_shift_template_id: number | null;
   assignments: Assignment[];
   notes: ShiftNote[];
+  heading_counts: { heading_id: number; count: number }[];
 }

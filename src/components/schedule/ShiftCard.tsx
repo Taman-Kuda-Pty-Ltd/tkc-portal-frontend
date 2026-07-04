@@ -2,7 +2,7 @@ import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text, Unstyled
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { formatISOTime } from "../../lib/time";
 import type { ActivityHeading, Shift } from "../../api/types";
-import { shiftVisual } from "./types";
+import { effectiveCount, shiftVisual } from "./types";
 import type { ScheduleCtx } from "./types";
 import { RichTextView } from "../RichText";
 
@@ -80,7 +80,7 @@ function HeadingGroup({
     heading ? a.heading_id === heading.id : a.heading_id === null,
   );
   const label = heading?.label ?? "Staff";
-  const target = heading?.count;
+  const target = heading ? effectiveCount(shift, heading) : undefined;
   const eligible = [...ctx.personById.values()]
     .filter((p) => p.is_active)
     .filter(
