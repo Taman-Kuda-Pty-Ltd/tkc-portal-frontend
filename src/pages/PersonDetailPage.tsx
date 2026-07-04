@@ -501,7 +501,7 @@ export function PersonDetailPage() {
       <Modal opened={pinOpen} onClose={() => setPinOpen(false)} title="Check-in PIN">
         <Stack>
           <Text size="sm" c="dimmed">
-            Set a 4–8 digit PIN this person enters at a check-in terminal.
+            Set a 6–8 digit PIN this person enters at a check-in terminal.
           </Text>
           <TextInput label="New PIN" value={pinValue} inputMode="numeric" maxLength={8}
             onChange={(e) => setPinValue(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
@@ -514,7 +514,7 @@ export function PersonDetailPage() {
             ) : (
               <span />
             )}
-            <Button loading={pinM.isPending} disabled={pinValue.length < 4}
+            <Button loading={pinM.isPending} disabled={pinValue.length < 6}
               onClick={() => pinM.mutate(pinValue)}>
               Set PIN
             </Button>

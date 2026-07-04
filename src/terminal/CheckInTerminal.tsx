@@ -165,7 +165,7 @@ function PinPad({
             </Button>
           ))}
         </SimpleGrid>
-        <Button fullWidth size="lg" loading={busy} disabled={pin.length < 4} onClick={submit}>
+        <Button fullWidth size="lg" loading={busy} disabled={pin.length < 6} onClick={submit}>
           Enter
         </Button>
         <Button fullWidth variant="subtle" onClick={onCancel} disabled={busy}>Cancel</Button>
