@@ -6,6 +6,7 @@ import { useAuth } from "./auth/AuthContext";
 import { AppLayout } from "./components/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
+import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { PersonDetailPage } from "./pages/PersonDetailPage";
 import { SchedulePage } from "./pages/SchedulePage";
@@ -32,6 +33,7 @@ function AuthedApp() {
     <AppLayout>
       <Routes>
         <Route path="/schedule" element={<SchedulePage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/templates" element={<ShiftTemplatesPage />} />
         <Route path="/templates/new" element={<ShiftTemplateEditorPage />} />
         <Route path="/templates/:id" element={<ShiftTemplateEditorPage />} />

@@ -32,9 +32,14 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
             {v.label}
           </Text>
         </UnstyledButton>
-        <Badge size="sm" variant="light" color={v.fillColor} aria-label="Staffing">
-          {v.assigned}/{v.needed}
-        </Badge>
+        <Group gap={4} wrap="nowrap">
+          {shift.approval_status === "pending" && (
+            <Badge size="sm" variant="light" color="yellow">Pending</Badge>
+          )}
+          <Badge size="sm" variant="light" color={v.fillColor} aria-label="Staffing">
+            {v.assigned}/{v.needed}
+          </Badge>
+        </Group>
       </Group>
       <Text size="xs" c="dimmed">
         {formatISOTime(shift.starts_at, ctx.timeFormat)}–

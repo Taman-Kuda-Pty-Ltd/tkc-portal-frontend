@@ -305,6 +305,7 @@ export interface Shift {
   ends_at: string;
   headcount: number;
   status: ShiftStatus;
+  approval_status: "approved" | "pending" | "rejected";
   facility_id: number | null;
   facility_name: string | null;
   source_shift_template_id: number | null;

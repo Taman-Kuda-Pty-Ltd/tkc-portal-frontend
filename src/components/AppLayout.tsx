@@ -2,6 +2,7 @@ import { AppShell, Burger, Group, NavLink, ScrollArea, Stack, Text, UnstyledButt
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconCalendar,
+  IconChecklist,
   IconLogout,
   IconSettings,
   IconTemplate,
@@ -15,6 +16,7 @@ const NAV = [
   { to: "/schedule", label: "Schedule", icon: IconCalendar, cap: "view_schedule" },
   { to: "/people", label: "People", icon: IconUsers, cap: "manage_people" },
   { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
+  { to: "/approvals", label: "Approvals", icon: IconChecklist, cap: "manage_shifts" },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {

@@ -9,13 +9,15 @@ import {
   Group,
   Loader,
   NumberInput,
+  Select,
   SimpleGrid,
   Stack,
   Text,
   Textarea,
+  TextInput,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { IconArrowLeft, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
@@ -239,7 +241,73 @@ function PersonView({
           onRefresh={onRefresh}
         />
       )}
+      <AdhocTaskCard personId={session.person_id} pin={pin} onRefresh={onRefresh} />
     </Stack>
+  );
+}
+
+function AdhocTaskCard({
+  personId,
+  pin,
+  onRefresh,
+}: {
+  personId: number;
+  pin: string;
+  onRefresh: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activityId, setActivityId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const actQ = useQuery({
+    queryKey: ["terminal-activities"],
+    queryFn: () => terminalApi.activities(),
+    enabled: open,
+  });
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      await terminalApi.adhocCheckIn(personId, pin, Number(activityId), title.trim());
+      setOpen(false);
+      setActivityId(null);
+      setTitle("");
+      await onRefresh();
+    } catch (e) {
+      setError(e instanceof TerminalError ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button variant="light" size="lg" leftSection={<IconPlus size={18} />} onClick={() => setOpen(true)}>
+        Log an extra task
+      </Button>
+    );
+  }
+  return (
+    <Card withBorder padding="lg">
+      <Stack>
+        <Text fw={700} size="lg">Log an extra task</Text>
+        <Text size="sm" c="dimmed">A manager will review it before it counts for hours.</Text>
+        <Select label="Type of work" placeholder="Choose"
+          data={(actQ.data ?? []).map((a) => ({ value: String(a.id), label: a.name }))}
+          value={activityId} onChange={setActivityId} size="lg" comboboxProps={{ withinPortal: true }} />
+        <TextInput label="What are you doing?" value={title} size="lg"
+          onChange={(e) => setTitle(e.currentTarget.value)} />
+        {error && <Text c="red">{error}</Text>}
+        <Group justify="flex-end">
+          <Button variant="default" size="lg" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button size="lg" loading={busy} disabled={!activityId || !title.trim()} onClick={submit}>
+            Log &amp; check in
+          </Button>
+        </Group>
+      </Stack>
+    </Card>
   );
 }
 
@@ -369,14 +437,18 @@ function ShiftCheckCard({
   onRefresh: () => Promise<void>;
 }) {
   const att = shift.attendance;
+  const adhoc = shift.is_adhoc;
   const plannedH = dayjs(shift.ends_at).diff(dayjs(shift.starts_at), "minute") / 60;
   const planned = Math.round(plannedH * 4) / 4;
+  const elapsedH = att
+    ? Math.max(0, Math.round((dayjs().diff(dayjs(att.checked_in_at), "minute") / 60) * 4) / 4)
+    : planned;
   const [hours, setHours] = useState<number>(planned);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const variance = Math.abs(hours - planned) > 0.001;
+  const variance = !adhoc && Math.abs(hours - planned) > 0.001;
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -397,12 +469,17 @@ function ShiftCheckCard({
         <div>
           <Text fw={700} size="xl">{shift.title || shift.activity_name || "Shift"}</Text>
           <Text c="dimmed">
-            {dayjs(shift.starts_at).format("HH:mm")}–{dayjs(shift.ends_at).format("HH:mm")}
-            {shift.activity_name ? ` · ${shift.activity_name}` : ""} · planned {plannedH}h
+            {dayjs(shift.starts_at).format("HH:mm")}
+            {adhoc ? "" : `–${dayjs(shift.ends_at).format("HH:mm")}`}
+            {shift.activity_name ? ` · ${shift.activity_name}` : ""}
+            {adhoc ? " · extra task" : ` · planned ${plannedH}h`}
           </Text>
         </div>
-        {att?.status === "checked_in" && <Badge size="lg" color="teal">On site</Badge>}
-        {att?.status === "checked_out" && <Badge size="lg" color="blue">Left</Badge>}
+        <Group gap="xs">
+          {adhoc && <Badge size="lg" color="yellow" variant="light">Pending approval</Badge>}
+          {att?.status === "checked_in" && <Badge size="lg" color="teal">On site</Badge>}
+          {att?.status === "checked_out" && <Badge size="lg" color="blue">Left</Badge>}
+        </Group>
       </Group>
 
       {shift.description && (
@@ -427,12 +504,13 @@ function ShiftCheckCard({
         <Stack mt="md">
           <Text>Checked in at <b>{dayjs(att.checked_in_at).format("HH:mm")}</b>.</Text>
           {!checkingOut ? (
-            <Button size="xl" color="orange" onClick={() => { setHours(planned); setNotes(""); setCheckingOut(true); }}>
+            <Button size="xl" color="orange" onClick={() => { setHours(adhoc ? elapsedH : planned); setNotes(""); setCheckingOut(true); }}>
               Check out
             </Button>
           ) : (
             <>
-              <NumberInput label={`Hours worked (planned ${planned}h)`} min={0} step={0.25} value={hours}
+              <NumberInput label={adhoc ? "Hours worked" : `Hours worked (planned ${planned}h)`}
+                min={0} step={0.25} value={hours}
                 onChange={(v) => setHours(Number(v) || 0)} size="lg" />
               <Textarea
                 label={variance
