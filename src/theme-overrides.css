@@ -1,0 +1,14 @@
+/* Dark-mode contrast tweaks. Layout/colours are otherwise theme-token based, so
+   these only nudge readability in dark mode; light mode is unchanged. */
+[data-mantine-color-scheme="dark"] {
+  /* Mantine's default dimmed (dark.2) is a touch low-contrast on dark surfaces;
+     brighten it one step. Affects all c="dimmed" text. */
+  --mantine-color-dimmed: var(--mantine-color-dark-1);
+  /* Placeholder text a step brighter too. */
+  --mantine-color-placeholder: var(--mantine-color-dark-2);
+}
+
+/* Read-only rich-text keeps inheriting the surface text colour in both schemes. */
+.tkc-rte-view {
+  color: var(--mantine-color-text);
+}

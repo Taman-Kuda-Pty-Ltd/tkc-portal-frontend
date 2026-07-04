@@ -69,20 +69,21 @@ export interface ScheduleRider {
   student: string;
   horse: string | null;
 }
-export interface ScheduleLesson {
+export interface ScheduleEntry {
   shift_id: number;
   starts_at: string;
   ends_at: string;
   title: string | null;
   activity_name: string | null;
   activity_color: string | null;
+  is_lesson: boolean;
   facility_name: string | null;
-  coaches: string[];
+  people: string[];
   riders: ScheduleRider[];
 }
 export interface ScheduleDisplay {
   heading: string;
-  lessons: ScheduleLesson[];
+  entries: ScheduleEntry[];
 }
 
 export class TerminalError extends Error {
@@ -121,6 +122,8 @@ export const terminalApi = {
   roster: () => treq<RosterPerson[]>("GET", "/roster"),
   session: (person_id: number, pin: string) =>
     treq<TerminalSession>("POST", "/session", { person_id, pin }),
+  changePin: (person_id: number, pin: string, new_pin: string) =>
+    treq<void>("POST", "/change-pin", { person_id, pin, new_pin }),
   checkIn: (person_id: number, pin: string, shift_id: number) =>
     treq<TerminalAttendance>("POST", "/check-in", { person_id, pin, shift_id }),
   checkOut: (

@@ -9,6 +9,7 @@ import {
   Group,
   Loader,
   NumberInput,
+  PasswordInput,
   Select,
   SimpleGrid,
   Stack,
@@ -242,7 +243,64 @@ function PersonView({
         />
       )}
       <AdhocTaskCard personId={session.person_id} pin={pin} onRefresh={onRefresh} />
+      <ChangePinControl personId={session.person_id} pin={pin} />
     </Stack>
+  );
+}
+
+function ChangePinControl({ personId, pin }: { personId: number; pin: string }) {
+  const [open, setOpen] = useState(false);
+  const [np, setNp] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+  const digits = (v: string) => v.replace(/\D/g, "").slice(0, 8);
+
+  async function submit() {
+    if (np !== confirm) return setError("The PINs don't match.");
+    setBusy(true);
+    setError(null);
+    try {
+      await terminalApi.changePin(personId, pin, np);
+      setOpen(false);
+      setNp("");
+      setConfirm("");
+      setOk(true);
+    } catch (e) {
+      setError(e instanceof TerminalError ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Group justify="center">
+        {ok && <Text c="teal">PIN updated.</Text>}
+        <Button variant="subtle" size="md" onClick={() => { setOk(false); setOpen(true); }}>
+          Change my PIN
+        </Button>
+      </Group>
+    );
+  }
+  return (
+    <Card withBorder padding="lg">
+      <Stack>
+        <Text fw={700} size="lg">Change my PIN</Text>
+        <PasswordInput label="New PIN (6–8 digits)" inputMode="numeric" size="lg" value={np}
+          onChange={(e) => setNp(digits(e.currentTarget.value))} />
+        <PasswordInput label="Confirm new PIN" inputMode="numeric" size="lg" value={confirm}
+          onChange={(e) => setConfirm(digits(e.currentTarget.value))} />
+        {error && <Text c="red">{error}</Text>}
+        <Group justify="flex-end">
+          <Button variant="default" size="lg" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button size="lg" loading={busy} disabled={np.length < 6 || np !== confirm} onClick={submit}>
+            Update PIN
+          </Button>
+        </Group>
+      </Stack>
+    </Card>
   );
 }
 
