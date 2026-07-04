@@ -8,12 +8,12 @@ import {
   Select,
   Stack,
   Text,
-  Textarea,
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { TimeField } from "./TimeField";
 import { DateField } from "./DateField";
+import { RichTextField, RichTextView } from "./RichText";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -165,9 +165,8 @@ export function ShiftModal({
         </Group>
         <NumberInput label="People needed" min={1} value={headcount} disabled={ro}
           onChange={(v) => setHeadcount(Number(v) || 1)} />
-        <Textarea label="Description" placeholder="Longer detail shown in the day view"
-          value={description} disabled={ro} autosize minRows={2}
-          onChange={(e) => setDescription(e.currentTarget.value)} />
+        <RichTextField label="Description" placeholder="Longer detail shown in the day view"
+          value={description} disabled={ro} onChange={setDescription} />
 
         {editing ? (
           <Group justify="space-between">
@@ -197,7 +196,7 @@ export function ShiftModal({
               {notes.map((n) => (
                 <Group key={n.id} justify="space-between" align="flex-start" wrap="nowrap">
                   <div style={{ flex: 1 }}>
-                    <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{n.body}</Text>
+                    <RichTextView html={n.body} />
                     <Text size="xs" c="dimmed">
                       {n.author_name ?? "—"} · {dayjs(n.created_at).format("D MMM YYYY, HH:mm")}
                     </Text>
@@ -212,13 +211,14 @@ export function ShiftModal({
               ))}
             </Stack>
             {canEdit && (
-              <Group align="flex-end" gap="xs" wrap="nowrap">
-                <Textarea placeholder="Add a note…" value={newNote} autosize minRows={1} style={{ flex: 1 }}
-                  onChange={(e) => setNewNote(e.currentTarget.value)} />
-                <Button loading={addNoteM.isPending} disabled={!newNote.trim()} onClick={() => addNoteM.mutate()}>
-                  Add
-                </Button>
-              </Group>
+              <Stack gap="xs">
+                <RichTextField value={newNote} onChange={setNewNote} placeholder="Add a note…" />
+                <Group justify="flex-end">
+                  <Button loading={addNoteM.isPending} disabled={!newNote} onClick={() => addNoteM.mutate()}>
+                    Add note
+                  </Button>
+                </Group>
+              </Stack>
             )}
           </>
         )}

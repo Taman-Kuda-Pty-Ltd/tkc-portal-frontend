@@ -10,6 +10,7 @@ import { useSettings } from "../../settings/SettingsContext";
 import { layoutDay } from "./timeLayout";
 import { shiftVisual } from "./types";
 import type { ScheduleCtx } from "./types";
+import { RichTextView, htmlToText } from "../RichText";
 
 const HOUR_HEIGHT = 56; // px per hour
 const RANGE = { start: 0, end: 24 }; // midnight to midnight
@@ -286,9 +287,8 @@ export function TimeGrid({
                       )}
                       {showNotes &&
                         p.shift.notes.slice(0, 3).map((n) => (
-                          <Text key={n.id} fz={9} c="dimmed" mt={4} lineClamp={2}
-                            style={{ whiteSpace: "pre-wrap" }}>
-                            • {n.body}
+                          <Text key={n.id} fz={9} c="dimmed" mt={4} lineClamp={2}>
+                            • {htmlToText(n.body)}
                           </Text>
                         ))}
                     </Paper>
@@ -316,7 +316,7 @@ export function TimeGrid({
           <Stack gap="xs">
             {notesShift.notes.map((n) => (
               <div key={n.id}>
-                <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{n.body}</Text>
+                <RichTextView html={n.body} />
                 <Text size="xs" c="dimmed">
                   {n.author_name ?? "—"} · {dayjs(n.created_at).format("D MMM HH:mm")}
                 </Text>

@@ -12,7 +12,6 @@ import {
   SimpleGrid,
   Stack,
   Text,
-  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -25,6 +24,7 @@ import { api } from "../api/client";
 import type { Activity, Person, RecurrenceUnit, Role, ShiftTemplate } from "../api/types";
 import { RECURRENCE_OPTIONS, WEEKDAYS } from "../lib/constants";
 import { TimeField } from "../components/TimeField";
+import { RichTextField } from "../components/RichText";
 
 interface SlotDraft {
   activity_id: string | null;
@@ -225,9 +225,8 @@ export function ShiftTemplateEditorPage() {
                   onChange={(v) => updateSlot(i, { assigned_person_ids: v })} comboboxProps={{ withinPortal: true }} />
               </SimpleGrid>
 
-              <Textarea label="Description" placeholder="Longer detail shown in the day view (optional)"
-                value={s.description} autosize minRows={2}
-                onChange={(e) => updateSlot(i, { description: e.currentTarget.value })} />
+              <RichTextField label="Description" placeholder="Longer detail shown in the day view (optional)"
+                value={s.description} onChange={(html) => updateSlot(i, { description: html })} />
             </Stack>
           </Paper>
         ))}

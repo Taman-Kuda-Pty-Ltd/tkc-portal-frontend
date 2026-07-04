@@ -1,0 +1,20 @@
+/* Read-only rendering of stored rich text. */
+.tkc-rte-view {
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.45;
+  word-break: break-word;
+}
+.tkc-rte-view p {
+  margin: 0 0 0.35em;
+}
+.tkc-rte-view p:last-child {
+  margin-bottom: 0;
+}
+.tkc-rte-view ul,
+.tkc-rte-view ol {
+  margin: 0 0 0.35em;
+  padding-left: 1.4em;
+}
+.tkc-rte-view li {
+  margin: 0.1em 0;
+}

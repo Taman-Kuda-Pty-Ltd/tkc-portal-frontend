@@ -4,6 +4,7 @@ import { formatISOTime } from "../../lib/time";
 import type { Shift } from "../../api/types";
 import { shiftVisual } from "./types";
 import type { ScheduleCtx } from "./types";
+import { RichTextView } from "../RichText";
 
 /** The full shift card used in Week and Day views. */
 export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
@@ -39,9 +40,9 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         {formatISOTime(shift.ends_at, ctx.timeFormat)}
         {shift.title ? ` · ${activity?.name ?? ""}` : ""}
       </Text>
-      {shift.description?.trim() && (
-        <Text size="xs" c="dimmed" mt={4} style={{ whiteSpace: "pre-wrap" }}>
-          {shift.description}
+      {shift.description && (
+        <Text size="xs" c="dimmed" mt={4} component="div">
+          <RichTextView html={shift.description} />
         </Text>
       )}
       {shift.notes.length > 0 && (
