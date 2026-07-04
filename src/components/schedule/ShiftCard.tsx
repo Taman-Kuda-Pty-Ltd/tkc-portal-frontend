@@ -1,7 +1,7 @@
 import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { formatISOTime } from "../../lib/time";
-import type { Shift } from "../../api/types";
+import type { ActivityHeading, Shift } from "../../api/types";
 import { shiftVisual } from "./types";
 import type { ScheduleCtx } from "./types";
 import { RichTextView } from "../RichText";
@@ -10,6 +10,7 @@ import { RichTextView } from "../RichText";
 export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
   const v = shiftVisual(shift, ctx);
   const activity = ctx.activityById.get(shift.activity_id);
+  const headings = (activity?.headings ?? []).filter((h) => h.is_active);
 
   return (
     <Paper
@@ -51,16 +52,60 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         </Text>
       )}
       <Divider mt={6} mb={4} />
-      <Text size="xs" fw={700} tt="uppercase" mb={3} style={{ letterSpacing: 0.6 }}>
-        Staff
-      </Text>
-      <Stack gap={4}>
-        {shift.assignments.length === 0 && (
-          <Text size="xs" c="dimmed">
-            None
-          </Text>
+      {headings.length > 0 ? (
+        <Stack gap={8}>
+          {headings.map((h) => (
+            <HeadingGroup key={h.id} shift={shift} ctx={ctx} heading={h} />
+          ))}
+        </Stack>
+      ) : (
+        <HeadingGroup shift={shift} ctx={ctx} heading={null} />
+      )}
+    </Paper>
+  );
+}
+
+/** One heading's assigned people + an eligibility-filtered assign picker.
+ *  heading=null renders a generic "Staff" group (activities with no headings). */
+function HeadingGroup({
+  shift,
+  ctx,
+  heading,
+}: {
+  shift: Shift;
+  ctx: ScheduleCtx;
+  heading: ActivityHeading | null;
+}) {
+  const assigned = shift.assignments.filter((a) =>
+    heading ? a.heading_id === heading.id : a.heading_id === null,
+  );
+  const label = heading?.label ?? "Staff";
+  const target = heading?.count;
+  const eligible = [...ctx.personById.values()]
+    .filter((p) => p.is_active)
+    .filter(
+      (p) =>
+        !heading?.qualifying_role_id ||
+        p.roles.some((r) => r.id === heading.qualifying_role_id),
+    )
+    .filter((p) => !assigned.some((a) => a.person_id === p.id))
+    .map((p) => ({ value: String(p.id), label: p.full_name }));
+
+  return (
+    <div>
+      <Group gap={6} mb={3} justify="space-between">
+        <Text size="xs" fw={700} tt="uppercase" style={{ letterSpacing: 0.6 }}>
+          {label}
+        </Text>
+        {target !== undefined && (
+          <Badge size="xs" variant="light" color={assigned.length >= target ? "teal" : "yellow"}>
+            {assigned.length}/{target}
+          </Badge>
         )}
-        {shift.assignments.map((a) => (
+      </Group>
+      <Stack gap={4}>
+        {assigned.length === 0 && <Text size="xs" c="dimmed">None</Text>}
+        {assigned.map((a) => (
           <Group
             key={a.id}
             justify="space-between"
@@ -77,29 +122,9 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
             <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
               {a.person_name ?? `#${a.person_id}`}
             </Text>
-            {ctx.canAssign ? (
-              <Select
-                size="xs"
-                variant="filled"
-                placeholder="Role…"
-                data={ctx.roleOptions}
-                value={a.role_id ? String(a.role_id) : null}
-                clearable
-                w={116}
-                onChange={(v) => ctx.onSetRole(shift.id, a.id, v ? Number(v) : null)}
-                comboboxProps={{ withinPortal: true }}
-              />
-            ) : (
-              a.role_name && <Badge size="xs" variant="light">{a.role_name}</Badge>
-            )}
             {ctx.canAssign && (
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="red"
-                onClick={() => ctx.onUnassign(shift.id, a.id)}
-                aria-label="Remove"
-              >
+              <ActionIcon size="sm" variant="subtle" color="red"
+                onClick={() => ctx.onUnassign(shift.id, a.id)} aria-label="Remove">
                 <IconX size={14} />
               </ActionIcon>
             )}
@@ -109,16 +134,17 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
           <Select
             size="xs"
             variant="filled"
-            placeholder="Assign…"
+            placeholder={`Assign ${label.toLowerCase()}…`}
             leftSection={<IconPlus size={12} />}
             searchable
-            data={ctx.peopleOptions}
+            data={eligible}
             value={null}
-            onChange={(val) => val && ctx.onAssign(shift.id, Number(val))}
+            nothingFoundMessage="No eligible people"
+            onChange={(val) => val && ctx.onAssign(shift.id, Number(val), heading?.id ?? null)}
             comboboxProps={{ withinPortal: true }}
           />
         )}
       </Stack>
-    </Paper>
+    </div>
   );
 }

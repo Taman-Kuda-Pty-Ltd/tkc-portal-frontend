@@ -30,6 +30,17 @@ export interface Person {
   roles: Role[];
 }
 
+export interface ActivityHeading {
+  id: number;
+  activity_id: number;
+  label: string;
+  resource_kind: string;
+  qualifying_role_id: number | null;
+  count: number;
+  position: number;
+  is_active: boolean;
+}
+
 export interface Activity {
   id: number;
   slug: string;
@@ -38,6 +49,7 @@ export interface Activity {
   description: string | null;
   color: string | null;
   is_active: boolean;
+  headings: ActivityHeading[];
 }
 
 export type StaffType = "employee" | "contractor" | "volunteer" | "other";
@@ -240,6 +252,8 @@ export interface Assignment {
   shift_id: number;
   person_id: number;
   person_name: string | null;
+  heading_id: number | null;
+  heading_label: string | null;
   role_id: number | null;
   role_name: string | null;
   status: AssignmentStatus;

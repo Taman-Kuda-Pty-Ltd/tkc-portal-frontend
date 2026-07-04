@@ -7,7 +7,7 @@ import type { ScheduleCtx } from "./types";
 export function ShiftChip({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
   const v = shiftVisual(shift, ctx);
   const staff = shift.assignments
-    .map((a) => (a.role_name ? `${a.role_name}: ${a.person_name ?? "…"}` : a.person_name ?? "…"))
+    .map((a) => (a.heading_label ? `${a.heading_label}: ${a.person_name ?? "…"}` : a.person_name ?? "…"))
     .join(", ");
   const understaffed = shift.assignments.length < shift.headcount;
   return (

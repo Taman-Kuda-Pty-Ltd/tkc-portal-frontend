@@ -7,15 +7,13 @@ export interface ScheduleCtx {
   activityById: Map<number, Activity>;
   personById: Map<number, Person>;
   peopleOptions: { value: string; label: string }[];
-  roleOptions: { value: string; label: string }[];
   canManageShifts: boolean;
   canAssign: boolean;
   timeFormat: TimeFormat;
   onOpenShift: (s: Shift) => void;
   onAddShift: (d: Dayjs) => void;
-  onAssign: (shiftId: number, personId: number) => void;
+  onAssign: (shiftId: number, personId: number, headingId: number | null) => void;
   onUnassign: (shiftId: number, assignmentId: number) => void;
-  onSetRole: (shiftId: number, assignmentId: number, roleId: number | null) => void;
 }
 
 export interface ShiftVisual {
@@ -32,8 +30,11 @@ export interface ShiftVisual {
 
 export function shiftVisual(shift: Shift, ctx: ScheduleCtx): ShiftVisual {
   const activity = ctx.activityById.get(shift.activity_id);
+  const headings = activity?.headings ?? [];
   const assigned = shift.assignments.length;
-  const needed = shift.headcount;
+  const needed = headings.length
+    ? headings.reduce((sum, h) => sum + h.count, 0)
+    : shift.headcount;
   const label = shift.title || activity?.name || "Shift";
   return {
     color: activity?.color ?? "#2f855a",
