@@ -281,7 +281,8 @@ export function TimeGrid({
                       ) : (
                         p.shift.assignments.map((a) => (
                           <Text key={a.id} fz={detailed ? 12 : 11} fw={600} lineClamp={1}>
-                            {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
+                            {a.role_name ? `${a.role_name}: ` : ""}
+                            {a.person_name ?? `#${a.person_id}`}
                           </Text>
                         ))
                       )}

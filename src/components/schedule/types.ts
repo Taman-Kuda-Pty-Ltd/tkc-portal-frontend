@@ -7,6 +7,7 @@ export interface ScheduleCtx {
   activityById: Map<number, Activity>;
   personById: Map<number, Person>;
   peopleOptions: { value: string; label: string }[];
+  roleOptions: { value: string; label: string }[];
   canManageShifts: boolean;
   canAssign: boolean;
   timeFormat: TimeFormat;
@@ -14,6 +15,7 @@ export interface ScheduleCtx {
   onAddShift: (d: Dayjs) => void;
   onAssign: (shiftId: number, personId: number) => void;
   onUnassign: (shiftId: number, assignmentId: number) => void;
+  onSetRole: (shiftId: number, assignmentId: number, roleId: number | null) => void;
 }
 
 export interface ShiftVisual {

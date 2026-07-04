@@ -16,7 +16,7 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, Person, ScheduleLens, Shift } from "../api/types";
+import type { Activity, Person, Role, ScheduleLens, Shift } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ShiftModal } from "../components/ShiftModal";
 import { DayView } from "../components/schedule/DayView";
@@ -85,6 +85,11 @@ export function SchedulePage() {
     queryKey: ["schedule-lenses"],
     queryFn: () => api.get<ScheduleLens[]>("/schedule-lenses"),
   });
+  const rolesQ = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => api.get<Role[]>("/roles"),
+    enabled: canAssign,
+  });
 
   const activityById = useMemo(
     () => new Map((activitiesQ.data ?? []).map((a) => [a.id, a])),
@@ -131,11 +136,18 @@ export function SchedulePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+  const setRoleM = useMutation({
+    mutationFn: (v: { shiftId: number; assignmentId: number; roleId: number | null }) =>
+      api.patch(`/shifts/${v.shiftId}/assignments/${v.assignmentId}`, { role_id: v.roleId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
 
   const ctx: ScheduleCtx = {
     activityById,
     personById,
     peopleOptions: (peopleQ.data ?? []).map((p) => ({ value: String(p.id), label: p.full_name })),
+    roleOptions: (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name })),
     canManageShifts,
     canAssign,
     timeFormat,
@@ -143,6 +155,7 @@ export function SchedulePage() {
     onAddShift: (d) => setAddingOn(d.toDate()),
     onAssign: (shiftId, personId) => assignM.mutate({ shiftId, personId }),
     onUnassign: (shiftId, assignmentId) => unassignM.mutate({ shiftId, assignmentId }),
+    onSetRole: (shiftId, assignmentId, roleId) => setRoleM.mutate({ shiftId, assignmentId, roleId }),
   };
 
   // --- navigation ---

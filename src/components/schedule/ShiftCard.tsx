@@ -74,9 +74,24 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
               borderRadius: "var(--mantine-radius-sm)",
             }}
           >
-            <Text size="sm" fw={600} lineClamp={1}>
-              {ctx.personById.get(a.person_id)?.full_name ?? `#${a.person_id}`}
+            <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
+              {a.person_name ?? `#${a.person_id}`}
             </Text>
+            {ctx.canAssign ? (
+              <Select
+                size="xs"
+                variant="filled"
+                placeholder="Role…"
+                data={ctx.roleOptions}
+                value={a.role_id ? String(a.role_id) : null}
+                clearable
+                w={116}
+                onChange={(v) => ctx.onSetRole(shift.id, a.id, v ? Number(v) : null)}
+                comboboxProps={{ withinPortal: true }}
+              />
+            ) : (
+              a.role_name && <Badge size="xs" variant="light">{a.role_name}</Badge>
+            )}
             {ctx.canAssign && (
               <ActionIcon
                 size="sm"
