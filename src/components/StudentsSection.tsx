@@ -87,6 +87,15 @@ function StudentCard({
     onSuccess: invalidate,
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+  const selfManageM = useMutation({
+    mutationFn: () => api.post("/account-holders", { person_id: student.person_id }),
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["account-holders"] });
+      notifications.show({ color: "teal", message: `${student.name} now manages their own account.` });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
 
   const linkedIds = new Set(student.account_holders.map((a) => a.account_holder_id));
   const options = holders.filter((h) => !linkedIds.has(h.id)).map((h) => ({ value: String(h.id), label: h.name }));
@@ -97,13 +106,22 @@ function StudentCard({
         <Group gap="xs">
           <Text fw={600}>{student.name}</Text>
           {student.is_minor && <Badge color="orange" variant="light">Minor</Badge>}
+          {student.is_self_managing && <Badge color="teal" variant="light">Self-managing</Badge>}
           {student.date_of_birth && (
             <Text size="sm" c="dimmed">b. {dayjs(student.date_of_birth).format("D MMM YYYY")}</Text>
           )}
         </Group>
-        <ActionIcon color="red" variant="subtle" aria-label="Delete" onClick={onDelete}>
-          <IconTrash size={16} />
-        </ActionIcon>
+        <Group gap="xs">
+          {!student.is_self_managing && !student.is_minor && (
+            <Button size="xs" variant="subtle" loading={selfManageM.isPending}
+              onClick={() => selfManageM.mutate()}>
+              Make self-managing
+            </Button>
+          )}
+          <ActionIcon color="red" variant="subtle" aria-label="Delete" onClick={onDelete}>
+            <IconTrash size={16} />
+          </ActionIcon>
+        </Group>
       </Group>
 
       <Text size="sm" fw={500} mt="sm">Account holders</Text>

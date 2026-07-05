@@ -69,6 +69,7 @@ export interface StudentRec {
   name: string;
   date_of_birth: string | null;
   is_minor: boolean;
+  is_self_managing: boolean;
   notes: string | null;
   is_active: boolean;
   account_holders: StudentAccountHolder[];
