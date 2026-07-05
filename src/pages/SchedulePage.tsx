@@ -137,6 +137,18 @@ export function SchedulePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+  const draftCount = (shiftsQ.data ?? []).filter((s) => s.status === "draft").length;
+  const publishDraftsM = useMutation({
+    mutationFn: () =>
+      api.post<number>(
+        `/shifts/publish?start=${rangeStart.format("YYYY-MM-DDTHH:mm:ss")}&end=${rangeEnd.format("YYYY-MM-DDTHH:mm:ss")}`,
+      ),
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ["shifts"] });
+      notifications.show({ color: "teal", message: `Published ${n} shift${n === 1 ? "" : "s"}.` });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
 
   const ctx: ScheduleCtx = {
     activityById,
@@ -204,6 +216,12 @@ export function SchedulePage() {
               onClick={() => setAddingOn(addDefault.toDate())}
             >
               Add shift
+            </Button>
+          )}
+          {canManageShifts && draftCount > 0 && (
+            <Button size="xs" color="teal" loading={publishDraftsM.isPending}
+              onClick={() => publishDraftsM.mutate()}>
+              Publish {draftCount} draft{draftCount === 1 ? "" : "s"}
             </Button>
           )}
         </Group>

@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Alert,
+  Badge,
   Button,
   Divider,
   Group,
@@ -10,6 +11,7 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  Textarea,
   TextInput,
 } from "@mantine/core";
 import { IconPlus, IconX } from "@tabler/icons-react";
@@ -62,6 +64,11 @@ export function ShiftModal({
   const [facilityId, setFacilityId] = useState<string | null>(null);
   const [payHours, setPayHours] = useState<number | string>("");
   const [rides, setRides] = useState<RideDraft[]>([]);
+  const [amendmentReason, setAmendmentReason] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const isDraft = shift?.status === "draft";
+  const isPublished = shift?.status === "published";
 
   const activitiesQ = useQuery({
     queryKey: ["activities"],
@@ -149,6 +156,7 @@ export function ShiftModal({
         headcount,
         facility_id: isLesson && facilityId ? Number(facilityId) : null,
         pay_hours: payHours !== "" ? Number(payHours) : null,
+        amendment_reason: isPublished ? amendmentReason.trim() || null : null,
       };
       const saved = shift
         ? await api.patch<Shift>(`/shifts/${shift.id}`, body)
@@ -181,6 +189,16 @@ export function ShiftModal({
       qc.invalidateQueries({ queryKey: ["shifts"] });
       onClose();
     },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const publishM = useMutation({
+    mutationFn: () => api.post(`/shifts/${shift!.id}/publish`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["shifts"] }); onClose(); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const cancelM = useMutation({
+    mutationFn: () => api.post(`/shifts/${shift!.id}/cancel`, { reason: cancelReason.trim() || null }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["shifts"] }); onClose(); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
@@ -222,6 +240,14 @@ export function ShiftModal({
       title={shift ? (editing ? "Edit shift" : "Shift") : "Add shift"}
     >
       <Stack>
+        {shift && (
+          <Group gap="xs">
+            <Badge variant="light" color={isDraft ? "gray" : isPublished ? "teal" : "red"}>
+              {shift.status}
+            </Badge>
+            {isDraft && <Text size="xs" c="dimmed">Staff can't see this until it's published.</Text>}
+          </Group>
+        )}
         <TextInput label="Title" placeholder="Short label (defaults to the activity name)"
           value={title} disabled={ro} onChange={(e) => setTitle(e.currentTarget.value)} />
         <TextInput label="Abbreviation" placeholder="For compact views, e.g. AM" maxLength={10}
@@ -311,18 +337,54 @@ export function ShiftModal({
           </>
         )}
 
+        {editing && isPublished && (
+          <Textarea label="Reason for change"
+            description="Required if you change the time, pay or activity — staff are notified."
+            value={amendmentReason} autosize minRows={1}
+            onChange={(e) => setAmendmentReason(e.currentTarget.value)} />
+        )}
+
+        {editing && cancelling && (
+          <Alert color="orange" title="Cancel this shift?">
+            <Stack gap="xs">
+              <Textarea placeholder="Reason (optional — sent to staff/clients)"
+                value={cancelReason} autosize minRows={1}
+                onChange={(e) => setCancelReason(e.currentTarget.value)} />
+              <Group justify="flex-end">
+                <Button variant="default" size="xs" onClick={() => setCancelling(false)}>Back</Button>
+                <Button color="orange" size="xs" loading={cancelM.isPending} onClick={() => cancelM.mutate()}>
+                  Confirm cancel
+                </Button>
+              </Group>
+            </Stack>
+          </Alert>
+        )}
+
         {editing ? (
           <Group justify="space-between">
             {shift ? (
-              <Button color="red" variant="light" loading={deleteM.isPending} onClick={() => deleteM.mutate()}>
-                Delete
-              </Button>
+              isDraft ? (
+                <Button color="red" variant="light" loading={deleteM.isPending} onClick={() => deleteM.mutate()}>
+                  Delete
+                </Button>
+              ) : (
+                <Button color="orange" variant="light" onClick={() => setCancelling(true)}>
+                  Cancel shift
+                </Button>
+              )
             ) : (
               <span />
             )}
-            <Button loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
-              Save
-            </Button>
+            <Group gap="xs">
+              {isDraft && (
+                <Button color="teal" loading={publishM.isPending} onClick={() => publishM.mutate()}>
+                  Publish
+                </Button>
+              )}
+              <Button loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
+                Save
+              </Button>
+            </Group>
           </Group>
         ) : (
           <Group justify="flex-end">

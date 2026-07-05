@@ -33,6 +33,24 @@ interface Variance {
   reason: string | null;
 }
 
+interface NoShow {
+  shift_id: number;
+  title: string | null;
+  activity_name: string | null;
+  starts_at: string;
+  person_id: number;
+  person_name: string | null;
+}
+interface OpenAtt {
+  attendance_id: number;
+  person_id: number;
+  person_name: string | null;
+  shift_id: number | null;
+  shift_title: string | null;
+  checked_in_at: string;
+  planned_hours: number | null;
+}
+
 interface CoachChange {
   id: number;
   shift_id: number;
@@ -58,12 +76,40 @@ export function ApprovalsPage() {
     queryKey: ["variance"],
     queryFn: () => api.get<Variance[]>("/variance/pending"),
   });
+  const nsQ = useQuery({
+    queryKey: ["no-shows"],
+    queryFn: () => api.get<NoShow[]>("/shifts/no-shows"),
+    refetchInterval: 60000,
+  });
+  const openQ = useQuery({
+    queryKey: ["open-attendance"],
+    queryFn: () => api.get<OpenAtt[]>("/attendance/open"),
+    refetchInterval: 60000,
+  });
 
   return (
     <Stack maw={780} w="100%" mx="auto">
-      <Title order={2}>Approvals</Title>
+      <Title order={2}>Approvals & attention</Title>
 
-      <Title order={4} mt="sm">Extra tasks</Title>
+      {(nsQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="sm" c="orange">No-shows</Title>
+          <Text size="sm" c="dimmed">
+            Assigned to a started shift but not checked in. Mark them present if they're here.
+          </Text>
+          {(nsQ.data ?? []).map((n) => <NoShowRow key={`${n.shift_id}-${n.person_id}`} item={n} />)}
+        </>
+      )}
+
+      {(openQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg">Still checked in</Title>
+          <Text size="sm" c="dimmed">People who haven't checked out. Close it off for them.</Text>
+          {(openQ.data ?? []).map((o) => <OpenAttRow key={o.attendance_id} item={o} />)}
+        </>
+      )}
+
+      <Title order={4} mt="lg">Extra tasks</Title>
       <Text size="sm" c="dimmed">
         Staff-logged extra tasks awaiting review. For a lesson, confirm (or change) the
         lesson type; otherwise the hours. The person is emailed the outcome.
@@ -347,6 +393,68 @@ function VarianceRow({ item }: { item: Variance }) {
           </Group>
         </Stack>
       </Modal>
+    </Card>
+  );
+}
+
+function NoShowRow({ item }: { item: NoShow }) {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: () => api.post(`/shifts/${item.shift_id}/manager-check-in`, { person_id: item.person_id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["no-shows"] });
+      qc.invalidateQueries({ queryKey: ["open-attendance"] });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="wrap">
+        <div>
+          <Text fw={600}>{item.person_name ?? "—"}</Text>
+          <Text size="sm" c="dimmed">
+            {item.title || item.activity_name || "Shift"} · {dayjs(item.starts_at).format("D MMM HH:mm")}
+          </Text>
+        </div>
+        <Button size="sm" variant="light" loading={m.isPending} onClick={() => m.mutate()}>
+          Mark present
+        </Button>
+      </Group>
+    </Card>
+  );
+}
+
+function OpenAttRow({ item }: { item: OpenAtt }) {
+  const qc = useQueryClient();
+  const [hours, setHours] = useState<number>(item.planned_hours ?? 0);
+  const m = useMutation({
+    mutationFn: () =>
+      api.post(`/attendance/${item.attendance_id}/manager-check-out`, {
+        claimed_hours: item.shift_id ? hours : null,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["open-attendance"] }),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="wrap">
+        <div>
+          <Text fw={600}>{item.person_name ?? "—"}</Text>
+          <Text size="sm" c="dimmed">
+            {item.shift_title ?? (item.shift_id ? "Shift" : "Coaching")} · in{" "}
+            {dayjs(item.checked_in_at).format("HH:mm")}
+          </Text>
+        </div>
+        <Group gap="xs" align="flex-end">
+          {item.shift_id && (
+            <NumberInput label="Hours" w={90} min={0} step={0.25} value={hours}
+              onChange={(v) => setHours(Number(v) || 0)} />
+          )}
+          <Button size="sm" variant="light" color="orange" loading={m.isPending} onClick={() => m.mutate()}>
+            Check out
+          </Button>
+        </Group>
+      </Group>
     </Card>
   );
 }

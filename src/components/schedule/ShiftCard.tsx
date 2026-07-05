@@ -33,6 +33,9 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
           </Text>
         </UnstyledButton>
         <Group gap={4} wrap="nowrap">
+          {shift.status === "draft" && (
+            <Badge size="sm" variant="light" color="gray">Draft</Badge>
+          )}
           {shift.approval_status === "pending" && (
             <Badge size="sm" variant="light" color="yellow">Pending</Badge>
           )}

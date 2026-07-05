@@ -265,7 +265,7 @@ export interface ScheduleLens {
 }
 
 export type RecurrenceUnit = "daily" | "weekly" | "fortnightly" | "monthly";
-export type ShiftStatus = "scheduled" | "cancelled";
+export type ShiftStatus = "draft" | "published" | "cancelled";
 export type AssignmentStatus = "assigned" | "confirmed" | "declined";
 
 export interface ShiftTemplateSlot {
@@ -341,6 +341,7 @@ export interface Shift {
   facility_id: number | null;
   facility_name: string | null;
   pay_hours: number | null;
+  published_at: string | null;
   source_shift_template_id: number | null;
   assignments: Assignment[];
   notes: ShiftNote[];
