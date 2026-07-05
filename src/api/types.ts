@@ -55,6 +55,34 @@ export interface Activity {
   headings: ActivityHeading[];
 }
 
+export interface StudentAccountHolder {
+  link_id: number;
+  account_holder_id: number;
+  name: string;
+  relationship: string;
+  is_billing: boolean;
+  is_responsible: boolean;
+}
+export interface StudentRec {
+  id: number;
+  person_id: number;
+  name: string;
+  date_of_birth: string | null;
+  is_minor: boolean;
+  notes: string | null;
+  is_active: boolean;
+  account_holders: StudentAccountHolder[];
+}
+export interface AccountHolderRec {
+  id: number;
+  person_id: number;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  notes: string | null;
+  is_active: boolean;
+}
+
 export interface NamedResource {
   id: number;
   name: string;
