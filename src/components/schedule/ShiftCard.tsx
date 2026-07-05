@@ -12,6 +12,21 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
   const activity = ctx.activityById.get(shift.activity_id);
   const headings = (activity?.headings ?? []).filter((h) => h.is_active);
 
+  // Cancelled shifts are hidden by default; when shown they collapse to a struck line.
+  if (shift.status === "cancelled") {
+    return (
+      <Paper radius="sm" p={6} bg="var(--mantine-color-default)"
+        style={{ border: "1px dashed var(--mantine-color-default-border)", opacity: 0.6 }}>
+        <UnstyledButton onClick={() => ctx.onOpenShift(shift)} style={{ width: "100%", textAlign: "left" }}>
+          <Group gap={6} justify="space-between" wrap="nowrap">
+            <Text size="sm" td="line-through" c="dimmed" lineClamp={1}>{v.label}</Text>
+            <Badge size="sm" variant="light" color="red">Cancelled</Badge>
+          </Group>
+        </UnstyledButton>
+      </Paper>
+    );
+  }
+
   return (
     <Paper
       radius="sm"

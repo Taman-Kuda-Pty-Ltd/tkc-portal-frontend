@@ -4,6 +4,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
 import { OrgSettingsSection } from "../components/OrgSettingsSection";
 import { AccountHoldersSection } from "../components/AccountHoldersSection";
+import { FacilitiesSection } from "../components/FacilitiesSection";
 import { ResourceListSection } from "../components/ResourceListSection";
 import { StudentsSection } from "../components/StudentsSection";
 import { TerminalsSection } from "../components/TerminalsSection";
@@ -126,7 +127,7 @@ export function SettingsPage() {
               <Text fw={600}>Facilities</Text>
             </Accordion.Control>
             <Accordion.Panel>
-              <ResourceListSection path="facilities" addPlaceholder="Add a facility…" />
+              <FacilitiesSection />
             </Accordion.Panel>
           </Accordion.Item>
         )}
