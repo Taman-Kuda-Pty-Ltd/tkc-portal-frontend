@@ -51,6 +51,7 @@ export interface Activity {
   is_active: boolean;
   is_lesson: boolean;
   default_lesson_hours: number | null;
+  variance_margin_hours: number | null;
   headings: ActivityHeading[];
 }
 

@@ -4,11 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
-import type { Person } from "../api/types";
+import type { Activity, Person } from "../api/types";
 
 interface PendingShift {
   shift_id: number;
+  activity_id: number;
   activity_name: string | null;
+  is_lesson: boolean;
   title: string | null;
   starts_at: string;
   ends_at: string;
@@ -18,6 +20,17 @@ interface PendingShift {
   checked_out_at: string | null;
   claimed_hours: number | null;
   notes: string | null;
+}
+
+interface Variance {
+  attendance_id: number;
+  person_name: string | null;
+  shift_title: string | null;
+  activity_name: string | null;
+  starts_at: string | null;
+  planned_hours: number | null;
+  claimed_hours: number | null;
+  reason: string | null;
 }
 
 interface CoachChange {
@@ -41,6 +54,10 @@ export function ApprovalsPage() {
     queryKey: ["coach-changes"],
     queryFn: () => api.get<CoachChange[]>("/coach-changes/pending"),
   });
+  const varQ = useQuery({
+    queryKey: ["variance"],
+    queryFn: () => api.get<Variance[]>("/variance/pending"),
+  });
 
   return (
     <Stack maw={780} w="100%" mx="auto">
@@ -48,8 +65,8 @@ export function ApprovalsPage() {
 
       <Title order={4} mt="sm">Extra tasks</Title>
       <Text size="sm" c="dimmed">
-        Staff-logged extra tasks awaiting review. Approving counts the hours; rejecting
-        needs a reason. Either way the person is emailed the outcome.
+        Staff-logged extra tasks awaiting review. For a lesson, confirm (or change) the
+        lesson type; otherwise the hours. The person is emailed the outcome.
       </Text>
       {q.isLoading ? (
         <Loader />
@@ -57,6 +74,19 @@ export function ApprovalsPage() {
         <Text c="dimmed">Nothing to review.</Text>
       ) : (
         (q.data ?? []).map((p) => <PendingRow key={p.shift_id} item={p} />)
+      )}
+
+      <Title order={4} mt="lg">Hours variance</Title>
+      <Text size="sm" c="dimmed">
+        Check-outs where the claimed hours differ from planned beyond the activity's
+        margin. Approve (adjust if needed) or reject to the planned hours.
+      </Text>
+      {varQ.isLoading ? (
+        <Loader />
+      ) : (varQ.data ?? []).length === 0 ? (
+        <Text c="dimmed">Nothing to review.</Text>
+      ) : (
+        (varQ.data ?? []).map((v) => <VarianceRow key={v.attendance_id} item={v} />)
       )}
 
       <Title order={4} mt="lg">Coach cover</Title>
@@ -78,15 +108,27 @@ export function ApprovalsPage() {
 function PendingRow({ item }: { item: PendingShift }) {
   const qc = useQueryClient();
   const [hours, setHours] = useState<number>(item.claimed_hours ?? 0);
+  const [lessonType, setLessonType] = useState<string>(String(item.activity_id));
   const [rejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const activitiesQ = useQuery({
+    queryKey: ["activities"],
+    queryFn: () => api.get<Activity[]>("/activities"),
+    enabled: item.is_lesson,
+  });
+  const lessonOptions = (activitiesQ.data ?? [])
+    .filter((a) => a.is_lesson && a.is_active)
+    .map((a) => ({ value: String(a.id), label: a.name }));
   const done = () => {
     qc.invalidateQueries({ queryKey: ["pending-approval"] });
     qc.invalidateQueries({ queryKey: ["pending-approval-count"] });
     qc.invalidateQueries({ queryKey: ["shifts"] });
   };
   const approveM = useMutation({
-    mutationFn: () => api.post(`/shifts/${item.shift_id}/approve`, { claimed_hours: hours }),
+    mutationFn: () =>
+      api.post(`/shifts/${item.shift_id}/approve`, item.is_lesson
+        ? { activity_id: Number(lessonType) }
+        : { claimed_hours: hours }),
     onSuccess: done,
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
@@ -113,8 +155,13 @@ function PendingRow({ item }: { item: PendingShift }) {
           {item.notes && <Text size="sm" mt={4} style={{ whiteSpace: "pre-wrap" }}>{item.notes}</Text>}
         </div>
         <Group gap="xs" align="flex-end">
-          <NumberInput label="Hours" w={90} min={0} step={0.25} value={hours}
-            onChange={(v) => setHours(Number(v) || 0)} />
+          {item.is_lesson ? (
+            <Select label="Lesson type" w={160} data={lessonOptions} value={lessonType}
+              onChange={(v) => v && setLessonType(v)} comboboxProps={{ withinPortal: true }} />
+          ) : (
+            <NumberInput label="Hours" w={90} min={0} step={0.25} value={hours}
+              onChange={(v) => setHours(Number(v) || 0)} />
+          )}
           <Button color="teal" loading={approveM.isPending} disabled={notCheckedOut}
             onClick={() => approveM.mutate()}>
             Approve
@@ -230,6 +277,72 @@ function CoachChangeRow({ item }: { item: CoachChange }) {
               disabled={!note.trim() || (action === "reassign" && !reassignTo)}
               onClick={() => resolveM.mutate()}>
               Confirm
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Card>
+  );
+}
+
+function VarianceRow({ item }: { item: Variance }) {
+  const qc = useQueryClient();
+  const [hours, setHours] = useState<number>(item.claimed_hours ?? 0);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const done = () => {
+    qc.invalidateQueries({ queryKey: ["variance"] });
+    qc.invalidateQueries({ queryKey: ["variance-count"] });
+  };
+  const approveM = useMutation({
+    mutationFn: () => api.post(`/variance/${item.attendance_id}/approve`, { approved_hours: hours }),
+    onSuccess: done,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const rejectM = useMutation({
+    mutationFn: () => api.post(`/variance/${item.attendance_id}/reject`, { note: note.trim() }),
+    onSuccess: () => { setRejectOpen(false); done(); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="wrap">
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <Group gap="xs">
+            <Text fw={600}>{item.shift_title || item.activity_name || "Shift"}</Text>
+            {item.activity_name && <Badge variant="light">{item.activity_name}</Badge>}
+          </Group>
+          <Text size="sm" c="dimmed">
+            {item.person_name ?? "—"} ·{" "}
+            {item.starts_at ? dayjs(item.starts_at).format("D MMM HH:mm") : "—"} · planned{" "}
+            {item.planned_hours ?? "—"}h, claimed <b>{item.claimed_hours ?? "—"}h</b>
+          </Text>
+          {item.reason && <Text size="sm" mt={4} style={{ whiteSpace: "pre-wrap" }}>{item.reason}</Text>}
+        </div>
+        <Group gap="xs" align="flex-end">
+          <NumberInput label="Approve hours" w={110} min={0} step={0.25} value={hours}
+            onChange={(v) => setHours(Number(v) || 0)} />
+          <Button color="teal" loading={approveM.isPending} onClick={() => approveM.mutate()}>
+            Approve
+          </Button>
+          <Button variant="light" color="red" onClick={() => { setNote(""); setRejectOpen(true); }}>
+            Reject
+          </Button>
+        </Group>
+      </Group>
+
+      <Modal opened={rejectOpen} onClose={() => setRejectOpen(false)} title="Reject claim">
+        <Stack>
+          <Text size="sm" c="dimmed">
+            The planned {item.planned_hours ?? 0}h will apply. The person is emailed this note.
+          </Text>
+          <Textarea label="Note" value={note} autosize minRows={2}
+            onChange={(e) => setNote(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button color="red" loading={rejectM.isPending} disabled={!note.trim()}
+              onClick={() => rejectM.mutate()}>
+              Reject
             </Button>
           </Group>
         </Stack>

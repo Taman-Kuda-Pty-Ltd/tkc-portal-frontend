@@ -688,6 +688,9 @@ function ShiftCheckCard({
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const varied = !adhoc && Math.abs(hours - planned) > 0.001;
+  // Beyond the activity's margin, a reason is required (goes to a manager).
+  const needsReason =
+    !adhoc && shift.variance_margin != null && Math.abs(hours - planned) > shift.variance_margin;
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -753,11 +756,14 @@ function ShiftCheckCard({
                 min={minHours} step={0.25} value={hours}
                 onChange={(v) => setHours(Number(v) || 0)} size="lg" />
               <Textarea
-                label={varied ? `Note (why ${hours < planned ? "less" : "more"} than planned?)` : "Notes (optional)"}
+                label={needsReason
+                  ? `Reason required (${hours < planned ? "less" : "more"} than planned — a manager will review)`
+                  : varied ? `Note (why ${hours < planned ? "less" : "more"} than planned?)` : "Notes (optional)"}
                 value={notes} minRows={2} autosize size="lg"
                 onChange={(e) => setNotes(e.currentTarget.value)}
               />
               <Button size="xl" color="orange" loading={busy}
+                disabled={needsReason && !notes.trim()}
                 onClick={() => run(() => terminalApi.checkOut(personId, pin, shift.shift_id, hours, notes || null))}>
                 Confirm check out
               </Button>

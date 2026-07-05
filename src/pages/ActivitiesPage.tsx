@@ -31,9 +31,10 @@ interface Draft {
   is_active: boolean;
   is_lesson: boolean;
   default_lesson_hours: number | string;
+  variance_margin_hours: number | string;
 }
 
-const EMPTY: Draft = { slug: "", name: "", abbreviation: "", description: "", color: "#2f855a", is_active: true, is_lesson: false, default_lesson_hours: "" };
+const EMPTY: Draft = { slug: "", name: "", abbreviation: "", description: "", color: "#2f855a", is_active: true, is_lesson: false, default_lesson_hours: "", variance_margin_hours: "" };
 
 export function ActivitiesPage() {
   const qc = useQueryClient();
@@ -54,6 +55,7 @@ export function ActivitiesPage() {
         is_active: editing.is_active,
         is_lesson: editing.is_lesson,
         default_lesson_hours: editing.default_lesson_hours ?? "",
+        variance_margin_hours: editing.variance_margin_hours ?? "",
       });
     else if (creating) setDraft(EMPTY);
   }, [editing, creating]);
@@ -72,6 +74,8 @@ export function ActivitiesPage() {
               draft.is_lesson && draft.default_lesson_hours !== ""
                 ? Number(draft.default_lesson_hours)
                 : null,
+            variance_margin_hours:
+              draft.variance_margin_hours !== "" ? Number(draft.variance_margin_hours) : null,
           })
         : api.post("/activities", {
             slug: draft.slug,
@@ -84,6 +88,8 @@ export function ActivitiesPage() {
               draft.is_lesson && draft.default_lesson_hours !== ""
                 ? Number(draft.default_lesson_hours)
                 : null,
+            variance_margin_hours:
+              draft.variance_margin_hours !== "" ? Number(draft.variance_margin_hours) : null,
           }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -213,6 +219,17 @@ export function ActivitiesPage() {
               w={220}
               value={draft.default_lesson_hours}
               onChange={(v) => setDraft({ ...draft, default_lesson_hours: v })}
+            />
+          )}
+          {!draft.is_lesson && (
+            <NumberInput
+              label="Hours variance margin"
+              description="Claimed hours differing from planned by more than this need manager approval. Blank = never."
+              min={0}
+              step={0.25}
+              w={260}
+              value={draft.variance_margin_hours}
+              onChange={(v) => setDraft({ ...draft, variance_margin_hours: v })}
             />
           )}
           {editing && (

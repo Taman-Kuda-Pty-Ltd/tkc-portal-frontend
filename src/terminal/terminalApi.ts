@@ -67,6 +67,7 @@ export interface ShiftBrief {
   completed: boolean;
   is_adhoc: boolean;
   pay_hours: number | null;
+  variance_margin: number | null;
 }
 export interface TerminalActivity {
   id: number;

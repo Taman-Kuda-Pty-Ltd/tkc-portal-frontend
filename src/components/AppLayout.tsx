@@ -38,7 +38,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
     enabled: can("manage_shifts"),
     refetchInterval: 30000,
   });
-  const pendingTotal = (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0);
+  const varianceQ = useQuery({
+    queryKey: ["variance-count"],
+    queryFn: () => api.get<number>("/variance/pending/count"),
+    enabled: can("manage_shifts"),
+    refetchInterval: 30000,
+  });
+  const pendingTotal = (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0);
 
   return (
     <AppShell
