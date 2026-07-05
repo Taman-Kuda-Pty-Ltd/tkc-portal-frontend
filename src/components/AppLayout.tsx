@@ -44,7 +44,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
     enabled: can("manage_shifts"),
     refetchInterval: 30000,
   });
-  const pendingTotal = (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0);
+  const lessonTypeQ = useQuery({
+    queryKey: ["lesson-type-changes-count"],
+    queryFn: () => api.get<number>("/lesson-type-changes/pending/count"),
+    enabled: can("manage_shifts"),
+    refetchInterval: 30000,
+  });
+  const pendingTotal =
+    (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) + (lessonTypeQ.data ?? 0);
 
   return (
     <AppShell

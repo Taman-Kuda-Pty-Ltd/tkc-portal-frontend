@@ -540,9 +540,19 @@ function CoachingSection({
   onRefresh: () => Promise<void>;
 }) {
   const coaching = session.coaching_attendance;
-  const [state, setState] = useState<Record<number, { delivered: boolean; absent: number[]; notes: string }>>(
-    Object.fromEntries(session.lessons.map((l) => [l.shift_id, { delivered: l.completed, absent: [], notes: "" }])),
+  const [state, setState] = useState<Record<number, { delivered: boolean; absent: number[]; notes: string; type: string }>>(
+    Object.fromEntries(
+      session.lessons.map((l) => [l.shift_id, { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id) }]),
+    ),
   );
+  const lessonTypesQ = useQuery({
+    queryKey: ["terminal-activities"],
+    queryFn: () => terminalApi.activities(),
+    enabled: coaching?.status === "checked_in",
+  });
+  const lessonTypeOptions = (lessonTypesQ.data ?? [])
+    .filter((a) => a.is_lesson)
+    .map((a) => ({ value: String(a.id), label: a.name }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -611,6 +621,12 @@ function CoachingSection({
                     ))}
                   </div>
                 )}
+                {(state[l.shift_id]?.delivered ?? false) && (
+                  <Select label="Lesson type" description="Change only if it wasn't the booked type — a manager reviews it."
+                    data={lessonTypeOptions} value={state[l.shift_id]?.type ?? String(l.activity_id)}
+                    onChange={(v) => v && setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], type: v } }))}
+                    comboboxProps={{ withinPortal: true }} />
+                )}
                 <Textarea
                   placeholder="Horse / training notes (optional)"
                   value={state[l.shift_id]?.notes ?? ""}
@@ -645,6 +661,10 @@ function CoachingSection({
                   shift_id: l.shift_id,
                   delivered: state[l.shift_id]?.delivered ?? false,
                   absent_student_ids: state[l.shift_id]?.absent ?? [],
+                  proposed_activity_id:
+                    state[l.shift_id]?.type && Number(state[l.shift_id].type) !== l.activity_id
+                      ? Number(state[l.shift_id].type)
+                      : null,
                   notes: state[l.shift_id]?.notes?.trim() || null,
                 })),
               ),

@@ -54,6 +54,7 @@ export interface ShiftRiderBrief {
 export interface ShiftBrief {
   shift_id: number;
   title: string | null;
+  activity_id: number;
   activity_name: string | null;
   starts_at: string;
   ends_at: string;
@@ -85,6 +86,7 @@ export interface CoachLessonUpdate {
   shift_id: number;
   delivered: boolean;
   absent_student_ids: number[];
+  proposed_activity_id: number | null;
   notes: string | null;
 }
 

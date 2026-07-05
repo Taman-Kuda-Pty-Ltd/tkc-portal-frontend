@@ -63,6 +63,17 @@ interface CoachChange {
   reason: string;
 }
 
+interface LessonTypeChange {
+  id: number;
+  shift_id: number;
+  lesson_title: string | null;
+  starts_at: string | null;
+  from_activity_name: string | null;
+  to_activity_name: string | null;
+  requested_by_name: string | null;
+  reason: string | null;
+}
+
 export function ApprovalsPage() {
   const q = useQuery({
     queryKey: ["pending-approval"],
@@ -71,6 +82,10 @@ export function ApprovalsPage() {
   const ccQ = useQuery({
     queryKey: ["coach-changes"],
     queryFn: () => api.get<CoachChange[]>("/coach-changes/pending"),
+  });
+  const ltQ = useQuery({
+    queryKey: ["lesson-type-changes"],
+    queryFn: () => api.get<LessonTypeChange[]>("/lesson-type-changes/pending"),
   });
   const varQ = useQuery({
     queryKey: ["variance"],
@@ -147,7 +162,73 @@ export function ApprovalsPage() {
       ) : (
         (ccQ.data ?? []).map((cc) => <CoachChangeRow key={cc.id} item={cc} />)
       )}
+
+      <Title order={4} mt="lg">Lesson type changes</Title>
+      <Text size="sm" c="dimmed">
+        A coach flagged that a lesson was a different type than booked. Approving changes
+        the type and its pay; rejecting keeps the original.
+      </Text>
+      {ltQ.isLoading ? (
+        <Loader />
+      ) : (ltQ.data ?? []).length === 0 ? (
+        <Text c="dimmed">Nothing to review.</Text>
+      ) : (
+        (ltQ.data ?? []).map((lt) => <LessonTypeChangeRow key={lt.id} item={lt} />)
+      )}
     </Stack>
+  );
+}
+
+function LessonTypeChangeRow({ item }: { item: LessonTypeChange }) {
+  const qc = useQueryClient();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const done = () => {
+    qc.invalidateQueries({ queryKey: ["lesson-type-changes"] });
+    qc.invalidateQueries({ queryKey: ["lesson-type-changes-count"] });
+    qc.invalidateQueries({ queryKey: ["shifts"] });
+  };
+  const approveM = useMutation({
+    mutationFn: () => api.post(`/lesson-type-changes/${item.id}/approve`),
+    onSuccess: done,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const rejectM = useMutation({
+    mutationFn: () => api.post(`/lesson-type-changes/${item.id}/reject`, { note: note.trim() }),
+    onSuccess: () => { setRejectOpen(false); done(); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="wrap">
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <Group gap="xs">
+            <Text fw={600}>{item.lesson_title || "Lesson"}</Text>
+            <Badge variant="light">{item.from_activity_name} → {item.to_activity_name}</Badge>
+          </Group>
+          <Text size="sm" c="dimmed">
+            {item.requested_by_name ?? "—"} ·{" "}
+            {item.starts_at ? dayjs(item.starts_at).format("D MMM HH:mm") : "—"}
+          </Text>
+          {item.reason && <Text size="sm" mt={4} style={{ whiteSpace: "pre-wrap" }}>{item.reason}</Text>}
+        </div>
+        <Group gap="xs">
+          <Button color="teal" loading={approveM.isPending} onClick={() => approveM.mutate()}>Approve</Button>
+          <Button variant="light" color="red" onClick={() => { setNote(""); setRejectOpen(true); }}>Reject</Button>
+        </Group>
+      </Group>
+      <Modal opened={rejectOpen} onClose={() => setRejectOpen(false)} title="Reject type change">
+        <Stack>
+          <Textarea label="Note (emailed to the coach)" value={note} autosize minRows={2}
+            onChange={(e) => setNote(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button color="red" loading={rejectM.isPending} disabled={!note.trim()}
+              onClick={() => rejectM.mutate()}>Reject</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Card>
   );
 }
 
