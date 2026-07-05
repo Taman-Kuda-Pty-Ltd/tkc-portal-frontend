@@ -540,8 +540,8 @@ function CoachingSection({
   onRefresh: () => Promise<void>;
 }) {
   const coaching = session.coaching_attendance;
-  const [state, setState] = useState<Record<number, { completed: boolean; notes: string }>>(
-    Object.fromEntries(session.lessons.map((l) => [l.shift_id, { completed: l.completed, notes: "" }])),
+  const [state, setState] = useState<Record<number, { delivered: boolean; absent: number[]; notes: string }>>(
+    Object.fromEntries(session.lessons.map((l) => [l.shift_id, { delivered: l.completed, absent: [], notes: "" }])),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -561,24 +561,13 @@ function CoachingSection({
 
   const checkedIn = coaching?.status === "checked_in";
   const done = coaching?.status === "checked_out";
-
-  // Piece-work working: group completed lessons by type + pay so the coach sees
-  // "N × Type @ Yh = Zh" per line, then the total.
-  const breakdown = (() => {
-    const groups = new Map<string, { label: string; pay: number; count: number }>();
-    session.lessons
-      .filter((l) => state[l.shift_id]?.completed)
-      .forEach((l) => {
-        const pay = l.pay_hours ?? 1;
-        const key = `${l.activity_name ?? "Lesson"}|${pay}`;
-        const g = groups.get(key) ?? { label: l.activity_name ?? "Lesson", pay, count: 0 };
-        g.count += 1;
-        groups.set(key, g);
-      });
-    const lines = [...groups.values()];
-    const total = lines.reduce((s, g) => s + g.count * g.pay, 0);
-    return { lines, total };
-  })();
+  const toggleAbsent = (shiftId: number, studentId: number, absent: boolean) =>
+    setState((s) => {
+      const cur = s[shiftId];
+      const set = new Set(cur.absent);
+      absent ? set.add(studentId) : set.delete(studentId);
+      return { ...s, [shiftId]: { ...cur, absent: [...set] } };
+    });
 
   return (
     <Card withBorder padding="lg">
@@ -595,23 +584,33 @@ function CoachingSection({
               <Text fw={600} size="lg">
                 {dayjs(l.starts_at).format("HH:mm")}
                 {l.facility_name ? ` · ${l.facility_name}` : ""}
-                {l.pay_hours != null ? ` · ${l.pay_hours}h` : ""}
               </Text>
-              {done && l.completed && <Badge color="teal">Done</Badge>}
+              {done && l.completed && <Badge color="teal">Delivered</Badge>}
             </Group>
-            {l.riders.length > 0 && (
+            {!checkedIn && l.riders.length > 0 && (
               <Text c="dimmed" mt={2}>{l.riders.join(", ")}</Text>
             )}
             {checkedIn && (
               <Stack gap="xs" mt="sm">
                 <Checkbox
                   size="md"
-                  label="Lesson completed"
-                  checked={state[l.shift_id]?.completed ?? false}
+                  label="I coached this lesson"
+                  checked={state[l.shift_id]?.delivered ?? false}
                   onChange={(e) =>
-                    setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], completed: e.currentTarget.checked } }))
+                    setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], delivered: e.currentTarget.checked } }))
                   }
                 />
+                {(state[l.shift_id]?.delivered ?? false) && l.rider_details.length > 0 && (
+                  <div>
+                    <Text size="sm" c="dimmed">Tick any student who didn't show:</Text>
+                    {l.rider_details.map((r) => (
+                      <Checkbox key={r.student_id} size="sm" mt={4}
+                        label={`${r.label} — absent`}
+                        checked={state[l.shift_id]?.absent.includes(r.student_id) ?? false}
+                        onChange={(e) => toggleAbsent(l.shift_id, r.student_id, e.currentTarget.checked)} />
+                    ))}
+                  </div>
+                )}
                 <Textarea
                   placeholder="Horse / training notes (optional)"
                   value={state[l.shift_id]?.notes ?? ""}
@@ -629,19 +628,6 @@ function CoachingSection({
 
       {error && <Text c="red" mt="sm">{error}</Text>}
 
-      {checkedIn && breakdown.lines.length > 0 && (
-        <Card withBorder radius="sm" mt="md" bg="var(--mantine-color-default)">
-          <Text fw={600} mb={4}>Pay for this session</Text>
-          {breakdown.lines.map((g, i) => (
-            <Text key={i} c="dimmed">
-              {g.count} {g.label} {g.count === 1 ? "lesson" : "lessons"} @ {g.pay}h ={" "}
-              {Math.round(g.count * g.pay * 100) / 100}h
-            </Text>
-          ))}
-          <Text fw={700} mt={4}>Total {Math.round(breakdown.total * 100) / 100}h</Text>
-        </Card>
-      )}
-
       {!coaching && (
         <Button mt="md" size="xl" fullWidth loading={busy}
           onClick={() => run(() => terminalApi.coachCheckIn(session.person_id, pin))}>
@@ -657,7 +643,8 @@ function CoachingSection({
                 pin,
                 session.lessons.map((l) => ({
                   shift_id: l.shift_id,
-                  completed: state[l.shift_id]?.completed ?? false,
+                  delivered: state[l.shift_id]?.delivered ?? false,
+                  absent_student_ids: state[l.shift_id]?.absent ?? [],
                   notes: state[l.shift_id]?.notes?.trim() || null,
                 })),
               ),
@@ -668,8 +655,7 @@ function CoachingSection({
       )}
       {done && (
         <Text mt="md" size="lg">
-          Checked out at <b>{dayjs(coaching!.checked_out_at!).format("HH:mm")}</b>
-          {coaching!.hours_worked != null ? ` · ${coaching!.hours_worked}h recorded` : ""}.
+          Checked out at <b>{dayjs(coaching!.checked_out_at!).format("HH:mm")}</b>.
         </Text>
       )}
     </Card>
@@ -701,7 +687,7 @@ function ShiftCheckCard({
   const [busy, setBusy] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const variance = !adhoc && Math.abs(hours - planned) > 0.001;
+  const varied = !adhoc && Math.abs(hours - planned) > 0.001;
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -767,14 +753,11 @@ function ShiftCheckCard({
                 min={minHours} step={0.25} value={hours}
                 onChange={(v) => setHours(Number(v) || 0)} size="lg" />
               <Textarea
-                label={variance
-                  ? `Reason for ${hours < planned ? "shorter" : "longer"} shift (required)`
-                  : "Notes (optional)"}
+                label={varied ? `Note (why ${hours < planned ? "less" : "more"} than planned?)` : "Notes (optional)"}
                 value={notes} minRows={2} autosize size="lg"
                 onChange={(e) => setNotes(e.currentTarget.value)}
               />
               <Button size="xl" color="orange" loading={busy}
-                disabled={variance && !notes.trim()}
                 onClick={() => run(() => terminalApi.checkOut(personId, pin, shift.shift_id, hours, notes || null))}>
                 Confirm check out
               </Button>
@@ -787,7 +770,7 @@ function ShiftCheckCard({
       {att?.status === "checked_out" && (
         <Text mt="md" size="lg">
           Checked out at <b>{dayjs(att.checked_out_at!).format("HH:mm")}</b>
-          {att.hours_worked != null ? ` · ${att.hours_worked}h recorded` : ""}.
+          {att.claimed_hours != null ? ` · ${att.claimed_hours}h recorded` : ""}.
         </Text>
       )}
     </Card>

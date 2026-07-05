@@ -43,9 +43,13 @@ export interface TerminalAttendance {
   shift_id: number | null;
   checked_in_at: string;
   checked_out_at: string | null;
-  hours_worked: number | null;
+  claimed_hours: number | null;
   notes: string | null;
   status: "checked_in" | "checked_out";
+}
+export interface ShiftRiderBrief {
+  student_id: number;
+  label: string;
 }
 export interface ShiftBrief {
   shift_id: number;
@@ -59,6 +63,7 @@ export interface ShiftBrief {
   is_lesson: boolean;
   facility_name: string | null;
   riders: string[];
+  rider_details: ShiftRiderBrief[];
   completed: boolean;
   is_adhoc: boolean;
   pay_hours: number | null;
@@ -77,7 +82,8 @@ export interface TerminalSession {
 }
 export interface CoachLessonUpdate {
   shift_id: number;
-  completed: boolean;
+  delivered: boolean;
+  absent_student_ids: number[];
   notes: string | null;
 }
 
@@ -146,9 +152,9 @@ export const terminalApi = {
     person_id: number,
     pin: string,
     shift_id: number,
-    hours_worked: number | null,
+    claimed_hours: number | null,
     notes: string | null,
-  ) => treq<TerminalAttendance>("POST", "/check-out", { person_id, pin, shift_id, hours_worked, notes }),
+  ) => treq<TerminalAttendance>("POST", "/check-out", { person_id, pin, shift_id, claimed_hours, notes }),
   activities: () => treq<TerminalActivity[]>("GET", "/activities"),
   students: () => treq<TerminalActivity[]>("GET", "/students"),
   horses: () => treq<TerminalActivity[]>("GET", "/horses"),

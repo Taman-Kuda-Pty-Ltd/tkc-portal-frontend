@@ -148,7 +148,7 @@ export function ShiftModal({
         ends_at: date ? toDateTime(date, end) : null,
         headcount,
         facility_id: isLesson && facilityId ? Number(facilityId) : null,
-        pay_hours: isLesson && payHours !== "" ? Number(payHours) : null,
+        pay_hours: payHours !== "" ? Number(payHours) : null,
       };
       const saved = shift
         ? await api.patch<Shift>(`/shifts/${shift.id}`, body)
@@ -235,6 +235,11 @@ export function ShiftModal({
           <TimeField label="Start" value={start} onChange={setStart} disabled={ro} />
           <TimeField label="End" value={end} onChange={setEnd} disabled={ro} />
         </Group>
+        <NumberInput label="Pay duration (hours)"
+          description={isLesson
+            ? "Lessons are piece-work (1 lesson = 1h). Blank uses the lesson type default."
+            : "Hours used for pay. Blank uses the shift length."}
+          min={0} step={0.25} w={220} value={payHours} onChange={setPayHours} disabled={ro} />
         <RichTextField label="Description" placeholder="Longer detail shown in the day view"
           value={description} disabled={ro} onChange={setDescription} />
 
@@ -258,13 +263,8 @@ export function ShiftModal({
         {isLesson && (
           <>
             <Divider label="Lesson" labelPosition="left" />
-            <Group grow>
-              <Select label="Facility" data={facilityOptions} value={facilityId} onChange={setFacilityId}
-                placeholder="Choose a facility" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
-              <NumberInput label="Lesson pay (hours)"
-                description="1 lesson = 1h. Blank uses the default."
-                min={0} step={0.25} value={payHours} onChange={setPayHours} disabled={ro} />
-            </Group>
+            <Select label="Facility" data={facilityOptions} value={facilityId} onChange={setFacilityId}
+              placeholder="Choose a facility" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
             <div>
               <Group justify="space-between" mb={4}>
                 <Text size="sm" fw={500}>Riders</Text>

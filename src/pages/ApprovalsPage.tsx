@@ -16,7 +16,7 @@ interface PendingShift {
   attendance_id: number | null;
   checked_in_at: string | null;
   checked_out_at: string | null;
-  hours_worked: number | null;
+  claimed_hours: number | null;
   notes: string | null;
 }
 
@@ -77,7 +77,7 @@ export function ApprovalsPage() {
 
 function PendingRow({ item }: { item: PendingShift }) {
   const qc = useQueryClient();
-  const [hours, setHours] = useState<number>(item.hours_worked ?? 0);
+  const [hours, setHours] = useState<number>(item.claimed_hours ?? 0);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState("");
   const done = () => {
@@ -86,7 +86,7 @@ function PendingRow({ item }: { item: PendingShift }) {
     qc.invalidateQueries({ queryKey: ["shifts"] });
   };
   const approveM = useMutation({
-    mutationFn: () => api.post(`/shifts/${item.shift_id}/approve`, { hours_worked: hours }),
+    mutationFn: () => api.post(`/shifts/${item.shift_id}/approve`, { claimed_hours: hours }),
     onSuccess: done,
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });

@@ -283,6 +283,8 @@ export interface Assignment {
   role_id: number | null;
   role_name: string | null;
   status: AssignmentStatus;
+  coach_kind: "primary" | "secondary";
+  share: number;
   note: string | null;
 }
 
