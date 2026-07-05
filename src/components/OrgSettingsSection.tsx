@@ -8,15 +8,23 @@ export function OrgSettingsSection() {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["org-settings"],
-    queryFn: () => api.get<{ min_shift_hours: number }>("/settings/org"),
+    queryFn: () => api.get<{ min_shift_hours: number; default_lesson_hours: number }>("/settings/org"),
   });
   const [hours, setHours] = useState<number | string>(1);
+  const [lessonHours, setLessonHours] = useState<number | string>(1);
   useEffect(() => {
-    if (q.data) setHours(q.data.min_shift_hours);
+    if (q.data) {
+      setHours(q.data.min_shift_hours);
+      setLessonHours(q.data.default_lesson_hours);
+    }
   }, [q.data]);
 
   const saveM = useMutation({
-    mutationFn: () => api.put("/settings/org", { min_shift_hours: Number(hours) || 0 }),
+    mutationFn: () =>
+      api.put("/settings/org", {
+        min_shift_hours: Number(hours) || 0,
+        default_lesson_hours: Number(lessonHours) || 0,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["org-settings"] });
       notifications.show({ color: "teal", message: "Saved." });
@@ -27,12 +35,19 @@ export function OrgSettingsSection() {
   return (
     <Stack gap="sm">
       <Text size="sm" c="dimmed">
-        The minimum paid hours recorded for any terminal check-out. If someone works
-        (or logs) less than this, their hours are floored to it.
+        The minimum paid hours recorded for any stablehand/ad-hoc terminal check-out.
+        If someone works or logs less than this, their hours are floored to it.
+      </Text>
+      <NumberInput label="Minimum shift hours" min={0} step={0.25} w={180}
+        value={hours} onChange={setHours} />
+      <Text size="sm" c="dimmed" mt="xs">
+        Lessons are piece-work (1 lesson = 1 hour by default). This is the fallback pay
+        per lesson when a lesson type sets no default of its own; each lesson can still
+        be overridden.
       </Text>
       <Group align="flex-end">
-        <NumberInput label="Minimum shift hours" min={0} step={0.25} w={180}
-          value={hours} onChange={setHours} />
+        <NumberInput label="Default lesson pay (hours)" min={0} step={0.25} w={180}
+          value={lessonHours} onChange={setLessonHours} />
         <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>Save</Button>
       </Group>
     </Stack>

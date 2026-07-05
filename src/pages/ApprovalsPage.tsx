@@ -1,9 +1,10 @@
-import { Badge, Button, Card, Group, Loader, Modal, NumberInput, Stack, Text, Textarea, Title } from "@mantine/core";
+import { Badge, Button, Card, Group, Loader, Modal, NumberInput, SegmentedControl, Select, Stack, Text, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
+import type { Person } from "../api/types";
 
 interface PendingShift {
   shift_id: number;
@@ -19,15 +20,33 @@ interface PendingShift {
   notes: string | null;
 }
 
+interface CoachChange {
+  id: number;
+  shift_id: number;
+  lesson_title: string | null;
+  activity_name: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  from_coach_name: string | null;
+  to_coach_name: string | null;
+  reason: string;
+}
+
 export function ApprovalsPage() {
   const q = useQuery({
     queryKey: ["pending-approval"],
     queryFn: () => api.get<PendingShift[]>("/shifts/pending-approval"),
   });
+  const ccQ = useQuery({
+    queryKey: ["coach-changes"],
+    queryFn: () => api.get<CoachChange[]>("/coach-changes/pending"),
+  });
 
   return (
     <Stack maw={780} w="100%" mx="auto">
       <Title order={2}>Approvals</Title>
+
+      <Title order={4} mt="sm">Extra tasks</Title>
       <Text size="sm" c="dimmed">
         Staff-logged extra tasks awaiting review. Approving counts the hours; rejecting
         needs a reason. Either way the person is emailed the outcome.
@@ -38,6 +57,19 @@ export function ApprovalsPage() {
         <Text c="dimmed">Nothing to review.</Text>
       ) : (
         (q.data ?? []).map((p) => <PendingRow key={p.shift_id} item={p} />)
+      )}
+
+      <Title order={4} mt="lg">Coach cover</Title>
+      <Text size="sm" c="dimmed">
+        A coach took over another coach's lesson. Approve the change, or reject it and
+        cancel the lesson, revert it to the original coach, or reassign it.
+      </Text>
+      {ccQ.isLoading ? (
+        <Loader />
+      ) : (ccQ.data ?? []).length === 0 ? (
+        <Text c="dimmed">Nothing to review.</Text>
+      ) : (
+        (ccQ.data ?? []).map((cc) => <CoachChangeRow key={cc.id} item={cc} />)
       )}
     </Stack>
   );
@@ -105,6 +137,99 @@ function PendingRow({ item }: { item: PendingShift }) {
             <Button color="red" loading={rejectM.isPending} disabled={!reason.trim()}
               onClick={() => rejectM.mutate()}>
               Reject
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Card>
+  );
+}
+
+function CoachChangeRow({ item }: { item: CoachChange }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [action, setAction] = useState<"cancel" | "revert" | "reassign">("revert");
+  const [reassignTo, setReassignTo] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+
+  const peopleQ = useQuery({
+    queryKey: ["people"],
+    queryFn: () => api.get<Person[]>("/people"),
+    enabled: open,
+  });
+  const coachOptions = (peopleQ.data ?? [])
+    .filter((p) => p.is_active && p.roles.some((r) => r.slug === "coach"))
+    .map((p) => ({ value: String(p.id), label: p.full_name }));
+
+  const done = () => {
+    qc.invalidateQueries({ queryKey: ["coach-changes"] });
+    qc.invalidateQueries({ queryKey: ["coach-changes-count"] });
+    qc.invalidateQueries({ queryKey: ["shifts"] });
+  };
+  const approveM = useMutation({
+    mutationFn: () => api.post(`/coach-changes/${item.id}/approve`),
+    onSuccess: done,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const resolveM = useMutation({
+    mutationFn: () =>
+      api.post(`/coach-changes/${item.id}/resolve`, {
+        action,
+        reassign_to_person_id: action === "reassign" && reassignTo ? Number(reassignTo) : null,
+        note: note.trim(),
+      }),
+    onSuccess: () => { setOpen(false); done(); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="wrap">
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <Group gap="xs">
+            <Text fw={600}>{item.lesson_title || item.activity_name || "Lesson"}</Text>
+            {item.activity_name && <Badge variant="light">{item.activity_name}</Badge>}
+          </Group>
+          <Text size="sm" c="dimmed">
+            {item.starts_at ? dayjs(item.starts_at).format("D MMM HH:mm") : "—"} ·{" "}
+            {item.from_coach_name ?? "—"} → <b>{item.to_coach_name ?? "—"}</b>
+          </Text>
+          <Text size="sm" mt={4} style={{ whiteSpace: "pre-wrap" }}>{item.reason}</Text>
+        </div>
+        <Group gap="xs">
+          <Button color="teal" loading={approveM.isPending} onClick={() => approveM.mutate()}>
+            Approve
+          </Button>
+          <Button variant="light" color="red" onClick={() => { setNote(""); setOpen(true); }}>
+            Reject
+          </Button>
+        </Group>
+      </Group>
+
+      <Modal opened={open} onClose={() => setOpen(false)} title="Reject coach change">
+        <Stack>
+          <SegmentedControl
+            fullWidth
+            value={action}
+            onChange={(v) => setAction(v as "cancel" | "revert" | "reassign")}
+            data={[
+              { label: "Revert to original", value: "revert" },
+              { label: "Reassign", value: "reassign" },
+              { label: "Cancel lesson", value: "cancel" },
+            ]}
+          />
+          {action === "reassign" && (
+            <Select label="Reassign to" placeholder="Choose a coach" searchable
+              data={coachOptions} value={reassignTo} onChange={setReassignTo} />
+          )}
+          <Textarea label="Note (emailed to the covering coach)" value={note} autosize minRows={2}
+            onChange={(e) => setNote(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button color="red" loading={resolveM.isPending}
+              disabled={!note.trim() || (action === "reassign" && !reassignTo)}
+              onClick={() => resolveM.mutate()}>
+              Confirm
             </Button>
           </Group>
         </Stack>

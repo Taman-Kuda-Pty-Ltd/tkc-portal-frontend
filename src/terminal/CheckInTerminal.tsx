@@ -352,6 +352,7 @@ function AdhocTaskCard({
   const [stage, setStage] = useState<"form" | "confirm">("form");
   const [clashes, setClashes] = useState<LessonClash[]>([]);
   const [decisions, setDecisions] = useState<Record<number, "replace" | "new">>({});
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -366,8 +367,9 @@ function AdhocTaskCard({
 
   function resetAll() {
     setOpen(false); setActivityId(null); setTitle(""); setRiders([]);
-    setStage("form"); setClashes([]); setDecisions({}); setError(null);
+    setStage("form"); setClashes([]); setDecisions({}); setReason(""); setError(null);
   }
+  const hasReplace = studentIds.some((id) => decisions[id] === "replace");
   const updateRider = (i: number, patch: Partial<{ student_id: string | null; horse_id: string | null }>) =>
     setRiders(riders.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
@@ -402,6 +404,7 @@ function AdhocTaskCard({
           student_id: Number(r.student_id), horse_id: r.horse_id ? Number(r.horse_id) : null,
         })),
         studentIds.filter((id) => decisions[id] === "replace"),
+        hasReplace ? reason.trim() : null,
       ),
       async () => { resetAll(); await onRefresh(); });
 
@@ -444,10 +447,20 @@ function AdhocTaskCard({
               </div>
             );
           })}
+          {hasReplace && (
+            <Textarea
+              label="Reason for covering (required)"
+              description="Sent to a manager to approve the coach change."
+              value={reason} autosize minRows={2}
+              onChange={(e) => setReason(e.currentTarget.value)}
+            />
+          )}
           {error && <Text c="red">{error}</Text>}
           <Group justify="space-between">
             <Button variant="default" size="lg" onClick={() => setStage("form")}>Back</Button>
-            <Button size="lg" loading={busy} onClick={confirmLesson}>Confirm &amp; check in</Button>
+            <Button size="lg" loading={busy} disabled={hasReplace && !reason.trim()} onClick={confirmLesson}>
+              Confirm &amp; check in
+            </Button>
           </Group>
         </Stack>
       </Card>
@@ -549,6 +562,24 @@ function CoachingSection({
   const checkedIn = coaching?.status === "checked_in";
   const done = coaching?.status === "checked_out";
 
+  // Piece-work working: group completed lessons by type + pay so the coach sees
+  // "N × Type @ Yh = Zh" per line, then the total.
+  const breakdown = (() => {
+    const groups = new Map<string, { label: string; pay: number; count: number }>();
+    session.lessons
+      .filter((l) => state[l.shift_id]?.completed)
+      .forEach((l) => {
+        const pay = l.pay_hours ?? 1;
+        const key = `${l.activity_name ?? "Lesson"}|${pay}`;
+        const g = groups.get(key) ?? { label: l.activity_name ?? "Lesson", pay, count: 0 };
+        g.count += 1;
+        groups.set(key, g);
+      });
+    const lines = [...groups.values()];
+    const total = lines.reduce((s, g) => s + g.count * g.pay, 0);
+    return { lines, total };
+  })();
+
   return (
     <Card withBorder padding="lg">
       <Group justify="space-between" mb="sm">
@@ -562,8 +593,9 @@ function CoachingSection({
           <Card key={l.shift_id} withBorder radius="sm" bg="var(--mantine-color-default)">
             <Group justify="space-between" wrap="wrap">
               <Text fw={600} size="lg">
-                {dayjs(l.starts_at).format("HH:mm")}–{dayjs(l.ends_at).format("HH:mm")}
+                {dayjs(l.starts_at).format("HH:mm")}
                 {l.facility_name ? ` · ${l.facility_name}` : ""}
+                {l.pay_hours != null ? ` · ${l.pay_hours}h` : ""}
               </Text>
               {done && l.completed && <Badge color="teal">Done</Badge>}
             </Group>
@@ -596,6 +628,19 @@ function CoachingSection({
       </Stack>
 
       {error && <Text c="red" mt="sm">{error}</Text>}
+
+      {checkedIn && breakdown.lines.length > 0 && (
+        <Card withBorder radius="sm" mt="md" bg="var(--mantine-color-default)">
+          <Text fw={600} mb={4}>Pay for this session</Text>
+          {breakdown.lines.map((g, i) => (
+            <Text key={i} c="dimmed">
+              {g.count} {g.label} {g.count === 1 ? "lesson" : "lessons"} @ {g.pay}h ={" "}
+              {Math.round(g.count * g.pay * 100) / 100}h
+            </Text>
+          ))}
+          <Text fw={700} mt={4}>Total {Math.round(breakdown.total * 100) / 100}h</Text>
+        </Card>
+      )}
 
       {!coaching && (
         <Button mt="md" size="xl" fullWidth loading={busy}

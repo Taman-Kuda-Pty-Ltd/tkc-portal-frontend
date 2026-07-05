@@ -61,6 +61,7 @@ export interface ShiftBrief {
   riders: string[];
   completed: boolean;
   is_adhoc: boolean;
+  pay_hours: number | null;
 }
 export interface TerminalActivity {
   id: number;
@@ -163,9 +164,10 @@ export const terminalApi = {
     facility_id: number | null,
     riders: AdhocLessonRider[],
     replace_student_ids: number[],
+    reason: string | null,
   ) =>
     treq<TerminalAttendance>("POST", "/adhoc-lesson-check-in", {
-      person_id, pin, activity_id, title, facility_id, riders, replace_student_ids,
+      person_id, pin, activity_id, title, facility_id, riders, replace_student_ids, reason,
     }),
   coachCheckIn: (person_id: number, pin: string) =>
     treq<TerminalAttendance>("POST", "/coach-check-in", { person_id, pin }),

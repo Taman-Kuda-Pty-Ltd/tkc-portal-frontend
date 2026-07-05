@@ -50,6 +50,7 @@ export interface Activity {
   color: string | null;
   is_active: boolean;
   is_lesson: boolean;
+  default_lesson_hours: number | null;
   headings: ActivityHeading[];
 }
 
@@ -308,6 +309,7 @@ export interface Shift {
   approval_status: "approved" | "pending" | "rejected";
   facility_id: number | null;
   facility_name: string | null;
+  pay_hours: number | null;
   source_shift_template_id: number | null;
   assignments: Assignment[];
   notes: ShiftNote[];

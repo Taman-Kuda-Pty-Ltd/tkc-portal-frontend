@@ -32,6 +32,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
     enabled: can("manage_shifts"),
     refetchInterval: 30000,
   });
+  const coachChangesQ = useQuery({
+    queryKey: ["coach-changes-count"],
+    queryFn: () => api.get<number>("/coach-changes/pending/count"),
+    enabled: can("manage_shifts"),
+    refetchInterval: 30000,
+  });
+  const pendingTotal = (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0);
 
   return (
     <AppShell
@@ -61,8 +68,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
               label={n.label}
               leftSection={<n.icon size={18} />}
               rightSection={
-                n.to === "/approvals" && (pendingQ.data ?? 0) > 0 ? (
-                  <Badge size="sm" color="red" variant="filled">{pendingQ.data}</Badge>
+                n.to === "/approvals" && pendingTotal > 0 ? (
+                  <Badge size="sm" color="red" variant="filled">{pendingTotal}</Badge>
                 ) : undefined
               }
               active={location.pathname.startsWith(n.to)}

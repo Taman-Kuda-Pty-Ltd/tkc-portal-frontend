@@ -30,9 +30,10 @@ interface Draft {
   color: string;
   is_active: boolean;
   is_lesson: boolean;
+  default_lesson_hours: number | string;
 }
 
-const EMPTY: Draft = { slug: "", name: "", abbreviation: "", description: "", color: "#2f855a", is_active: true, is_lesson: false };
+const EMPTY: Draft = { slug: "", name: "", abbreviation: "", description: "", color: "#2f855a", is_active: true, is_lesson: false, default_lesson_hours: "" };
 
 export function ActivitiesPage() {
   const qc = useQueryClient();
@@ -52,6 +53,7 @@ export function ActivitiesPage() {
         color: editing.color ?? "#2f855a",
         is_active: editing.is_active,
         is_lesson: editing.is_lesson,
+        default_lesson_hours: editing.default_lesson_hours ?? "",
       });
     else if (creating) setDraft(EMPTY);
   }, [editing, creating]);
@@ -66,6 +68,10 @@ export function ActivitiesPage() {
             color: draft.color,
             is_active: draft.is_active,
             is_lesson: draft.is_lesson,
+            default_lesson_hours:
+              draft.is_lesson && draft.default_lesson_hours !== ""
+                ? Number(draft.default_lesson_hours)
+                : null,
           })
         : api.post("/activities", {
             slug: draft.slug,
@@ -74,6 +80,10 @@ export function ActivitiesPage() {
             description: draft.description,
             color: draft.color,
             is_lesson: draft.is_lesson,
+            default_lesson_hours:
+              draft.is_lesson && draft.default_lesson_hours !== ""
+                ? Number(draft.default_lesson_hours)
+                : null,
           }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -194,6 +204,17 @@ export function ActivitiesPage() {
             checked={draft.is_lesson}
             onChange={(e) => setDraft({ ...draft, is_lesson: e.currentTarget.checked })}
           />
+          {draft.is_lesson && (
+            <NumberInput
+              label="Default lesson pay (hours)"
+              description="Pay per lesson of this type (1 lesson = 1h). Leave blank to use the org default."
+              min={0}
+              step={0.25}
+              w={220}
+              value={draft.default_lesson_hours}
+              onChange={(v) => setDraft({ ...draft, default_lesson_hours: v })}
+            />
+          )}
           {editing && (
             <Switch
               label="Active"

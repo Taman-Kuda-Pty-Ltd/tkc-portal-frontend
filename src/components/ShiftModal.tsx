@@ -60,6 +60,7 @@ export function ShiftModal({
   const [newNote, setNewNote] = useState("");
   const [headingCounts, setHeadingCounts] = useState<Record<number, number>>({});
   const [facilityId, setFacilityId] = useState<string | null>(null);
+  const [payHours, setPayHours] = useState<number | string>("");
   const [rides, setRides] = useState<RideDraft[]>([]);
 
   const activitiesQ = useQuery({
@@ -88,6 +89,7 @@ export function ShiftModal({
       setNotes(shift.notes);
       setHeadingCounts(Object.fromEntries(shift.heading_counts.map((c) => [c.heading_id, c.count])));
       setFacilityId(shift.facility_id ? String(shift.facility_id) : null);
+      setPayHours(shift.pay_hours ?? "");
       setRides(shift.rides.map((r) => ({
         student_id: String(r.student_id),
         horse_id: r.horse_id ? String(r.horse_id) : null,
@@ -105,6 +107,7 @@ export function ShiftModal({
       setNotes([]);
       setHeadingCounts({});
       setFacilityId(null);
+      setPayHours("");
       setRides([]);
     }
   }, [shift, opened, defaultDate]);
@@ -113,6 +116,12 @@ export function ShiftModal({
   const headings = (selectedActivity?.headings ?? []).filter((h) => h.is_active);
   const isLesson = !!selectedActivity?.is_lesson;
   const horseIds = rides.map((r) => r.horse_id).filter(Boolean).map(Number);
+
+  // New lessons prefill their pay from the activity's default (blank → org default).
+  useEffect(() => {
+    if (!opened || shift) return;
+    setPayHours(selectedActivity?.is_lesson ? (selectedActivity.default_lesson_hours ?? "") : "");
+  }, [activityId, opened, shift]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const clashQ = useQuery({
     queryKey: ["clash", shift?.id, facilityId, horseIds.join(","), date ? dayjs(date).format("YYYY-MM-DD") : "", start, end],
@@ -139,6 +148,7 @@ export function ShiftModal({
         ends_at: date ? toDateTime(date, end) : null,
         headcount,
         facility_id: isLesson && facilityId ? Number(facilityId) : null,
+        pay_hours: isLesson && payHours !== "" ? Number(payHours) : null,
       };
       const saved = shift
         ? await api.patch<Shift>(`/shifts/${shift.id}`, body)
@@ -248,8 +258,13 @@ export function ShiftModal({
         {isLesson && (
           <>
             <Divider label="Lesson" labelPosition="left" />
-            <Select label="Facility" data={facilityOptions} value={facilityId} onChange={setFacilityId}
-              placeholder="Choose a facility" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
+            <Group grow>
+              <Select label="Facility" data={facilityOptions} value={facilityId} onChange={setFacilityId}
+                placeholder="Choose a facility" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
+              <NumberInput label="Lesson pay (hours)"
+                description="1 lesson = 1h. Blank uses the default."
+                min={0} step={0.25} value={payHours} onChange={setPayHours} disabled={ro} />
+            </Group>
             <div>
               <Group justify="space-between" mb={4}>
                 <Text size="sm" fw={500}>Riders</Text>
