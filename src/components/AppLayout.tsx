@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import {
   IconCalendar,
   IconChecklist,
+  IconCoin,
   IconLogout,
   IconSettings,
   IconTemplate,
@@ -19,6 +20,7 @@ const NAV = [
   { to: "/people", label: "People", icon: IconUsers, cap: "manage_people" },
   { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
   { to: "/approvals", label: "Approvals", icon: IconChecklist, cap: "manage_shifts" },
+  { to: "/payroll", label: "Payroll", icon: IconCoin, cap: "manage_shifts" },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
