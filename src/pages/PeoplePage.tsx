@@ -8,6 +8,7 @@ import {
   Modal,
   MultiSelect,
   PasswordInput,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -72,6 +73,7 @@ interface InviteDraft {
   family_name: string;
   email: string;
   mobile: string;
+  kind: "staff" | "school_client";
   staff_type: StaffType;
   employment_basis: EmploymentBasis | "";
   position_title: string;
@@ -84,6 +86,7 @@ const EMPTY_INVITE: InviteDraft = {
   family_name: "",
   email: "",
   mobile: "",
+  kind: "staff",
   staff_type: "employee",
   employment_basis: "",
   position_title: "",
@@ -149,7 +152,9 @@ export function PeoplePage() {
     if (inviting) setInvite(EMPTY_INVITE);
   }, [inviting]);
 
-  const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
+  const roleOptions = (rolesQ.data ?? [])
+    .filter((r) => r.is_selectable !== false)
+    .map((r) => ({ value: String(r.id), label: r.name }));
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["people"] });
     qc.invalidateQueries({ queryKey: ["invitations"] });
@@ -207,14 +212,18 @@ export function PeoplePage() {
         family_name: invite.family_name,
         email: invite.email,
         mobile: invite.mobile || null,
+        kind: invite.kind,
         staff_type: invite.staff_type,
         employment_basis:
-          invite.staff_type === "employee" && invite.employment_basis
+          invite.kind === "staff" && invite.staff_type === "employee" && invite.employment_basis
             ? invite.employment_basis
             : null,
-        position_title: invite.position_title || null,
-        start_date: invite.start_date ? dayjs(invite.start_date).format("YYYY-MM-DD") : null,
-        role_ids: invite.role_ids.map(Number),
+        position_title: invite.kind === "staff" ? invite.position_title || null : null,
+        start_date:
+          invite.kind === "staff" && invite.start_date
+            ? dayjs(invite.start_date).format("YYYY-MM-DD")
+            : null,
+        role_ids: invite.kind === "staff" ? invite.role_ids.map(Number) : [],
       }),
     onSuccess: (inv) => {
       refresh();
@@ -416,9 +425,19 @@ export function PeoplePage() {
       >
         <Stack>
           {dupAlert}
+          <SegmentedControl
+            fullWidth
+            value={invite.kind}
+            onChange={(v) => setInvite({ ...invite, kind: v as InviteDraft["kind"] })}
+            data={[
+              { value: "staff", label: "Staff" },
+              { value: "school_client", label: "School client" },
+            ]}
+          />
           <Text size="sm" c="dimmed">
-            They'll get an email with a link to complete their own onboarding
-            (personal, tax, super and bank details) and set a password.
+            {invite.kind === "staff"
+              ? "They'll get an email link to complete their onboarding (personal, tax, super and bank details) and set a password."
+              : "They'll get an email link to set up their account and add their riders (students) — no financial details."}
           </Text>
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <TextInput
@@ -446,46 +465,49 @@ export function PeoplePage() {
               value={invite.mobile}
               onChange={(v) => setInvite({ ...invite, mobile: v })}
             />
-            <Select
-              label="Type"
-              data={STAFF_TYPES}
-              value={invite.staff_type}
-              onChange={(v) => setInvite({ ...invite, staff_type: (v as StaffType) ?? "employee" })}
-              allowDeselect={false}
-            />
-            {invite.staff_type === "employee" && (
-              <Select
-                label="Employment basis"
-                data={[
-                  { value: "full_time", label: "Full-time" },
-                  { value: "part_time", label: "Part-time" },
-                  { value: "casual", label: "Casual" },
-                ]}
-                value={invite.employment_basis || null}
-                onChange={(v) => setInvite({ ...invite, employment_basis: (v as EmploymentBasis) || "" })}
-              />
+            {invite.kind === "staff" && (
+              <>
+                <Select
+                  label="Type"
+                  data={STAFF_TYPES}
+                  value={invite.staff_type}
+                  onChange={(v) => setInvite({ ...invite, staff_type: (v as StaffType) ?? "employee" })}
+                  allowDeselect={false}
+                />
+                {invite.staff_type === "employee" && (
+                  <Select
+                    label="Employment basis"
+                    data={[
+                      { value: "full_time", label: "Full-time" },
+                      { value: "part_time", label: "Part-time" },
+                      { value: "casual", label: "Casual" },
+                    ]}
+                    value={invite.employment_basis || null}
+                    onChange={(v) => setInvite({ ...invite, employment_basis: (v as EmploymentBasis) || "" })}
+                  />
+                )}
+                <TextInput
+                  label="Position / title"
+                  value={invite.position_title}
+                  onChange={(e) => setInvite({ ...invite, position_title: e.currentTarget.value })}
+                />
+                <DateField
+                  label="Start date"
+                  value={invite.start_date}
+                  onChange={(d) => setInvite({ ...invite, start_date: d })}
+                />
+              </>
             )}
-            <TextInput
-              label="Position / title"
-              value={invite.position_title}
-              onChange={(e) => setInvite({ ...invite, position_title: e.currentTarget.value })}
-            />
-            <DateField
-              label="Start date"
-              value={invite.start_date}
-              onChange={(d) => setInvite({ ...invite, start_date: d })}
-            />
           </SimpleGrid>
-          <Text size="xs" c="dimmed">
-            Type, basis, position and start date are set here and shown (read-only) during onboarding.
-          </Text>
-          <MultiSelect
-            label="Roles"
-            data={roleOptions}
-            value={invite.role_ids}
-            onChange={(v) => setInvite({ ...invite, role_ids: v })}
-            searchable
-          />
+          {invite.kind === "staff" && (
+            <MultiSelect
+              label="Roles"
+              data={roleOptions}
+              value={invite.role_ids}
+              onChange={(v) => setInvite({ ...invite, role_ids: v })}
+              searchable
+            />
+          )}
           <Group justify="flex-end">
             <Button
               variant="default"

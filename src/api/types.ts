@@ -13,6 +13,7 @@ export interface Role {
   name: string;
   description: string | null;
   capabilities: string[];
+  is_selectable?: boolean;
 }
 
 export interface Person {
@@ -71,6 +72,10 @@ export interface StudentRec {
   is_minor: boolean;
   is_self_managing: boolean;
   notes: string | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  riding_experience: string | null;
+  medical_notes: string | null;
   is_active: boolean;
   account_holders: StudentAccountHolder[];
 }
@@ -219,6 +224,7 @@ export interface PersonDetail {
 }
 
 export interface OnboardingContext {
+  kind: "staff" | "school_client";
   has_account: boolean;
   given_name: string;
   family_name: string;

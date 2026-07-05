@@ -25,6 +25,7 @@ import { api, setToken } from "../api/client";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import type { CredentialType, OnboardingContext } from "../api/types";
+import { ClientOnboarding } from "./ClientOnboarding";
 
 const STAFF_TYPE_LABEL: Record<string, string> = {
   employee: "Employee",
@@ -238,6 +239,9 @@ export function OnboardingPage() {
         </Paper>
       </Center>
     );
+
+  if (ctxQ.data?.kind === "school_client")
+    return <ClientOnboarding token={token} ctx={ctxQ.data} />;
 
   return (
     <Container size="sm" py="xl">

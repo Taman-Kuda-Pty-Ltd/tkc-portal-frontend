@@ -124,6 +124,17 @@ function StudentCard({
         </Group>
       </Group>
 
+      {(student.riding_experience || student.height_cm || student.weight_kg || student.medical_notes) && (
+        <Text size="sm" c="dimmed" mt={4}>
+          {[
+            student.riding_experience?.replace(/_/g, " "),
+            student.height_cm ? `${student.height_cm}cm` : null,
+            student.weight_kg ? `${student.weight_kg}kg` : null,
+          ].filter(Boolean).join(" · ")}
+          {student.medical_notes ? ` · medical: ${student.medical_notes}` : ""}
+        </Text>
+      )}
+
       <Text size="sm" fw={500} mt="sm">Account holders</Text>
       <Stack gap={4} mt={4}>
         {student.account_holders.length === 0 && (
