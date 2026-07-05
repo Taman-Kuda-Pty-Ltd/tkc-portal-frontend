@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Button, Card, Group, NumberInput, Select, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Badge, Button, Card, Group, NumberInput, Select, Stack, Table, Text, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { IconTrash, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -15,7 +15,11 @@ const BASES = [
 ];
 const basisLabel = (v: string) => BASES.find((b) => b.value === v)?.label ?? v;
 
-interface PayGradeRate { id: number; basis: string; hourly_rate: number; from_date: string; to_date: string | null }
+interface PayGradeRate {
+  id: number; basis: string;
+  weekday_rate: number; saturday_rate: number; sunday_rate: number; public_holiday_rate: number;
+  from_date: string; to_date: string | null;
+}
 interface PayGrade { id: number; capacity_role_id: number; capacity_role_name: string | null; name: string; is_active: boolean; rates: PayGradeRate[] }
 
 export function PayGradesSection() {
@@ -36,7 +40,8 @@ export function PayGradesSection() {
     <Stack>
       <Text size="sm" c="dimmed">
         Employee pay grades per work type. Each grade has full-time / part-time / casual
-        hourly rates, each effective from a date (add a future-dated rate to schedule a rise).
+        rates with separate weekday, Saturday, Sunday and public-holiday amounts, each
+        effective from a date (add a future-dated row to schedule a change).
       </Text>
       <Group align="flex-end">
         <Select label="Work type" placeholder="Role" w={180}
@@ -59,18 +64,20 @@ export function PayGradesSection() {
 function GradeCard({ grade }: { grade: PayGrade }) {
   const qc = useQueryClient();
   const [basis, setBasis] = useState("casual");
-  const [rate, setRate] = useState<number>(0);
+  const [wd, setWd] = useState<number>(0);
+  const [sat, setSat] = useState<number>(0);
+  const [sun, setSun] = useState<number>(0);
+  const [ph, setPh] = useState<number>(0);
   const [from, setFrom] = useState<Date | null>(new Date());
   const [to, setTo] = useState<Date | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: ["pay-grades"] });
 
   const addRateM = useMutation({
     mutationFn: () => api.post(`/pay-grades/${grade.id}/rates`, {
-      basis, hourly_rate: rate,
-      from_date: dayjs(from).format("YYYY-MM-DD"),
-      to_date: to ? dayjs(to).format("YYYY-MM-DD") : null,
+      basis, weekday_rate: wd, saturday_rate: sat, sunday_rate: sun, public_holiday_rate: ph,
+      from_date: dayjs(from).format("YYYY-MM-DD"), to_date: to ? dayjs(to).format("YYYY-MM-DD") : null,
     }),
-    onSuccess: () => { invalidate(); setRate(0); },
+    onSuccess: () => { invalidate(); setWd(0); setSat(0); setSun(0); setPh(0); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const delRateM = useMutation({
@@ -84,9 +91,11 @@ function GradeCard({ grade }: { grade: PayGrade }) {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  const money = (n: number) => `$${n.toFixed(2)}`;
+
   return (
     <Card withBorder>
-      <Group justify="space-between">
+      <Group justify="space-between" mb="xs">
         <Group gap="xs">
           <Badge variant="light">{grade.capacity_role_name}</Badge>
           <Text fw={600}>{grade.name}</Text>
@@ -95,29 +104,50 @@ function GradeCard({ grade }: { grade: PayGrade }) {
           <IconTrash size={16} />
         </ActionIcon>
       </Group>
-      <Stack gap={2} mt="xs">
-        {grade.rates.length === 0 && <Text size="sm" c="dimmed">No rates set.</Text>}
-        {grade.rates.map((r) => (
-          <Group key={r.id} gap={8}>
-            <Badge size="sm" variant="light">{basisLabel(r.basis)}</Badge>
-            <Text size="sm">${r.hourly_rate.toFixed(2)}/h</Text>
-            <Text size="sm" c="dimmed">
-              from {dayjs(r.from_date).format("D MMM YYYY")}{r.to_date ? ` to ${dayjs(r.to_date).format("D MMM YYYY")}` : ""}
-            </Text>
-            <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delRateM.mutate(r.id)}>
-              <IconX size={12} />
-            </ActionIcon>
-          </Group>
-        ))}
-      </Stack>
+      <Table striped withTableBorder fz="sm">
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Basis</Table.Th>
+            <Table.Th>Weekday</Table.Th>
+            <Table.Th>Sat</Table.Th>
+            <Table.Th>Sun</Table.Th>
+            <Table.Th>Pub. hol.</Table.Th>
+            <Table.Th>Effective</Table.Th>
+            <Table.Th />
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {grade.rates.length === 0 && (
+            <Table.Tr><Table.Td colSpan={7}><Text c="dimmed" size="sm">No rates set.</Text></Table.Td></Table.Tr>
+          )}
+          {grade.rates.map((r) => (
+            <Table.Tr key={r.id}>
+              <Table.Td>{basisLabel(r.basis)}</Table.Td>
+              <Table.Td>{money(r.weekday_rate)}</Table.Td>
+              <Table.Td>{money(r.saturday_rate)}</Table.Td>
+              <Table.Td>{money(r.sunday_rate)}</Table.Td>
+              <Table.Td>{money(r.public_holiday_rate)}</Table.Td>
+              <Table.Td>
+                {dayjs(r.from_date).format("D MMM YY")}{r.to_date ? `–${dayjs(r.to_date).format("D MMM YY")}` : "+"}
+              </Table.Td>
+              <Table.Td>
+                <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delRateM.mutate(r.id)}>
+                  <IconX size={12} />
+                </ActionIcon>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
       <Group align="flex-end" mt="xs" gap="xs">
-        <Select label="Basis" w={120} data={BASES} value={basis} onChange={(v) => v && setBasis(v)}
-          comboboxProps={{ withinPortal: true }} />
-        <NumberInput label="Rate $/h" w={100} min={0} step={0.5} value={rate} onChange={(v) => setRate(Number(v) || 0)} />
-        <DateInput label="From" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
-        <DateInput label="To (optional)" w={140} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
-        <Button size="sm" variant="light" loading={addRateM.isPending} disabled={!from || rate <= 0}
-          onClick={() => addRateM.mutate()}>Add rate</Button>
+        <Select label="Basis" w={110} data={BASES} value={basis} onChange={(v) => v && setBasis(v)} comboboxProps={{ withinPortal: true }} />
+        <NumberInput label="Weekday" w={90} min={0} step={0.5} value={wd} onChange={(v) => setWd(Number(v) || 0)} />
+        <NumberInput label="Sat" w={80} min={0} step={0.5} value={sat} onChange={(v) => setSat(Number(v) || 0)} />
+        <NumberInput label="Sun" w={80} min={0} step={0.5} value={sun} onChange={(v) => setSun(Number(v) || 0)} />
+        <NumberInput label="Pub. hol." w={90} min={0} step={0.5} value={ph} onChange={(v) => setPh(Number(v) || 0)} />
+        <DateInput label="From" w={130} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
+        <DateInput label="To" w={120} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
+        <Button size="sm" variant="light" loading={addRateM.isPending} disabled={!from} onClick={() => addRateM.mutate()}>Add rate</Button>
       </Group>
     </Card>
   );

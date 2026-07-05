@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Button, Card, Divider, Group, NumberInput, Select, Stack, Text, Title } from "@mantine/core";
+import { ActionIcon, Badge, Button, Card, Divider, Group, NumberInput, Select, Stack, Table, Text, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -15,7 +15,11 @@ const BASES = [
 ];
 
 interface EmployeeGrade { id: number; pay_grade_id: number; grade_name: string | null; capacity_role_name: string | null; basis: string; from_date: string; to_date: string | null }
-interface ContractorRate { id: number; activity_id: number; activity_name: string | null; hourly_rate: number; from_date: string; to_date: string | null }
+interface ContractorRate {
+  id: number; activity_id: number; activity_name: string | null;
+  weekday_rate: number; saturday_rate: number; sunday_rate: number; public_holiday_rate: number;
+  from_date: string; to_date: string | null;
+}
 interface PayGrade { id: number; name: string; capacity_role_name: string | null }
 
 export function PersonRatesSection({ personId }: { personId: number }) {
@@ -89,7 +93,10 @@ function EmployeeGrades({ personId }: { personId: number }) {
 function ContractorRates({ personId }: { personId: number }) {
   const qc = useQueryClient();
   const [activityId, setActivityId] = useState<string | null>(null);
-  const [rate, setRate] = useState<number>(0);
+  const [wd, setWd] = useState<number>(0);
+  const [sat, setSat] = useState<number>(0);
+  const [sun, setSun] = useState<number>(0);
+  const [ph, setPh] = useState<number>(0);
   const [from, setFrom] = useState<Date | null>(new Date());
   const [to, setTo] = useState<Date | null>(null);
   const q = useQuery({ queryKey: ["contractor-rates", personId], queryFn: () => api.get<ContractorRate[]>(`/people/${personId}/contractor-rates`) });
@@ -98,10 +105,11 @@ function ContractorRates({ personId }: { personId: number }) {
 
   const addM = useMutation({
     mutationFn: () => api.post(`/people/${personId}/contractor-rates`, {
-      activity_id: Number(activityId), hourly_rate: rate,
+      activity_id: Number(activityId),
+      weekday_rate: wd, saturday_rate: sat, sunday_rate: sun, public_holiday_rate: ph,
       from_date: dayjs(from).format("YYYY-MM-DD"), to_date: to ? dayjs(to).format("YYYY-MM-DD") : null,
     }),
-    onSuccess: () => { invalidate(); setActivityId(null); setRate(0); },
+    onSuccess: () => { invalidate(); setActivityId(null); setWd(0); setSat(0); setSun(0); setPh(0); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const delM = useMutation({
@@ -109,26 +117,47 @@ function ContractorRates({ personId }: { personId: number }) {
     onSuccess: invalidate,
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+  const money = (n: number) => `$${n.toFixed(2)}`;
 
   return (
     <Stack gap="xs">
-      {(q.data ?? []).length === 0 && <Text size="sm" c="dimmed">None.</Text>}
-      {(q.data ?? []).map((r) => (
-        <Group key={r.id} gap={8}>
-          <Badge variant="light">{r.activity_name}</Badge>
-          <Text size="sm">${r.hourly_rate.toFixed(2)}/h</Text>
-          <Text size="sm" c="dimmed">{fmtRange(r.from_date, r.to_date)}</Text>
-          <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(r.id)}><IconX size={12} /></ActionIcon>
-        </Group>
-      ))}
+      <Table striped withTableBorder fz="sm">
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Work type</Table.Th><Table.Th>Weekday</Table.Th><Table.Th>Sat</Table.Th>
+            <Table.Th>Sun</Table.Th><Table.Th>Pub. hol.</Table.Th><Table.Th>Effective</Table.Th><Table.Th />
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {(q.data ?? []).length === 0 && (
+            <Table.Tr><Table.Td colSpan={7}><Text c="dimmed" size="sm">None.</Text></Table.Td></Table.Tr>
+          )}
+          {(q.data ?? []).map((r) => (
+            <Table.Tr key={r.id}>
+              <Table.Td>{r.activity_name}</Table.Td>
+              <Table.Td>{money(r.weekday_rate)}</Table.Td>
+              <Table.Td>{money(r.saturday_rate)}</Table.Td>
+              <Table.Td>{money(r.sunday_rate)}</Table.Td>
+              <Table.Td>{money(r.public_holiday_rate)}</Table.Td>
+              <Table.Td>{fmtRange(r.from_date, r.to_date)}</Table.Td>
+              <Table.Td>
+                <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(r.id)}><IconX size={12} /></ActionIcon>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
       <Group align="flex-end" gap="xs">
-        <Select label="Work type" w={200} placeholder="Activity"
+        <Select label="Work type" w={180} placeholder="Activity"
           data={(activitiesQ.data ?? []).filter((a) => a.is_active).map((a) => ({ value: String(a.id), label: a.name }))}
           value={activityId} onChange={setActivityId} searchable comboboxProps={{ withinPortal: true }} />
-        <NumberInput label="Rate $/h" w={100} min={0} step={0.5} value={rate} onChange={(v) => setRate(Number(v) || 0)} />
-        <DateInput label="From" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
-        <DateInput label="To" w={130} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
-        <Button size="sm" variant="light" loading={addM.isPending} disabled={!activityId || !from || rate <= 0} onClick={() => addM.mutate()}>Add</Button>
+        <NumberInput label="Weekday" w={90} min={0} step={0.5} value={wd} onChange={(v) => setWd(Number(v) || 0)} />
+        <NumberInput label="Sat" w={80} min={0} step={0.5} value={sat} onChange={(v) => setSat(Number(v) || 0)} />
+        <NumberInput label="Sun" w={80} min={0} step={0.5} value={sun} onChange={(v) => setSun(Number(v) || 0)} />
+        <NumberInput label="Pub. hol." w={90} min={0} step={0.5} value={ph} onChange={(v) => setPh(Number(v) || 0)} />
+        <DateInput label="From" w={130} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
+        <DateInput label="To" w={120} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
+        <Button size="sm" variant="light" loading={addM.isPending} disabled={!activityId || !from} onClick={() => addM.mutate()}>Add</Button>
       </Group>
     </Stack>
   );

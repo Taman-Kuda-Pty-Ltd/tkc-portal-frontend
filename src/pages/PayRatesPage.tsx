@@ -1,8 +1,9 @@
-import { Button, Group, Stack, Text, Title } from "@mantine/core";
+import { Button, Divider, Group, Stack, Text, Title } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { PayGradesSection } from "../components/PayGradesSection";
+import { PublicHolidaysSection } from "../components/PublicHolidaysSection";
 
 export function PayRatesPage() {
   const navigate = useNavigate();
@@ -16,7 +17,11 @@ export function PayRatesPage() {
       </Group>
       <Title order={2}>Pay grades & rates</Title>
       {can("manage_settings") ? (
-        <PayGradesSection />
+        <>
+          <PayGradesSection />
+          <Divider my="md" />
+          <PublicHolidaysSection />
+        </>
       ) : (
         <Text c="dimmed">You don't have access to pay rates.</Text>
       )}
