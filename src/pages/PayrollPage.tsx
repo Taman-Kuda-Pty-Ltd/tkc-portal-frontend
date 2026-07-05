@@ -6,9 +6,9 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { PayGradesSection } from "../components/PayGradesSection";
 
 interface PayrollLine { capacity_role_name: string; hours: number; pay: number; unrated_hours: number; pending: boolean }
 interface Adjustment { id: number; hours: number; pay: number | null; reason: string; capacity_role_name: string | null }
@@ -31,7 +31,7 @@ function periodStartFor(today: Dayjs, weekday: number): Dayjs {
 export function PayrollPage() {
   const qc = useQueryClient();
   const { can } = useAuth();
-  const [ratesOpen, setRatesOpen] = useState(false);
+  const navigate = useNavigate();
   const orgQ = useQuery({
     queryKey: ["org-settings"],
     queryFn: () => api.get<{ pay_period_start_weekday: number; pay_period_days: number }>("/settings/org"),
@@ -62,7 +62,7 @@ export function PayrollPage() {
       <Group justify="space-between">
         <Title order={2}>Payroll</Title>
         {can("manage_settings") && (
-          <Button variant="light" leftSection={<IconCoin size={16} />} onClick={() => setRatesOpen(true)}>
+          <Button variant="light" leftSection={<IconCoin size={16} />} onClick={() => navigate("/payroll/rates")}>
             Pay rates
           </Button>
         )}
@@ -98,10 +98,6 @@ export function PayrollPage() {
           <PayrollRow key={p.person_id} person={p} periodStart={key!} closed={report.closed} />
         ))
       )}
-
-      <Modal opened={ratesOpen} onClose={() => setRatesOpen(false)} title="Pay grades & rates" size="xl">
-        <PayGradesSection />
-      </Modal>
     </Stack>
   );
 }
