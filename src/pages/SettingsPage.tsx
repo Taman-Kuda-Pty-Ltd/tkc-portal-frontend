@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
 import { OrgSettingsSection } from "../components/OrgSettingsSection";
+import { PayGradesSection } from "../components/PayGradesSection";
 import { AccountHoldersSection } from "../components/AccountHoldersSection";
 import { FacilitiesSection } from "../components/FacilitiesSection";
 import { ResourceListSection } from "../components/ResourceListSection";
@@ -194,6 +195,17 @@ export function SettingsPage() {
             </Accordion.Control>
             <Accordion.Panel>
               <OrgSettingsSection />
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {can("manage_settings") && (
+          <Accordion.Item value="pay-grades">
+            <Accordion.Control>
+              <Text fw={600}>Pay grades & rates</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <PayGradesSection />
             </Accordion.Panel>
           </Accordion.Item>
         )}

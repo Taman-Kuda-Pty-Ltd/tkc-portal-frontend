@@ -29,6 +29,7 @@ import { api } from "../api/client";
 import type { EngagementDetail, PersonDetail, Role } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
+import { PersonRatesSection } from "../components/PersonRatesSection";
 import { PhoneField } from "../components/PhoneField";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -443,6 +444,8 @@ export function PersonDetailPage() {
           })}
         </Stack>
       </Card>
+
+      {can("manage_settings") && <PersonRatesSection personId={p.id} />}
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">

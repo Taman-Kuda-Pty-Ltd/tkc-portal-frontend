@@ -8,11 +8,13 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 
-interface PayrollLine { capacity_role_name: string; hours: number; pending: boolean }
-interface Adjustment { id: number; hours: number; reason: string; capacity_role_name: string | null }
+interface PayrollLine { capacity_role_name: string; hours: number; pay: number; unrated_hours: number; pending: boolean }
+interface Adjustment { id: number; hours: number; pay: number | null; reason: string; capacity_role_name: string | null }
 interface PayrollPerson {
   person_id: number; name: string; lines: PayrollLine[]; adjustments: Adjustment[];
-  base_total: number; adjustment_total: number; total: number; has_pending: boolean;
+  base_total: number; adjustment_total: number; total: number;
+  base_pay: number; adjustment_pay: number; total_pay: number;
+  has_pending: boolean; has_unrated: boolean;
 }
 interface PayrollReport {
   period_start: string; period_end: string; closed: boolean; people: PayrollPerson[];
@@ -116,11 +118,14 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
           <Group gap="xs">
             <Text fw={600}>{person.name}</Text>
             {person.has_pending && <Badge color="yellow" variant="light">has pending</Badge>}
+            {person.has_unrated && <Badge color="red" variant="light">unrated hours</Badge>}
           </Group>
           <Stack gap={2} mt={4}>
             {person.lines.map((l, i) => (
               <Text key={i} size="sm" c="dimmed">
-                {l.capacity_role_name}: <b>{l.hours}h</b>{l.pending ? " (pending)" : ""}
+                {l.capacity_role_name}: <b>{l.hours}h</b>
+                {l.unrated_hours > 0 ? " · no rate set" : ` · $${l.pay.toFixed(2)}`}
+                {l.pending ? " (pending)" : ""}
               </Text>
             ))}
             {person.adjustments.map((a) => (
@@ -138,9 +143,10 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
           </Stack>
         </div>
         <div style={{ textAlign: "right" }}>
-          <Text fw={700} fz="xl">{person.total}h</Text>
+          <Text fw={700} fz="xl">${person.total_pay.toFixed(2)}</Text>
+          <Text size="sm" c="dimmed">{person.total}h</Text>
           {person.adjustment_total !== 0 && (
-            <Text size="xs" c="dimmed">{person.base_total} base {person.adjustment_total > 0 ? "+" : ""}{person.adjustment_total} adj</Text>
+            <Text size="xs" c="dimmed">{person.base_total}h base {person.adjustment_total > 0 ? "+" : ""}{person.adjustment_total}h adj</Text>
           )}
           {!closed && (
             <Button size="xs" variant="subtle" mt={4} onClick={() => setOpen(true)}>Adjust</Button>
