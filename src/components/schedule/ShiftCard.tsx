@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { formatISOTime } from "../../lib/time";
 import type { ActivityHeading, Shift } from "../../api/types";
@@ -86,6 +86,7 @@ function HeadingGroup({
   );
   const label = heading?.label ?? "Staff";
   const target = heading ? effectiveCount(shift, heading) : undefined;
+  const isLesson = !!ctx.activityById.get(shift.activity_id)?.is_lesson;
   const eligible = [...ctx.personById.values()]
     .filter((p) => p.is_active)
     .filter(
@@ -127,6 +128,21 @@ function HeadingGroup({
             <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
               {a.person_name ?? `#${a.person_id}`}
             </Text>
+            {ctx.canAssign && isLesson && (
+              <Tooltip label="Secondary (shadow) coach — paid a share of the lesson" withArrow>
+                <Badge
+                  size="xs"
+                  variant={a.coach_kind === "secondary" ? "filled" : "light"}
+                  color={a.coach_kind === "secondary" ? "grape" : "gray"}
+                  style={{ cursor: "pointer" }}
+                  onClick={() =>
+                    ctx.onSetCoachKind(shift.id, a.id, a.coach_kind === "secondary" ? "primary" : "secondary")
+                  }
+                >
+                  {a.coach_kind === "secondary" ? "2nd" : "Lead"}
+                </Badge>
+              </Tooltip>
+            )}
             {ctx.canAssign && (
               <ActionIcon size="sm" variant="subtle" color="red"
                 onClick={() => ctx.onUnassign(shift.id, a.id)} aria-label="Remove">

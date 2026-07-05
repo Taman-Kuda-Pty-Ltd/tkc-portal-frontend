@@ -131,6 +131,12 @@ export function SchedulePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+  const coachKindM = useMutation({
+    mutationFn: (v: { shiftId: number; assignmentId: number; kind: "primary" | "secondary" }) =>
+      api.patch(`/shifts/${v.shiftId}/assignments/${v.assignmentId}`, { coach_kind: v.kind }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
 
   const ctx: ScheduleCtx = {
     activityById,
@@ -143,6 +149,7 @@ export function SchedulePage() {
     onAddShift: (d) => setAddingOn(d.toDate()),
     onAssign: (shiftId, personId, headingId) => assignM.mutate({ shiftId, personId, headingId }),
     onUnassign: (shiftId, assignmentId) => unassignM.mutate({ shiftId, assignmentId }),
+    onSetCoachKind: (shiftId, assignmentId, kind) => coachKindM.mutate({ shiftId, assignmentId, kind }),
   };
 
   // --- navigation ---
