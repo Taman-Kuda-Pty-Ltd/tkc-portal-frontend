@@ -1,10 +1,10 @@
-import { ActionIcon, Badge, Button, Card, Group, Select, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Badge, Button, Card, Group, Modal, NumberInput, Select, Stack, Text, Textarea, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { IconTrash, IconX } from "@tabler/icons-react";
+import { IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { AccountHolderRec, StudentRec } from "../api/types";
 
@@ -69,6 +69,7 @@ function StudentCard({
   const qc = useQueryClient();
   const [holderId, setHolderId] = useState<string | null>(null);
   const [relationship, setRelationship] = useState<string>("parent");
+  const [editOpen, setEditOpen] = useState(false);
   const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
 
   const linkM = useMutation({
@@ -118,11 +119,17 @@ function StudentCard({
               Make self-managing
             </Button>
           )}
+          <ActionIcon variant="subtle" aria-label="Edit details" onClick={() => setEditOpen(true)}>
+            <IconPencil size={16} />
+          </ActionIcon>
           <ActionIcon color="red" variant="subtle" aria-label="Delete" onClick={onDelete}>
             <IconTrash size={16} />
           </ActionIcon>
         </Group>
       </Group>
+
+      <StudentEditModal student={student} opened={editOpen} onClose={() => setEditOpen(false)} />
+
 
       {(student.riding_experience || student.height_cm || student.weight_kg || student.medical_notes) && (
         <Text size="sm" c="dimmed" mt={4}>
@@ -167,5 +174,63 @@ function StudentCard({
         </Button>
       </Group>
     </Card>
+  );
+}
+
+const EXPERIENCE = [
+  { value: "never_ridden", label: "Never ridden" },
+  { value: "beginner", label: "Beginner" },
+  { value: "novice", label: "Novice" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+];
+
+function StudentEditModal({ student, opened, onClose }: { student: StudentRec; opened: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [experience, setExperience] = useState<string | null>(student.riding_experience);
+  const [height, setHeight] = useState<number | string>(student.height_cm ?? "");
+  const [weight, setWeight] = useState<number | string>(student.weight_kg ?? "");
+  const [medical, setMedical] = useState(student.medical_notes ?? "");
+  const [notes, setNotes] = useState(student.notes ?? "");
+  useEffect(() => {
+    setExperience(student.riding_experience);
+    setHeight(student.height_cm ?? "");
+    setWeight(student.weight_kg ?? "");
+    setMedical(student.medical_notes ?? "");
+    setNotes(student.notes ?? "");
+  }, [student]);
+
+  const saveM = useMutation({
+    mutationFn: () =>
+      api.patch(`/students/${student.id}`, {
+        riding_experience: experience,
+        height_cm: height === "" ? null : Number(height),
+        weight_kg: weight === "" ? null : Number(weight),
+        medical_notes: medical.trim() || null,
+        notes: notes.trim() || null,
+      }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["students"] }); onClose(); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  return (
+    <Modal opened={opened} onClose={onClose} title={`Edit ${student.name}`}>
+      <Stack>
+        <Select label="Riding experience" data={EXPERIENCE} value={experience} onChange={setExperience}
+          clearable comboboxProps={{ withinPortal: true }} />
+        <Group grow>
+          <NumberInput label="Height (cm)" min={0} value={height} onChange={setHeight} />
+          <NumberInput label="Weight (kg)" min={0} value={weight} onChange={setWeight} />
+        </Group>
+        <Textarea label="Medical conditions" autosize minRows={2} value={medical}
+          onChange={(e) => setMedical(e.currentTarget.value)} />
+        <Textarea label="Notes" autosize minRows={1} value={notes}
+          onChange={(e) => setNotes(e.currentTarget.value)} />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>Cancel</Button>
+          <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>Save</Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
