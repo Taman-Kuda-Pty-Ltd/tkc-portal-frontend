@@ -1,12 +1,12 @@
 import {
-  ActionIcon, Badge, Button, Card, Group, Loader, Modal, NumberInput, Stack, Text, Textarea, Title,
+  ActionIcon, Anchor, Badge, Button, Card, Group, Loader, Modal, NumberInput, Stack, Table, Text, Textarea, Title,
 } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight, IconCoin, IconX } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconCoin, IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
@@ -21,6 +21,10 @@ interface PayrollPerson {
 interface PayrollReport {
   period_start: string; period_end: string; closed: boolean; people: PayrollPerson[];
 }
+interface PayRun {
+  period_start: string; period_end: string; approved_at: string; approved_by: string | null;
+  person_count: number; total_pay: number;
+}
 
 /** period 0=Mon..6=Sun; align today to the most recent start weekday. */
 function periodStartFor(today: Dayjs, weekday: number): Dayjs {
@@ -29,36 +33,19 @@ function periodStartFor(today: Dayjs, weekday: number): Dayjs {
 }
 
 export function PayrollPage() {
-  const qc = useQueryClient();
   const { can } = useAuth();
   const navigate = useNavigate();
   const orgQ = useQuery({
     queryKey: ["org-settings"],
     queryFn: () => api.get<{ pay_period_start_weekday: number; pay_period_days: number }>("/settings/org"),
   });
-  const [start, setStart] = useState<Dayjs | null>(null);
-  useEffect(() => {
-    if (orgQ.data && !start) setStart(periodStartFor(dayjs(), orgQ.data.pay_period_start_weekday));
-  }, [orgQ.data, start]);
   const days = orgQ.data?.pay_period_days ?? 7;
+  const [period, setPeriod] = useState<Dayjs | null>(null); // null = show the runs list
 
-  const key = start?.format("YYYY-MM-DD");
-  const reportQ = useQuery({
-    queryKey: ["payroll", key],
-    queryFn: () => api.get<PayrollReport>(`/reports/payroll?period_start=${key}`),
-    enabled: !!key,
-  });
-  const refresh = () => qc.invalidateQueries({ queryKey: ["payroll"] });
-  const closeM = useMutation({
-    mutationFn: (close: boolean) =>
-      api.post(`/reports/payroll/${close ? "close" : "reopen"}`, { period_start: key }),
-    onSuccess: refresh,
-    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
-  });
+  const runsQ = useQuery({ queryKey: ["pay-runs"], queryFn: () => api.get<PayRun[]>("/reports/payroll/runs") });
 
-  const report = reportQ.data;
   return (
-    <Stack maw={820} w="100%" mx="auto">
+    <Stack maw={860} w="100%" mx="auto">
       <Group justify="space-between">
         <Title order={2}>Payroll</Title>
         {can("manage_settings") && (
@@ -67,26 +54,103 @@ export function PayrollPage() {
           </Button>
         )}
       </Group>
+
+      {period ? (
+        <PeriodReport
+          start={period}
+          days={days}
+          onBack={() => setPeriod(null)}
+          onSetStart={setPeriod}
+        />
+      ) : (
+        <Stack>
+          <Group justify="space-between">
+            <Text c="dimmed" size="sm">Approved pay runs. Create one, review it, then approve.</Text>
+            <Button leftSection={<IconPlus size={16} />} disabled={!orgQ.data}
+              onClick={() => setPeriod(periodStartFor(dayjs(), orgQ.data!.pay_period_start_weekday))}>
+              Create pay run
+            </Button>
+          </Group>
+          {runsQ.isLoading ? (
+            <Loader />
+          ) : (runsQ.data ?? []).length === 0 ? (
+            <Card withBorder><Text c="dimmed">No pay runs yet. Create one to get started.</Text></Card>
+          ) : (
+            <Card withBorder p={0}>
+              <Table>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Period</Table.Th><Table.Th>People</Table.Th>
+                    <Table.Th>Total</Table.Th><Table.Th>Approved</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {(runsQ.data ?? []).map((r) => (
+                    <Table.Tr key={r.period_start} style={{ cursor: "pointer" }}
+                      onClick={() => setPeriod(dayjs(r.period_start))}>
+                      <Table.Td>
+                        {dayjs(r.period_start).format("D MMM")} – {dayjs(r.period_end).subtract(1, "day").format("D MMM YYYY")}
+                      </Table.Td>
+                      <Table.Td>{r.person_count}</Table.Td>
+                      <Table.Td>${r.total_pay.toFixed(2)}</Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {dayjs(r.approved_at).format("D MMM YYYY")}{r.approved_by ? ` · ${r.approved_by}` : ""}
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Card>
+          )}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
+function PeriodReport({ start, days, onBack, onSetStart }: {
+  start: Dayjs; days: number; onBack: () => void; onSetStart: (d: Dayjs) => void;
+}) {
+  const qc = useQueryClient();
+  const key = start.format("YYYY-MM-DD");
+  const reportQ = useQuery({
+    queryKey: ["payroll", key],
+    queryFn: () => api.get<PayrollReport>(`/reports/payroll?period_start=${key}`),
+  });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["payroll"] });
+    qc.invalidateQueries({ queryKey: ["pay-runs"] });
+  };
+  const closeM = useMutation({
+    mutationFn: (close: boolean) => api.post(`/reports/payroll/${close ? "close" : "reopen"}`, { period_start: key }),
+    onSuccess: (_d, close) => { refresh(); if (close) onBack(); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const report = reportQ.data;
+
+  return (
+    <Stack>
       <Group justify="space-between">
-        <Group gap="xs">
-          <ActionIcon variant="light" onClick={() => start && setStart(start.subtract(days, "day"))}>
-            <IconChevronLeft size={16} />
-          </ActionIcon>
-          <Text fw={600}>
-            {start ? `${start.format("D MMM")} – ${start.add(days - 1, "day").format("D MMM YYYY")}` : "…"}
-          </Text>
-          <ActionIcon variant="light" onClick={() => start && setStart(start.add(days, "day"))}>
-            <IconChevronRight size={16} />
-          </ActionIcon>
-          {report?.closed && <Badge color="blue">Closed</Badge>}
-        </Group>
+        <Button variant="subtle" size="xs" onClick={onBack}>← Back to pay runs</Button>
         {report && (
-          <Button size="xs" variant={report.closed ? "default" : "light"}
-            color={report.closed ? "gray" : "blue"} loading={closeM.isPending}
-            onClick={() => closeM.mutate(!report.closed)}>
-            {report.closed ? "Reopen period" : "Close period"}
-          </Button>
+          report.closed
+            ? <Button size="xs" variant="default" color="gray" loading={closeM.isPending}
+                onClick={() => closeM.mutate(false)}>Reopen (unapprove)</Button>
+            : <Button size="xs" color="blue" loading={closeM.isPending} disabled={report.people.length === 0}
+                onClick={() => closeM.mutate(true)}>Approve pay run</Button>
         )}
+      </Group>
+      <Group gap="xs">
+        <ActionIcon variant="light" onClick={() => onSetStart(start.subtract(days, "day"))}>
+          <IconChevronLeft size={16} />
+        </ActionIcon>
+        <Text fw={600}>{start.format("D MMM")} – {start.add(days - 1, "day").format("D MMM YYYY")}</Text>
+        <ActionIcon variant="light" onClick={() => onSetStart(start.add(days, "day"))}>
+          <IconChevronRight size={16} />
+        </ActionIcon>
+        {report?.closed && <Badge color="blue">Approved</Badge>}
       </Group>
 
       {reportQ.isLoading || !report ? (
@@ -95,7 +159,7 @@ export function PayrollPage() {
         <Text c="dimmed">No hours recorded this period.</Text>
       ) : (
         report.people.map((p) => (
-          <PayrollRow key={p.person_id} person={p} periodStart={key!} closed={report.closed} />
+          <PayrollRow key={p.person_id} person={p} periodStart={key} closed={report.closed} />
         ))
       )}
     </Stack>
@@ -127,7 +191,7 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
       <Group justify="space-between" wrap="wrap">
         <div style={{ flex: 1, minWidth: 240 }}>
           <Group gap="xs">
-            <Text fw={600}>{person.name}</Text>
+            <Anchor component={Link} to={`/people/${person.person_id}`} fw={600}>{person.name}</Anchor>
             {person.has_pending && <Badge color="yellow" variant="light">has pending</Badge>}
             {person.has_unrated && <Badge color="red" variant="light">unrated hours</Badge>}
             {person.age_warning && <Badge color="orange" variant="light">age bracket?</Badge>}
@@ -140,6 +204,11 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
                 {l.pending ? " (pending)" : ""}
               </Text>
             ))}
+            {person.has_unrated && (
+              <Anchor component={Link} to={`/people/${person.person_id}`} size="xs">
+                Assign a pay grade →
+              </Anchor>
+            )}
             {person.adjustments.map((a) => (
               <Group key={a.id} gap={6}>
                 <Text size="sm" c={a.hours < 0 ? "red" : "teal"}>
