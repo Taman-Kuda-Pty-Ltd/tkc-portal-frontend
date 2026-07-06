@@ -29,6 +29,8 @@ export interface Person {
   onboarded: boolean;
   full_name: string; // computed display name
   roles: Role[];
+  is_student?: boolean;
+  is_account_holder?: boolean;
 }
 
 export interface ActivityHeading {

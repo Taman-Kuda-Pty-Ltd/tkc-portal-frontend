@@ -3,10 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
 import { OrgSettingsSection } from "../components/OrgSettingsSection";
-import { AccountHoldersSection } from "../components/AccountHoldersSection";
 import { FacilitiesSection } from "../components/FacilitiesSection";
-import { ResourceListSection } from "../components/ResourceListSection";
-import { StudentsSection } from "../components/StudentsSection";
 import { TerminalsSection } from "../components/TerminalsSection";
 import { ActivitiesPage } from "./ActivitiesPage";
 import { LensesPage } from "./LensesPage";
@@ -132,38 +129,7 @@ export function SettingsPage() {
           </Accordion.Item>
         )}
 
-        {can("manage_activities") && (
-          <Accordion.Item value="horses">
-            <Accordion.Control>
-              <Text fw={600}>Horses</Text>
-            </Accordion.Control>
-            <Accordion.Panel>
-              <ResourceListSection path="horses" addPlaceholder="Add a horse…" />
-            </Accordion.Panel>
-          </Accordion.Item>
-        )}
-
-        {can("manage_activities") && (
-          <Accordion.Item value="students">
-            <Accordion.Control>
-              <Text fw={600}>Students</Text>
-            </Accordion.Control>
-            <Accordion.Panel>
-              <StudentsSection />
-            </Accordion.Panel>
-          </Accordion.Item>
-        )}
-
-        {can("manage_activities") && (
-          <Accordion.Item value="account-holders">
-            <Accordion.Control>
-              <Text fw={600}>Account holders</Text>
-            </Accordion.Control>
-            <Accordion.Panel>
-              <AccountHoldersSection />
-            </Accordion.Panel>
-          </Accordion.Item>
-        )}
+        {/* Horses moved to their own nav item; students & account holders live in People. */}
 
         {can("manage_schedule_lenses") && (
           <Accordion.Item value="lenses">

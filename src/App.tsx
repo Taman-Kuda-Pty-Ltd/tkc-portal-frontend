@@ -7,6 +7,7 @@ import { AppLayout } from "./components/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
+import { HorsesPage } from "./pages/HorsesPage";
 import { PayRatesPage } from "./pages/PayRatesPage";
 import { PayrollPage } from "./pages/PayrollPage";
 import { PeoplePage } from "./pages/PeoplePage";
@@ -43,6 +44,7 @@ function AuthedApp() {
         <Route path="/templates/:id" element={<ShiftTemplateEditorPage />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/people/:id" element={<PersonDetailPage />} />
+        <Route path="/horses" element={<HorsesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/schedule" replace />} />
       </Routes>

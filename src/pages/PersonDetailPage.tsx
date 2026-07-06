@@ -29,6 +29,7 @@ import { api } from "../api/client";
 import type { EngagementDetail, PersonDetail, Role } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
+import { PersonContextsSection } from "../components/PersonContextsSection";
 import { PersonRatesSection } from "../components/PersonRatesSection";
 import { PhoneField } from "../components/PhoneField";
 
@@ -444,6 +445,8 @@ export function PersonDetailPage() {
           })}
         </Stack>
       </Card>
+
+      {canManage && <PersonContextsSection personId={p.id} />}
 
       {can("manage_settings") && <PersonRatesSection personId={p.id} dob={p.date_of_birth} />}
 

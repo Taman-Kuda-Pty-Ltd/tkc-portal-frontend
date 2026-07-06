@@ -359,6 +359,8 @@ export function PeoplePage() {
                             {r.name}
                           </Badge>
                         ))}
+                        {p.is_student && <Badge size="sm" variant="light" color="grape">Student</Badge>}
+                        {p.is_account_holder && <Badge size="sm" variant="light" color="cyan">Account holder</Badge>}
                       </Group>
                     </Table.Td>
                     <Table.Td>{statusBadge(p)}</Table.Td>

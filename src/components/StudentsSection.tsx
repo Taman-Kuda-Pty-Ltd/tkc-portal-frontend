@@ -57,7 +57,7 @@ export function StudentsSection() {
   );
 }
 
-function StudentCard({
+export function StudentCard({
   student,
   holders,
   onDelete,
