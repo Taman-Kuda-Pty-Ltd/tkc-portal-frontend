@@ -18,7 +18,7 @@ interface EmployeeGrade { id: number; pay_grade_id: number; grade_name: string |
 interface ContractorRate {
   id: number; activity_id: number; activity_name: string | null;
   weekday_rate: number; saturday_rate: number; sunday_rate: number; public_holiday_rate: number;
-  from_date: string; to_date: string | null;
+  from_date: string;
 }
 interface PayGrade { id: number; name: string; age_category: string; capacity_role_name: string | null }
 
@@ -133,7 +133,6 @@ function ContractorRates({ personId }: { personId: number }) {
   const [sun, setSun] = useState<number>(0);
   const [ph, setPh] = useState<number>(0);
   const [from, setFrom] = useState<Date | null>(new Date());
-  const [to, setTo] = useState<Date | null>(null);
   const q = useQuery({ queryKey: ["contractor-rates", personId], queryFn: () => api.get<ContractorRate[]>(`/people/${personId}/contractor-rates`) });
   const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => api.get<Activity[]>("/activities") });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["contractor-rates", personId] });
@@ -142,7 +141,7 @@ function ContractorRates({ personId }: { personId: number }) {
     mutationFn: () => api.post(`/people/${personId}/contractor-rates`, {
       activity_id: Number(activityId),
       weekday_rate: wd, saturday_rate: sat, sunday_rate: sun, public_holiday_rate: ph,
-      from_date: dayjs(from).format("YYYY-MM-DD"), to_date: to ? dayjs(to).format("YYYY-MM-DD") : null,
+      from_date: dayjs(from).format("YYYY-MM-DD"),
     }),
     onSuccess: () => { invalidate(); setActivityId(null); setWd(0); setSat(0); setSun(0); setPh(0); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
@@ -174,7 +173,7 @@ function ContractorRates({ personId }: { personId: number }) {
               <Table.Td>{money(r.saturday_rate)}</Table.Td>
               <Table.Td>{money(r.sunday_rate)}</Table.Td>
               <Table.Td>{money(r.public_holiday_rate)}</Table.Td>
-              <Table.Td>{fmtRange(r.from_date, r.to_date)}</Table.Td>
+              <Table.Td>from {dayjs(r.from_date).format("D MMM YYYY")}</Table.Td>
               <Table.Td>
                 <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(r.id)}><IconX size={12} /></ActionIcon>
               </Table.Td>
@@ -190,8 +189,7 @@ function ContractorRates({ personId }: { personId: number }) {
         <NumberInput label="Sat" w={80} min={0} step={0.5} value={sat} onChange={(v) => setSat(Number(v) || 0)} />
         <NumberInput label="Sun" w={80} min={0} step={0.5} value={sun} onChange={(v) => setSun(Number(v) || 0)} />
         <NumberInput label="Pub. hol." w={90} min={0} step={0.5} value={ph} onChange={(v) => setPh(Number(v) || 0)} />
-        <DateInput label="From" w={130} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
-        <DateInput label="To" w={120} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
+        <DateInput label="Effective from" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
         <Button size="sm" variant="light" loading={addM.isPending} disabled={!activityId || !from} onClick={() => addM.mutate()}>Add</Button>
       </Group>
     </Stack>

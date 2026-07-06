@@ -27,19 +27,15 @@ const BASES = [
 interface PayGradeRate {
   id: number; basis: string;
   weekday_rate: number; saturday_rate: number; sunday_rate: number; public_holiday_rate: number;
-  from_date: string; to_date: string | null;
+  from_date: string;
 }
 interface PayGrade {
   id: number; capacity_role_id: number; capacity_role_name: string | null; name: string;
   age_category: string; position: number; is_active: boolean; rates: PayGradeRate[];
 }
 
-function effectiveRate(g: PayGrade, basis: string, asAt: string): PayGradeRate | null {
-  const rows = g.rates
-    .filter((r) => r.basis === basis && r.from_date <= asAt && (!r.to_date || r.to_date >= asAt))
-    .sort((a, b) => a.from_date.localeCompare(b.from_date));
-  return rows.length ? rows[rows.length - 1] : null;
-}
+// The API already returns the in-force rate per basis for the requested snapshot date.
+const rateFor = (g: PayGrade, basis: string) => g.rates.find((r) => r.basis === basis) ?? null;
 
 export function PayGradesSection() {
   const qc = useQueryClient();
@@ -47,8 +43,16 @@ export function PayGradesSection() {
   const [addRole, setAddRole] = useState<string | null>(null);
   const [addName, setAddName] = useState("");
   const [addAge, setAddAge] = useState("adult");
-  const gradesQ = useQuery({ queryKey: ["pay-grades"], queryFn: () => api.get<PayGrade[]>("/pay-grades") });
+  const today = dayjs().format("YYYY-MM-DD");
+  const [asAt, setAsAt] = useState(today);
+
+  const datesQ = useQuery({ queryKey: ["pay-grade-effective-dates"], queryFn: () => api.get<string[]>("/pay-grades/effective-dates") });
+  const gradesQ = useQuery({ queryKey: ["pay-grades", asAt], queryFn: () => api.get<PayGrade[]>(`/pay-grades?as_at=${asAt}`) });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
+  const refetchRates = () => {
+    qc.invalidateQueries({ queryKey: ["pay-grades"] });
+    qc.invalidateQueries({ queryKey: ["pay-grade-effective-dates"] });
+  };
 
   const createM = useMutation({
     mutationFn: () =>
@@ -56,9 +60,13 @@ export function PayGradesSection() {
         capacity_role_id: Number(addRole), name: addName.trim(), age_category: addAge,
         position: addName.trim().toLowerCase().startsWith("grade ") ? Number(addName.split(" ")[1]) || 0 : 0,
       }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["pay-grades"] }); setAddName(""); },
+    onSuccess: () => { refetchRates(); setAddName(""); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+
+  const dateOptions = [...new Set([today, ...(datesQ.data ?? [])])]
+    .sort()
+    .map((d) => ({ value: d, label: d === today ? `Today (${dayjs(d).format("D MMM YYYY")})` : dayjs(d).format("D MMM YYYY") }));
 
   const byRole = new Map<string, PayGrade[]>();
   for (const g of gradesQ.data ?? []) {
@@ -68,17 +76,18 @@ export function PayGradesSection() {
 
   return (
     <Stack>
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">Pay grades by work type. Rates shown as effective today.</Text>
+      <Group justify="space-between" align="flex-end">
+        <Select label="Effective date" description="View rates as at this date"
+          data={dateOptions} value={asAt} onChange={(v) => v && setAsAt(v)} w={240} allowDeselect={false} />
         <Button size="xs" variant="light" leftSection={<IconUpload size={14} />} onClick={() => setImportOpen(true)}>
           Import award
         </Button>
       </Group>
 
       {[...byRole.entries()].map(([role, grades]) => (
-        <RoleRates key={role} roleName={role} grades={grades} />
+        <RoleRates key={role} roleName={role} grades={grades} asAt={asAt} onSaved={refetchRates} />
       ))}
-      {(gradesQ.data ?? []).length === 0 && <Text size="sm" c="dimmed">No grades yet.</Text>}
+      {(gradesQ.data ?? []).length === 0 && <Text size="sm" c="dimmed">No rates in force on this date.</Text>}
 
       <Card withBorder>
         <Text fw={600} size="sm" mb="xs">Add a grade</Text>
@@ -105,11 +114,10 @@ export function PayGradesSection() {
   );
 }
 
-function RoleRates({ roleName, grades }: { roleName: string; grades: PayGrade[] }) {
+function RoleRates({ roleName, grades, asAt, onSaved }: { roleName: string; grades: PayGrade[]; asAt: string; onSaved: () => void }) {
   const [age, setAge] = useState("adult");
   const [basis, setBasis] = useState("full_time");
   const [edit, setEdit] = useState<PayGrade | null>(null);
-  const asAt = dayjs().format("YYYY-MM-DD");
   const levels = grades.filter((g) => g.age_category === age).sort((a, b) => a.position - b.position);
   const money = (n: number | undefined) => (n == null ? "—" : `$${n.toFixed(2)}`);
 
@@ -131,7 +139,7 @@ function RoleRates({ roleName, grades }: { roleName: string; grades: PayGrade[] 
             <Table.Tr><Table.Td colSpan={6}><Text c="dimmed" size="sm">No grades for this age.</Text></Table.Td></Table.Tr>
           )}
           {levels.map((g) => {
-            const r = effectiveRate(g, basis, asAt);
+            const r = rateFor(g, basis);
             return (
               <Table.Tr key={g.id}>
                 <Table.Td>{g.name}</Table.Td>
@@ -147,21 +155,19 @@ function RoleRates({ roleName, grades }: { roleName: string; grades: PayGrade[] 
           })}
         </Table.Tbody>
       </Table>
-      {edit && <GradeRatesModal grade={edit} basis={basis} onClose={() => setEdit(null)} />}
+      {edit && <GradeRatesModal grade={edit} basis={basis} asAt={asAt} onClose={() => setEdit(null)} onSaved={onSaved} />}
     </Card>
   );
 }
 
-function GradeRatesModal({ grade, basis, onClose }: { grade: PayGrade; basis: string; onClose: () => void }) {
-  const qc = useQueryClient();
+function GradeRatesModal({ grade, basis, asAt, onClose, onSaved }: { grade: PayGrade; basis: string; asAt: string; onClose: () => void; onSaved: () => void }) {
   const [b, setB] = useState(basis);
-  const cur = effectiveRate(grade, b, dayjs().format("YYYY-MM-DD"));
+  const cur = rateFor(grade, b);
   const [wd, setWd] = useState<number>(cur?.weekday_rate ?? 0);
   const [sat, setSat] = useState<number>(cur?.saturday_rate ?? 0);
   const [sun, setSun] = useState<number>(cur?.sunday_rate ?? 0);
   const [ph, setPh] = useState<number>(cur?.public_holiday_rate ?? 0);
-  const [from, setFrom] = useState<Date | null>(new Date());
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["pay-grades"] });
+  const [from, setFrom] = useState<Date | null>(dayjs(asAt).toDate());
 
   const saveM = useMutation({
     mutationFn: () =>
@@ -169,12 +175,12 @@ function GradeRatesModal({ grade, basis, onClose }: { grade: PayGrade; basis: st
         basis: b, weekday_rate: wd, saturday_rate: sat, sunday_rate: sun, public_holiday_rate: ph,
         from_date: dayjs(from).format("YYYY-MM-DD"),
       }),
-    onSuccess: () => { invalidate(); onClose(); },
+    onSuccess: () => { onSaved(); onClose(); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const delGradeM = useMutation({
     mutationFn: () => api.del(`/pay-grades/${grade.id}`),
-    onSuccess: () => { invalidate(); onClose(); },
+    onSuccess: () => { onSaved(); onClose(); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
@@ -191,7 +197,7 @@ function GradeRatesModal({ grade, basis, onClose }: { grade: PayGrade; basis: st
           <NumberInput label="Pub. hol. $/h" min={0} step={0.5} value={ph} onChange={(v) => setPh(Number(v) || 0)} />
         </Group>
         <DateInput label="Effective from" value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
-        <Text size="xs" c="dimmed">Saves a new rate effective from this date (schedules a change).</Text>
+        <Text size="xs" c="dimmed">Sets the rate from this date. Saving an existing date updates it; a later date schedules a change.</Text>
         <Group justify="space-between">
           <Button variant="light" color="red" loading={delGradeM.isPending} onClick={() => delGradeM.mutate()}>Delete grade</Button>
           <Button loading={saveM.isPending} disabled={!from} onClick={() => saveM.mutate()}>Save rate</Button>
