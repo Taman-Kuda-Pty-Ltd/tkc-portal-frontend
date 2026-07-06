@@ -7,8 +7,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { api, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+
+async function downloadPayrollCsv(key: string) {
+  const res = await fetch(`/api/reports/payroll/export?period_start=${key}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) { notifications.show({ color: "red", message: "Export failed" }); return; }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url; a.download = `payroll_${key}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface PayrollLine { capacity_role_name: string; hours: number; pay: number; unrated_hours: number; pending: boolean }
 interface Adjustment { id: number; hours: number; pay: number | null; reason: string; capacity_role_name: string | null }
@@ -134,13 +145,18 @@ function PeriodReport({ start, days, onBack, onSetStart }: {
     <Stack>
       <Group justify="space-between">
         <Button variant="subtle" size="xs" onClick={onBack}>← Back to pay runs</Button>
-        {report && (
-          report.closed
-            ? <Button size="xs" variant="default" color="gray" loading={closeM.isPending}
-                onClick={() => closeM.mutate(false)}>Reopen (unapprove)</Button>
-            : <Button size="xs" color="blue" loading={closeM.isPending} disabled={report.people.length === 0}
-                onClick={() => closeM.mutate(true)}>Approve pay run</Button>
-        )}
+        <Group gap="xs">
+          {report && report.people.length > 0 && (
+            <Button size="xs" variant="light" onClick={() => downloadPayrollCsv(key)}>Export CSV</Button>
+          )}
+          {report && (
+            report.closed
+              ? <Button size="xs" variant="default" color="gray" loading={closeM.isPending}
+                  onClick={() => closeM.mutate(false)}>Reopen (unapprove)</Button>
+              : <Button size="xs" color="blue" loading={closeM.isPending} disabled={report.people.length === 0}
+                  onClick={() => closeM.mutate(true)}>Approve pay run</Button>
+          )}
+        </Group>
       </Group>
       <Group gap="xs">
         <ActionIcon variant="light" onClick={() => onSetStart(start.subtract(days, "day"))}>
