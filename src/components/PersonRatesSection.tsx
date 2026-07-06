@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Button, Card, Divider, Group, NumberInput, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { ActionIcon, Badge, Button, Card, Checkbox, Divider, Group, NumberInput, Select, Stack, Table, Text, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -14,15 +14,32 @@ const BASES = [
   { value: "casual", label: "Casual" },
 ];
 
-interface EmployeeGrade { id: number; pay_grade_id: number; grade_name: string | null; capacity_role_name: string | null; basis: string; from_date: string; to_date: string | null }
+interface EmployeeGrade { id: number; pay_grade_id: number; grade_name: string | null; age_category: string | null; capacity_role_name: string | null; basis: string; from_date: string; to_date: string | null }
 interface ContractorRate {
   id: number; activity_id: number; activity_name: string | null;
   weekday_rate: number; saturday_rate: number; sunday_rate: number; public_holiday_rate: number;
   from_date: string; to_date: string | null;
 }
-interface PayGrade { id: number; name: string; capacity_role_name: string | null }
+interface PayGrade { id: number; name: string; age_category: string; capacity_role_name: string | null }
 
-export function PersonRatesSection({ personId }: { personId: number }) {
+const AGE_LABEL: Record<string, string> = {
+  adult: "Adult", junior_16: "Jr ≤16", junior_17: "Jr 17", junior_18: "Jr 18", junior_19: "Jr 19",
+};
+
+/** The award age bracket a DOB falls in (mirrors the backend). */
+function ageCategoryFor(dob: string | null): string | null {
+  if (!dob) return null;
+  const b = dayjs(dob);
+  let age = dayjs().diff(b, "year");
+  if (dayjs().isBefore(b.add(age, "year"))) age--; // guard rounding
+  if (age <= 16) return "junior_16";
+  if (age === 17) return "junior_17";
+  if (age === 18) return "junior_18";
+  if (age === 19) return "junior_19";
+  return "adult";
+}
+
+export function PersonRatesSection({ personId, dob }: { personId: number; dob: string | null }) {
   return (
     <Card withBorder>
       <Title order={4} mb="sm">Pay rates</Title>
@@ -30,7 +47,7 @@ export function PersonRatesSection({ personId }: { personId: number }) {
         Employees are paid by grade (per work type) at their basis; contractors get
         per-activity rates. Use whichever matches this person's engagement.
       </Text>
-      <EmployeeGrades personId={personId} />
+      <EmployeeGrades personId={personId} dob={dob} />
       <Divider my="md" label="Contractor rates" labelPosition="left" />
       <ContractorRates personId={personId} />
     </Card>
@@ -41,22 +58,27 @@ function fmtRange(from: string, to: string | null) {
   return `from ${dayjs(from).format("D MMM YYYY")}${to ? ` to ${dayjs(to).format("D MMM YYYY")}` : ""}`;
 }
 
-function EmployeeGrades({ personId }: { personId: number }) {
+function EmployeeGrades({ personId, dob }: { personId: number; dob: string | null }) {
   const qc = useQueryClient();
   const [gradeId, setGradeId] = useState<string | null>(null);
   const [basis, setBasis] = useState("casual");
   const [from, setFrom] = useState<Date | null>(new Date());
   const [to, setTo] = useState<Date | null>(null);
+  const [ack, setAck] = useState(false);
   const q = useQuery({ queryKey: ["person-grades", personId], queryFn: () => api.get<EmployeeGrade[]>(`/people/${personId}/grades`) });
   const gradesQ = useQuery({ queryKey: ["pay-grades"], queryFn: () => api.get<PayGrade[]>("/pay-grades") });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["person-grades", personId] });
+
+  const expectedAge = ageCategoryFor(dob);
+  const selected = (gradesQ.data ?? []).find((g) => String(g.id) === gradeId);
+  const mismatch = !!(selected && expectedAge && selected.age_category !== expectedAge);
 
   const addM = useMutation({
     mutationFn: () => api.post(`/people/${personId}/grades`, {
       pay_grade_id: Number(gradeId), basis,
       from_date: dayjs(from).format("YYYY-MM-DD"), to_date: to ? dayjs(to).format("YYYY-MM-DD") : null,
     }),
-    onSuccess: () => { invalidate(); setGradeId(null); },
+    onSuccess: () => { invalidate(); setGradeId(null); setAck(false); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const delM = useMutation({
@@ -72,20 +94,33 @@ function EmployeeGrades({ personId }: { personId: number }) {
       {(q.data ?? []).map((e) => (
         <Group key={e.id} gap={8}>
           <Badge variant="light">{e.capacity_role_name}</Badge>
-          <Text size="sm">{e.grade_name} · {BASES.find((b) => b.value === e.basis)?.label ?? e.basis}</Text>
+          <Text size="sm">
+            {e.grade_name}{e.age_category ? ` (${AGE_LABEL[e.age_category] ?? e.age_category})` : ""} ·{" "}
+            {BASES.find((b) => b.value === e.basis)?.label ?? e.basis}
+          </Text>
+          {expectedAge && e.age_category && e.age_category !== expectedAge && (
+            <Badge size="xs" color="orange" variant="light">age ≠ DOB</Badge>
+          )}
           <Text size="sm" c="dimmed">{fmtRange(e.from_date, e.to_date)}</Text>
           <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(e.id)}><IconX size={12} /></ActionIcon>
         </Group>
       ))}
       <Group align="flex-end" gap="xs">
-        <Select label="Grade" w={200} placeholder="Choose"
-          data={(gradesQ.data ?? []).map((g) => ({ value: String(g.id), label: `${g.capacity_role_name} · ${g.name}` }))}
+        <Select label="Grade" w={240} placeholder="Choose"
+          data={(gradesQ.data ?? []).map((g) => ({
+            value: String(g.id), label: `${g.capacity_role_name} · ${g.name} (${AGE_LABEL[g.age_category] ?? g.age_category})`,
+          }))}
           value={gradeId} onChange={setGradeId} searchable comboboxProps={{ withinPortal: true }} />
         <Select label="Basis" w={120} data={BASES} value={basis} onChange={(v) => v && setBasis(v)} comboboxProps={{ withinPortal: true }} />
         <DateInput label="From" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
         <DateInput label="To" w={130} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
-        <Button size="sm" variant="light" loading={addM.isPending} disabled={!gradeId || !from} onClick={() => addM.mutate()}>Add</Button>
+        <Button size="sm" variant="light" loading={addM.isPending}
+          disabled={!gradeId || !from || (mismatch && !ack)} onClick={() => addM.mutate()}>Add</Button>
       </Group>
+      {mismatch && (
+        <Checkbox size="sm" checked={ack} onChange={(e) => setAck(e.currentTarget.checked)}
+          label={`This grade is ${AGE_LABEL[selected!.age_category]}, but their date of birth suggests ${AGE_LABEL[expectedAge!]}. I've checked and want to place them here.`} />
+      )}
     </Stack>
   );
 }

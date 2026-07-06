@@ -445,7 +445,7 @@ export function PersonDetailPage() {
         </Stack>
       </Card>
 
-      {can("manage_settings") && <PersonRatesSection personId={p.id} />}
+      {can("manage_settings") && <PersonRatesSection personId={p.id} dob={p.date_of_birth} />}
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">

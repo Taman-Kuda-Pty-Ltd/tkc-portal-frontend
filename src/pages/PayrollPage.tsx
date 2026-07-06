@@ -16,7 +16,7 @@ interface PayrollPerson {
   person_id: number; name: string; lines: PayrollLine[]; adjustments: Adjustment[];
   base_total: number; adjustment_total: number; total: number;
   base_pay: number; adjustment_pay: number; total_pay: number;
-  has_pending: boolean; has_unrated: boolean;
+  has_pending: boolean; has_unrated: boolean; age_warning: boolean;
 }
 interface PayrollReport {
   period_start: string; period_end: string; closed: boolean; people: PayrollPerson[];
@@ -130,6 +130,7 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
             <Text fw={600}>{person.name}</Text>
             {person.has_pending && <Badge color="yellow" variant="light">has pending</Badge>}
             {person.has_unrated && <Badge color="red" variant="light">unrated hours</Badge>}
+            {person.age_warning && <Badge color="orange" variant="light">age bracket?</Badge>}
           </Group>
           <Stack gap={2} mt={4}>
             {person.lines.map((l, i) => (
