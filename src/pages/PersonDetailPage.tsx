@@ -448,7 +448,9 @@ export function PersonDetailPage() {
 
       {canManage && <PersonContextsSection personId={p.id} />}
 
-      {can("manage_settings") && <PersonRatesSection personId={p.id} dob={p.date_of_birth} />}
+      {(can("manage_settings") || can("manage_shifts")) && (
+        <PersonRatesSection personId={p.id} dob={p.date_of_birth} canContractorRates={can("manage_settings")} />
+      )}
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">

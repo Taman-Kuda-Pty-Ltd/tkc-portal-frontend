@@ -1,4 +1,4 @@
-import { AppShell, Badge, Burger, Group, NavLink, ScrollArea, Stack, Text, UnstyledButton } from "@mantine/core";
+import { AppShell, Badge, Burger, Button, Card, Center, Group, NavLink, ScrollArea, Stack, Text, Title, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -56,6 +56,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
   });
   const pendingTotal =
     (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) + (lessonTypeQ.data ?? 0);
+
+  // Someone with no staff capabilities (e.g. a school client) has nowhere to go in
+  // the staff app yet — show a friendly screen instead of empty/broken pages.
+  const hasStaffAccess = NAV.some((n) => can(n.cap)) || can("manage_settings");
+  if (!hasStaffAccess) {
+    return (
+      <Center h="100vh" p="md">
+        <Card withBorder maw={440} p="xl">
+          <Stack>
+            <Title order={3}>You're signed in</Title>
+            <Text>
+              Hi {me?.full_name} — your account doesn't have access to the staff app.
+              A member area for clients is coming soon.
+            </Text>
+            <Button variant="light" onClick={logout}>Sign out</Button>
+          </Stack>
+        </Card>
+      </Center>
+    );
+  }
 
   return (
     <AppShell

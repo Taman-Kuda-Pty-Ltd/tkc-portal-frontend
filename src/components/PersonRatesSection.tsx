@@ -39,7 +39,9 @@ function ageCategoryFor(dob: string | null): string | null {
   return "adult";
 }
 
-export function PersonRatesSection({ personId, dob }: { personId: number; dob: string | null }) {
+export function PersonRatesSection({ personId, dob, canContractorRates = true }: {
+  personId: number; dob: string | null; canContractorRates?: boolean;
+}) {
   return (
     <Card withBorder>
       <Title order={4} mb="sm">Pay rates</Title>
@@ -48,8 +50,12 @@ export function PersonRatesSection({ personId, dob }: { personId: number; dob: s
         per-activity rates. Use whichever matches this person's engagement.
       </Text>
       <EmployeeGrades personId={personId} dob={dob} />
-      <Divider my="md" label="Contractor rates" labelPosition="left" />
-      <ContractorRates personId={personId} />
+      {canContractorRates && (
+        <>
+          <Divider my="md" label="Contractor rates" labelPosition="left" />
+          <ContractorRates personId={personId} />
+        </>
+      )}
     </Card>
   );
 }
