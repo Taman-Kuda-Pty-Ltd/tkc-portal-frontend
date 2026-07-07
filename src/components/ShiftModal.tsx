@@ -130,6 +130,12 @@ export function ShiftModal({
     setPayHours(selectedActivity?.is_lesson ? (selectedActivity.default_lesson_hours ?? "") : "");
   }, [activityId, opened, shift]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-set the required role from the activity's default (Lesson→Coach etc.).
+  useEffect(() => {
+    if (!opened || !selectedActivity) return;
+    if (selectedActivity.default_role_id) setRoleId(String(selectedActivity.default_role_id));
+  }, [activityId, opened]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const clashQ = useQuery({
     queryKey: ["clash", shift?.id, facilityId, horseIds.join(","), date ? dayjs(date).format("YYYY-MM-DD") : "", start, end],
     queryFn: () =>
@@ -254,8 +260,15 @@ export function ShiftModal({
           value={abbreviation} disabled={ro} onChange={(e) => setAbbreviation(e.currentTarget.value)} />
         <Select label="Activity" data={activityOptions} value={activityId} onChange={setActivityId}
           required disabled={ro} comboboxProps={{ withinPortal: true }} />
-        <Select label="Required role" data={roleOptions} value={roleId} onChange={setRoleId}
-          placeholder="Any" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
+        {/* The role is dictated by the activity when it has a default; only editable otherwise (e.g. "Other"). */}
+        {selectedActivity?.default_role_id ? (
+          <Text size="sm" c="dimmed">
+            Role: <b>{roleOptions.find((r) => r.value === roleId)?.label ?? "—"}</b> (set by the activity)
+          </Text>
+        ) : (
+          <Select label="Required role" data={roleOptions} value={roleId} onChange={setRoleId}
+            placeholder="Any" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
+        )}
         <DateField label="Date" value={date} onChange={setDate} required disabled={ro} />
         <Group>
           <TimeField label="Start" value={start} onChange={setStart} disabled={ro} />

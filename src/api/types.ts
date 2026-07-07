@@ -54,6 +54,7 @@ export interface Activity {
   color: string | null;
   is_active: boolean;
   is_lesson: boolean;
+  default_role_id: number | null;
   default_lesson_hours: number | null;
   variance_margin_hours: number | null;
   headings: ActivityHeading[];
