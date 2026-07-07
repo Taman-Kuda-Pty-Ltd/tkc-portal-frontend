@@ -316,6 +316,9 @@ export function PeoplePage() {
 
   function statusBadge(p: Person) {
     if (!p.is_active) return <Badge color="gray" variant="light">Disabled</Badge>;
+    // A registered rider (no staff login) isn't "Invited" — that's a pending staff invite.
+    if (!p.onboarded && p.is_student && !p.is_account_holder)
+      return <Badge color="teal" variant="light">Active</Badge>;
     if (!p.onboarded) return <Badge color="yellow" variant="light">Invited</Badge>;
     return <Badge color="teal" variant="light">Active</Badge>;
   }

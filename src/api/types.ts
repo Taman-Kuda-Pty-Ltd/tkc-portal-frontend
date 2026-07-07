@@ -208,6 +208,8 @@ export interface PersonDetail {
   date_of_birth: string | null;
   is_active: boolean;
   onboarded: boolean;
+  is_student?: boolean;
+  is_account_holder?: boolean;
   has_pin: boolean;
   roles: Role[];
   address: {

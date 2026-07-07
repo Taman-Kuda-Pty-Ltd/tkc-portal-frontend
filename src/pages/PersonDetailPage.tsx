@@ -317,7 +317,8 @@ export function PersonDetailPage() {
         )}
       </Card>
 
-      {/* Engagements */}
+      {/* Engagements — hidden for client-side people (student/account-holder, no engagements) */}
+      {!((p.is_student || p.is_account_holder) && p.engagements.length === 0) && (
       <Card withBorder>
         <Group justify="space-between" mb="sm">
           <Title order={4}>Engagements</Title>
@@ -468,10 +469,11 @@ export function PersonDetailPage() {
           })}
         </Stack>
       </Card>
+      )}
 
       {canManage && <PersonContextsSection personId={p.id} personName={p.full_name} />}
 
-      {(can("manage_pay_rates") || can("manage_shifts")) && (
+      {p.engagements.length > 0 && (can("manage_pay_rates") || can("manage_shifts")) && (
         <PersonRatesSection personId={p.id} dob={p.date_of_birth} canContractorRates={can("manage_pay_rates")} />
       )}
 
