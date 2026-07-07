@@ -24,6 +24,7 @@ import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Activity, Clash, NamedResource, Role, Shift, ShiftNote } from "../api/types";
+import { StaffAssign } from "./StaffAssign";
 
 interface RideDraft {
   student_id: string | null;
@@ -40,12 +41,18 @@ export function ShiftModal({
   opened,
   onClose,
   canEdit,
+  canAssign = false,
+  canManageShifts = false,
+  onRecordAttendance,
 }: {
   shift: Shift | null;
   defaultDate: Date;
   opened: boolean;
   onClose: () => void;
   canEdit: boolean;
+  canAssign?: boolean;
+  canManageShifts?: boolean;
+  onRecordAttendance?: (shift: Shift, personId: number, personName: string) => void;
 }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -405,6 +412,23 @@ export function ShiftModal({
             {canEdit && <Button onClick={() => setEditing(true)}>Edit</Button>}
           </Group>
         )}
+
+        {shift && canAssign && (() => {
+          // Staff attach to the shift's *saved* activity/headings (not the edit dropdown).
+          const savedActivity = (activitiesQ.data ?? []).find((a) => a.id === shift.activity_id);
+          return (
+            <>
+              <Divider label={savedActivity?.is_lesson ? "Coaches & staff" : "Staff"} labelPosition="left" />
+              <StaffAssign
+                shift={shift}
+                activity={savedActivity}
+                canAssign={canAssign}
+                canManageShifts={canManageShifts}
+                onRecordAttendance={onRecordAttendance}
+              />
+            </>
+          );
+        })()}
 
         {shift && (
           <>

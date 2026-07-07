@@ -333,6 +333,11 @@ export function SchedulePage() {
         defaultDate={addingOn ?? anchor.toDate()}
         opened={editingShift !== null || addingOn !== null}
         canEdit={canManageShifts}
+        canAssign={canAssign}
+        canManageShifts={canManageShifts}
+        onRecordAttendance={(shift, personId, personName) =>
+          setRecordTarget({ shift, personId, personName })
+        }
         onClose={() => {
           setEditingShift(null);
           setAddingOn(null);

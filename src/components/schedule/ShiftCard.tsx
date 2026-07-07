@@ -111,6 +111,8 @@ function HeadingGroup({
   const label = heading?.label ?? "Staff";
   const target = heading ? effectiveCount(shift, heading) : undefined;
   const isLesson = !!ctx.activityById.get(shift.activity_id)?.is_lesson;
+  // Lead/assisting + share only mean something once a lesson is shared by 2+ coaches.
+  const showCoachSplit = isLesson && assigned.length >= 2;
   // Required role: the heading's qualifying role, else the shift's role (from its activity).
   const requiredRole = heading?.qualifying_role_id ?? shift.role_id ?? null;
   const eligible = [...ctx.personById.values()]
@@ -152,18 +154,26 @@ function HeadingGroup({
             </Text>
             {a.attendance_status === "checked_in" && <Badge size="xs" color="teal">In</Badge>}
             {a.attendance_status === "checked_out" && <Badge size="xs" color="blue" variant="light">Out</Badge>}
-            {ctx.canAssign && isLesson && (
-              <Tooltip label="Secondary (shadow) coach — paid a share of the lesson" withArrow>
+            {showCoachSplit && (
+              <Tooltip
+                label={
+                  a.coach_kind === "secondary"
+                    ? `Assisting coach — paid ${Math.round((a.share ?? 1) * 100)}% of the lesson${ctx.canAssign ? " (tap to mark lead)" : ""}`
+                    : `Lead coach — paid the full lesson${ctx.canAssign ? " (tap to mark assisting)" : ""}`
+                }
+                withArrow
+              >
                 <Badge
                   size="xs"
                   variant={a.coach_kind === "secondary" ? "filled" : "light"}
-                  color={a.coach_kind === "secondary" ? "grape" : "gray"}
-                  style={{ cursor: "pointer" }}
+                  color={a.coach_kind === "secondary" ? "grape" : "blue"}
+                  style={{ cursor: ctx.canAssign ? "pointer" : "default" }}
                   onClick={() =>
+                    ctx.canAssign &&
                     ctx.onSetCoachKind(shift.id, a.id, a.coach_kind === "secondary" ? "primary" : "secondary")
                   }
                 >
-                  {a.coach_kind === "secondary" ? "2nd" : "Lead"}
+                  {a.coach_kind === "secondary" ? `Assisting · ${Math.round((a.share ?? 1) * 100)}%` : "Lead"}
                 </Badge>
               </Tooltip>
             )}
