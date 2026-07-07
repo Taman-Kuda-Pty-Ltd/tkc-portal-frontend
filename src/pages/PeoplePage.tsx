@@ -28,6 +28,7 @@ import type { EmploymentBasis, Invitation, Person, Role, StaffType } from "../ap
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
 import { PhoneField } from "../components/PhoneField";
+import { StudentRegisterModal } from "../components/StudentRegisterModal";
 
 interface ReDraft {
   staff_type: StaffType;
@@ -107,6 +108,7 @@ export function PeoplePage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [inviting, setInviting] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [invite, setInvite] = useState<InviteDraft>(EMPTY_INVITE);
   const [reonboarding, setReonboarding] = useState<Person | null>(null);
   const [reDraft, setReDraft] = useState<ReDraft>({
@@ -323,11 +325,14 @@ export function PeoplePage() {
           {canInvite && (
             <Button onClick={() => { setDupPerson(null); setInviting(true); }}>Invite</Button>
           )}
+          <Button variant="light" onClick={() => setRegistering(true)}>Register student</Button>
           <Button variant="default" onClick={() => { setDupPerson(null); setCreating(true); }}>
             Add manually
           </Button>
         </Group>
       </Group>
+
+      <StudentRegisterModal opened={registering} onClose={() => setRegistering(false)} />
 
       {peopleQ.isLoading ? (
         <Loader />

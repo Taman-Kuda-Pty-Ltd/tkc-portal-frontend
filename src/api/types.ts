@@ -28,6 +28,7 @@ export interface Person {
   is_active: boolean;
   onboarded: boolean;
   full_name: string; // computed display name
+  gender?: string | null;
   roles: Role[];
   is_student?: boolean;
   is_account_holder?: boolean;
@@ -74,10 +75,13 @@ export interface StudentRec {
   is_minor: boolean;
   is_self_managing: boolean;
   notes: string | null;
+  gender: string | null;
   height_cm: number | null;
   weight_kg: number | null;
   riding_experience: string | null;
   medical_notes: string | null;
+  allergies_dietary: string | null;
+  photo_media_consent: boolean;
   is_active: boolean;
   account_holders: StudentAccountHolder[];
 }

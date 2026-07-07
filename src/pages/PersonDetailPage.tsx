@@ -446,7 +446,7 @@ export function PersonDetailPage() {
         </Stack>
       </Card>
 
-      {canManage && <PersonContextsSection personId={p.id} />}
+      {canManage && <PersonContextsSection personId={p.id} personName={p.full_name} />}
 
       {(can("manage_settings") || can("manage_shifts")) && (
         <PersonRatesSection personId={p.id} dob={p.date_of_birth} canContractorRates={can("manage_settings")} />

@@ -17,6 +17,12 @@ const EXPERIENCE = [
   { value: "intermediate", label: "Intermediate" },
   { value: "advanced", label: "Advanced" },
 ];
+const GENDERS = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+  { value: "other", label: "Other" },
+  { value: "undisclosed", label: "Prefer not to say" },
+];
 
 // Placeholder — replace with your real liability/medical disclaimer.
 const DISCLAIMER =
@@ -27,16 +33,19 @@ interface Rider {
   given_name: string;
   family_name: string;
   date_of_birth: Date | null;
+  gender: string | null;
   height_cm: number | "";
   weight_kg: number | "";
   riding_experience: string | null;
   medical_notes: string;
+  allergies_dietary: string;
+  photo_media_consent: boolean;
   notes: string;
   disclaimer_accepted: boolean;
 }
 const emptyRider = (is_self = false): Rider => ({
-  is_self, given_name: "", family_name: "", date_of_birth: null, height_cm: "", weight_kg: "",
-  riding_experience: null, medical_notes: "", notes: "", disclaimer_accepted: false,
+  is_self, given_name: "", family_name: "", date_of_birth: null, gender: null, height_cm: "", weight_kg: "",
+  riding_experience: null, medical_notes: "", allergies_dietary: "", photo_media_consent: false, notes: "", disclaimer_accepted: false,
 });
 
 export function ClientOnboarding({ token, ctx }: { token: string; ctx: OnboardingContext }) {
@@ -64,10 +73,13 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           given_name: r.is_self ? null : r.given_name.trim(),
           family_name: r.is_self ? null : r.family_name.trim(),
           date_of_birth: r.date_of_birth ? dayjs(r.date_of_birth).format("YYYY-MM-DD") : null,
+          gender: r.gender,
           height_cm: r.height_cm === "" ? null : Number(r.height_cm),
           weight_kg: r.weight_kg === "" ? null : Number(r.weight_kg),
           riding_experience: r.riding_experience,
           medical_notes: r.medical_notes.trim() || null,
+          allergies_dietary: r.allergies_dietary.trim() || null,
+          photo_media_consent: r.photo_media_consent,
           notes: r.notes.trim() || null,
           disclaimer_accepted: r.disclaimer_accepted,
         })),
@@ -154,14 +166,20 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
               {!r.is_self && <TextInput label="First name" value={r.given_name} onChange={(e) => update(i, { given_name: e.currentTarget.value })} required />}
               {!r.is_self && <TextInput label="Last name" value={r.family_name} onChange={(e) => update(i, { family_name: e.currentTarget.value })} required />}
               <DateInput label="Date of birth" value={r.date_of_birth} onChange={(d) => update(i, { date_of_birth: d })} valueFormat="D MMM YYYY" required />
+              <Select label="Gender" data={GENDERS} value={r.gender} onChange={(v) => update(i, { gender: v })} clearable />
               <Select label="Riding experience" data={EXPERIENCE} value={r.riding_experience} onChange={(v) => update(i, { riding_experience: v })} />
               <NumberInput label="Height (cm)" min={0} value={r.height_cm} onChange={(v) => update(i, { height_cm: v === "" ? "" : Number(v) })} />
               <NumberInput label="Weight (kg)" min={0} value={r.weight_kg} onChange={(v) => update(i, { weight_kg: v === "" ? "" : Number(v) })} />
             </SimpleGrid>
-            <Textarea label="Medical conditions to disclose" mt="sm" autosize minRows={2}
+            <Textarea label="Medical conditions to disclose" mt="sm" autosize minRows={3}
               value={r.medical_notes} onChange={(e) => update(i, { medical_notes: e.currentTarget.value })} />
-            <Textarea label="Anything else" mt="sm" autosize minRows={1}
+            <Textarea label="Allergies / dietary needs" mt="sm" autosize minRows={2}
+              value={r.allergies_dietary} onChange={(e) => update(i, { allergies_dietary: e.currentTarget.value })} />
+            <Textarea label="Anything else" mt="sm" autosize minRows={2}
               value={r.notes} onChange={(e) => update(i, { notes: e.currentTarget.value })} />
+            <Checkbox mt="sm" checked={r.photo_media_consent}
+              onChange={(e) => update(i, { photo_media_consent: e.currentTarget.checked })}
+              label="I consent to photos/media of this rider being used by the club" />
             <Checkbox mt="sm" checked={r.disclaimer_accepted}
               onChange={(e) => update(i, { disclaimer_accepted: e.currentTarget.checked })}
               label={DISCLAIMER} />

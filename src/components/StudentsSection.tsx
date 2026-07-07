@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Button, Card, Group, Modal, NumberInput, Select, Stack, Text, Textarea, TextInput } from "@mantine/core";
+import { ActionIcon, Badge, Button, Card, Checkbox, Group, Modal, NumberInput, Select, Stack, Text, Textarea, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -131,16 +131,19 @@ export function StudentCard({
       <StudentEditModal student={student} opened={editOpen} onClose={() => setEditOpen(false)} />
 
 
-      {(student.riding_experience || student.height_cm || student.weight_kg || student.medical_notes) && (
+      {(student.riding_experience || student.height_cm || student.weight_kg || student.gender) && (
         <Text size="sm" c="dimmed" mt={4}>
           {[
+            student.gender && student.gender !== "undisclosed" ? student.gender : null,
             student.riding_experience?.replace(/_/g, " "),
             student.height_cm ? `${student.height_cm}cm` : null,
             student.weight_kg ? `${student.weight_kg}kg` : null,
           ].filter(Boolean).join(" · ")}
-          {student.medical_notes ? ` · medical: ${student.medical_notes}` : ""}
         </Text>
       )}
+      {student.medical_notes && <Text size="sm" c="orange" mt={2}>Medical: {student.medical_notes}</Text>}
+      {student.allergies_dietary && <Text size="sm" c="orange" mt={2}>Allergies/dietary: {student.allergies_dietary}</Text>}
+      {student.photo_media_consent && <Text size="xs" c="dimmed" mt={2}>Photo/media consent given</Text>}
 
       <Text size="sm" fw={500} mt="sm">Account holders</Text>
       <Stack gap={4} mt={4}>
@@ -191,12 +194,16 @@ function StudentEditModal({ student, opened, onClose }: { student: StudentRec; o
   const [height, setHeight] = useState<number | string>(student.height_cm ?? "");
   const [weight, setWeight] = useState<number | string>(student.weight_kg ?? "");
   const [medical, setMedical] = useState(student.medical_notes ?? "");
+  const [allergies, setAllergies] = useState(student.allergies_dietary ?? "");
+  const [photo, setPhoto] = useState(student.photo_media_consent);
   const [notes, setNotes] = useState(student.notes ?? "");
   useEffect(() => {
     setExperience(student.riding_experience);
     setHeight(student.height_cm ?? "");
     setWeight(student.weight_kg ?? "");
     setMedical(student.medical_notes ?? "");
+    setAllergies(student.allergies_dietary ?? "");
+    setPhoto(student.photo_media_consent);
     setNotes(student.notes ?? "");
   }, [student]);
 
@@ -207,6 +214,8 @@ function StudentEditModal({ student, opened, onClose }: { student: StudentRec; o
         height_cm: height === "" ? null : Number(height),
         weight_kg: weight === "" ? null : Number(weight),
         medical_notes: medical.trim() || null,
+        allergies_dietary: allergies.trim() || null,
+        photo_media_consent: photo,
         notes: notes.trim() || null,
       }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["students"] }); onClose(); },
@@ -224,6 +233,10 @@ function StudentEditModal({ student, opened, onClose }: { student: StudentRec; o
         </Group>
         <Textarea label="Medical conditions" autosize minRows={2} value={medical}
           onChange={(e) => setMedical(e.currentTarget.value)} />
+        <Textarea label="Allergies / dietary" autosize minRows={1} value={allergies}
+          onChange={(e) => setAllergies(e.currentTarget.value)} />
+        <Checkbox label="Photo / media consent given" checked={photo}
+          onChange={(e) => setPhoto(e.currentTarget.checked)} />
         <Textarea label="Notes" autosize minRows={1} value={notes}
           onChange={(e) => setNotes(e.currentTarget.value)} />
         <Group justify="flex-end">
