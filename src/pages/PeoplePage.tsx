@@ -76,6 +76,7 @@ interface InviteDraft {
   mobile: string;
   kind: "staff" | "school_client";
   staff_type: StaffType;
+  work_role_id: string | null;
   employment_basis: EmploymentBasis | "";
   position_title: string;
   start_date: Date | null;
@@ -89,6 +90,7 @@ const EMPTY_INVITE: InviteDraft = {
   mobile: "",
   kind: "staff",
   staff_type: "employee",
+  work_role_id: null,
   employment_basis: "",
   position_title: "",
   start_date: null,
@@ -216,6 +218,7 @@ export function PeoplePage() {
         mobile: invite.mobile || null,
         kind: invite.kind,
         staff_type: invite.staff_type,
+        work_role_id: invite.kind === "staff" && invite.work_role_id ? Number(invite.work_role_id) : null,
         employment_basis:
           invite.kind === "staff" && invite.staff_type === "employee" && invite.employment_basis
             ? invite.employment_basis
@@ -480,6 +483,14 @@ export function PeoplePage() {
                   value={invite.staff_type}
                   onChange={(v) => setInvite({ ...invite, staff_type: (v as StaffType) ?? "employee" })}
                   allowDeselect={false}
+                />
+                <Select
+                  label="Work role"
+                  placeholder="e.g. Groom, Stablehand, Coach"
+                  data={roleOptions}
+                  value={invite.work_role_id}
+                  onChange={(v) => setInvite({ ...invite, work_role_id: v })}
+                  searchable
                 />
                 {invite.staff_type === "employee" && (
                   <Select
