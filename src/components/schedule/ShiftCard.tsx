@@ -150,6 +150,8 @@ function HeadingGroup({
             <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
               {a.person_name ?? `#${a.person_id}`}
             </Text>
+            {a.attendance_status === "checked_in" && <Badge size="xs" color="teal">In</Badge>}
+            {a.attendance_status === "checked_out" && <Badge size="xs" color="blue" variant="light">Out</Badge>}
             {ctx.canAssign && isLesson && (
               <Tooltip label="Secondary (shadow) coach — paid a share of the lesson" withArrow>
                 <Badge

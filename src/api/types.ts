@@ -333,6 +333,7 @@ export interface Assignment {
   coach_kind: "primary" | "secondary";
   share: number;
   note: string | null;
+  attendance_status: string | null;
 }
 
 export interface ShiftNote {
