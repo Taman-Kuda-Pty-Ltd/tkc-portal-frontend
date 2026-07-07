@@ -12,6 +12,7 @@ interface OrgSettings {
   secondary_coach_share: number;
   pay_period_start_weekday: number;
   pay_period_days: number;
+  checkout_window_minutes: number;
 }
 
 export function OrgSettingsSection() {
@@ -25,6 +26,7 @@ export function OrgSettingsSection() {
   const [secShare, setSecShare] = useState<number | string>(0.5);
   const [weekday, setWeekday] = useState<string>("0");
   const [periodDays, setPeriodDays] = useState<number | string>(7);
+  const [checkoutWindow, setCheckoutWindow] = useState<number | string>(45);
   useEffect(() => {
     if (q.data) {
       setHours(q.data.min_shift_hours);
@@ -32,6 +34,7 @@ export function OrgSettingsSection() {
       setSecShare(q.data.secondary_coach_share);
       setWeekday(String(q.data.pay_period_start_weekday));
       setPeriodDays(q.data.pay_period_days);
+      setCheckoutWindow(q.data.checkout_window_minutes);
     }
   }, [q.data]);
 
@@ -43,6 +46,7 @@ export function OrgSettingsSection() {
         secondary_coach_share: Number(secShare) || 0,
         pay_period_start_weekday: Number(weekday) || 0,
         pay_period_days: Number(periodDays) || 7,
+        checkout_window_minutes: Number(checkoutWindow) || 0,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["org-settings"] });
@@ -72,6 +76,13 @@ export function OrgSettingsSection() {
       </Text>
       <NumberInput label="Secondary coach share" min={0} max={1} step={0.05} w={180}
         value={secShare} onChange={setSecShare} />
+      <Text size="sm" c="dimmed" mt="xs">
+        On the check-in terminal the <b>Check out</b> button only appears this many minutes
+        before a shift's scheduled end — so staff can't accidentally check straight back out
+        after checking in. Leaving before then is still possible via “Leave early” (with a reason).
+      </Text>
+      <NumberInput label="Check-out window (minutes before end)" min={0} step={5} w={260}
+        value={checkoutWindow} onChange={setCheckoutWindow} />
       <Text size="sm" c="dimmed" mt="xs">
         The pay period used by payroll reports (weekly, starting Monday by default).
       </Text>

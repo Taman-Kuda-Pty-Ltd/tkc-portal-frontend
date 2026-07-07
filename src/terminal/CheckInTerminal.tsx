@@ -55,14 +55,27 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
 
+/** A clock that ticks every `everyMs` so time-gated UI (the check-out window)
+ *  updates itself without a full session refresh. */
+function useNow(everyMs = 30000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), everyMs);
+    return () => window.clearInterval(t);
+  }, [everyMs]);
+  return now;
+}
+
 export function CheckInTerminal({
   name,
   inactivitySeconds,
   minHours,
+  checkoutWindowMinutes,
 }: {
   name: string;
   inactivitySeconds: number;
   minHours: number;
+  checkoutWindowMinutes: number;
 }) {
   const [session, setSession] = useState<TerminalSession | null>(null);
   const [pin, setPin] = useState("");
@@ -103,6 +116,7 @@ export function CheckInTerminal({
         session={session}
         pin={pin}
         minHours={minHours}
+        checkoutWindowMinutes={checkoutWindowMinutes}
         onRefresh={async () => setSession(await terminalApi.session(session.person_id, pin))}
         onDone={() => {
           reset();
@@ -240,12 +254,14 @@ function PersonView({
   session,
   pin,
   minHours,
+  checkoutWindowMinutes,
   onRefresh,
   onDone,
 }: {
   session: TerminalSession;
   pin: string;
   minHours: number;
+  checkoutWindowMinutes: number;
   onRefresh: () => Promise<void>;
   onDone: () => void;
 }) {
@@ -264,7 +280,7 @@ function PersonView({
       )}
       {session.shifts.map((s) => (
         <ShiftCheckCard key={s.shift_id} shift={s} personId={session.person_id} pin={pin}
-          minHours={minHours} onRefresh={onRefresh} />
+          minHours={minHours} checkoutWindowMinutes={checkoutWindowMinutes} onRefresh={onRefresh} />
       ))}
       {session.lessons.length > 0 && (
         <CoachingSection
@@ -539,10 +555,11 @@ function CoachingSection({
   pin: string;
   onRefresh: () => Promise<void>;
 }) {
+  const now = useNow();
   const coaching = session.coaching_attendance;
-  const [state, setState] = useState<Record<number, { delivered: boolean; absent: number[]; notes: string; type: string }>>(
+  const [state, setState] = useState<Record<number, { delivered: boolean; absent: number[]; notes: string; type: string; earlyReason: string }>>(
     Object.fromEntries(
-      session.lessons.map((l) => [l.shift_id, { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id) }]),
+      session.lessons.map((l) => [l.shift_id, { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id), earlyReason: "" }]),
     ),
   );
   // Keep a state entry for every current lesson (session can refresh after check-in).
@@ -552,7 +569,7 @@ function CoachingSection({
       let changed = false;
       for (const l of session.lessons) {
         if (!next[l.shift_id]) {
-          next[l.shift_id] = { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id) };
+          next[l.shift_id] = { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id), earlyReason: "" };
           changed = true;
         }
       }
@@ -642,6 +659,17 @@ function CoachingSection({
                     onChange={(v) => v && setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], type: v } }))}
                     comboboxProps={{ withinPortal: true }} allowDeselect={false} />
                 )}
+                {(state[l.shift_id]?.delivered ?? false) && dayjs(now).isBefore(dayjs(l.starts_at)) && (
+                  <Textarea
+                    label="Reason for finishing early (required)"
+                    description={`This lesson isn't due to start until ${dayjs(l.starts_at).format("HH:mm")}.`}
+                    value={state[l.shift_id]?.earlyReason ?? ""}
+                    autosize minRows={2} size="md"
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], earlyReason: e.currentTarget.value } }))
+                    }
+                  />
+                )}
                 <Textarea
                   placeholder="Horse / training notes (optional)"
                   value={state[l.shift_id]?.notes ?? ""}
@@ -667,6 +695,12 @@ function CoachingSection({
       )}
       {checkedIn && (
         <Button mt="md" size="xl" fullWidth color="orange" loading={busy}
+          disabled={session.lessons.some(
+            (l) =>
+              (state[l.shift_id]?.delivered ?? false) &&
+              dayjs(now).isBefore(dayjs(l.starts_at)) &&
+              !(state[l.shift_id]?.earlyReason ?? "").trim(),
+          )}
           onClick={() =>
             run(() =>
               terminalApi.coachCheckOut(
@@ -681,6 +715,7 @@ function CoachingSection({
                       ? Number(state[l.shift_id].type)
                       : null,
                   notes: state[l.shift_id]?.notes?.trim() || null,
+                  early_reason: state[l.shift_id]?.earlyReason?.trim() || null,
                 })),
               ),
             )
@@ -702,30 +737,48 @@ function ShiftCheckCard({
   personId,
   pin,
   minHours,
+  checkoutWindowMinutes,
   onRefresh,
 }: {
   shift: ShiftBrief;
   personId: number;
   pin: string;
   minHours: number;
+  checkoutWindowMinutes: number;
   onRefresh: () => Promise<void>;
 }) {
+  const now = useNow();
   const att = shift.attendance;
   const adhoc = shift.is_adhoc;
   const plannedH = dayjs(shift.ends_at).diff(dayjs(shift.starts_at), "minute") / 60;
   const planned = Math.max(Math.round(plannedH * 4) / 4, minHours);
   const elapsedH = att
-    ? Math.max(minHours, Math.round((dayjs().diff(dayjs(att.checked_in_at), "minute") / 60) * 4) / 4)
+    ? Math.max(minHours, Math.round((dayjs(now).diff(dayjs(att.checked_in_at), "minute") / 60) * 4) / 4)
     : planned;
   const [hours, setHours] = useState<number>(planned);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [earlyLeave, setEarlyLeave] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const varied = !adhoc && Math.abs(hours - planned) > 0.001;
-  // Beyond the activity's margin, a reason is required (goes to a manager).
+  // CI-4: two-stage check-out. The check-out button only surfaces within N min of
+  // the scheduled end — before that, checking out is "leaving early" (needs a reason).
+  // Ad-hoc tasks have no meaningful scheduled end, so they can check out anytime.
+  const windowOpensAt = dayjs(shift.ends_at).subtract(checkoutWindowMinutes, "minute");
+  const withinWindow = adhoc || !dayjs(now).isBefore(windowOpensAt);
+  // Beyond the activity's margin, a reason is required (goes to a manager); leaving
+  // early always needs a reason.
   const needsReason =
-    !adhoc && shift.variance_margin != null && Math.abs(hours - planned) > shift.variance_margin;
+    earlyLeave ||
+    (!adhoc && shift.variance_margin != null && Math.abs(hours - planned) > shift.variance_margin);
+
+  function startCheckout(early: boolean) {
+    setHours(early || adhoc ? elapsedH : planned);
+    setNotes("");
+    setEarlyLeave(early);
+    setCheckingOut(true);
+  }
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -776,32 +829,55 @@ function ShiftCheckCard({
         </Button>
       )}
 
-      {/* Checked in — offer check-out */}
+      {/* Checked in — offer check-out (two-stage: gated by the check-out window) */}
       {att?.status === "checked_in" && (
         <Stack mt="md">
           <Text>Checked in at <b>{dayjs(att.checked_in_at).format("HH:mm")}</b>.</Text>
-          {!checkingOut ? (
-            <Button size="xl" color="orange" onClick={() => { setHours(adhoc ? elapsedH : planned); setNotes(""); setCheckingOut(true); }}>
+          {!checkingOut && withinWindow && (
+            <Button size="xl" color="orange" onClick={() => startCheckout(false)}>
               Check out
             </Button>
-          ) : (
+          )}
+          {!checkingOut && !withinWindow && (
             <>
+              <Text c="dimmed">
+                Enjoy your shift — it's scheduled until{" "}
+                <b>{dayjs(shift.ends_at).format("HH:mm")}</b>. Check-out opens at{" "}
+                <b>{windowOpensAt.format("HH:mm")}</b>.
+              </Text>
+              <Button size="md" variant="subtle" color="orange" onClick={() => startCheckout(true)}>
+                Need to leave early?
+              </Button>
+            </>
+          )}
+          {checkingOut && (
+            <>
+              {earlyLeave && (
+                <Text c="orange" fw={500}>
+                  Leaving before your scheduled end ({dayjs(shift.ends_at).format("HH:mm")}).
+                </Text>
+              )}
               <NumberInput label={adhoc ? "Hours worked" : `Hours worked (planned ${planned}h)`}
                 description="Pay is based on the hours you log here, not your check-in/out times."
                 min={minHours} step={0.25} value={hours}
                 onChange={(v) => setHours(Number(v) || 0)} size="lg" />
               <Textarea
-                label={needsReason
+                label={earlyLeave
+                  ? "Reason for leaving early (required)"
+                  : needsReason
                   ? `Reason required (${hours < planned ? "less" : "more"} than planned — a manager will review)`
                   : varied ? `Note (why ${hours < planned ? "less" : "more"} than planned?)` : "Notes (optional)"}
                 value={notes} minRows={2} autosize size="lg"
                 onChange={(e) => setNotes(e.currentTarget.value)}
               />
-              <Button size="xl" color="orange" loading={busy}
-                disabled={needsReason && !notes.trim()}
-                onClick={() => run(() => terminalApi.checkOut(personId, pin, shift.shift_id, hours, notes || null))}>
-                Confirm check out
-              </Button>
+              <Group justify="space-between">
+                <Button size="lg" variant="default" onClick={() => setCheckingOut(false)}>Back</Button>
+                <Button size="xl" color="orange" loading={busy}
+                  disabled={needsReason && !notes.trim()}
+                  onClick={() => run(() => terminalApi.checkOut(personId, pin, shift.shift_id, hours, notes || null))}>
+                  Confirm check out
+                </Button>
+              </Group>
             </>
           )}
         </Stack>

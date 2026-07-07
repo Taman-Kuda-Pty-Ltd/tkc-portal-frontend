@@ -18,6 +18,7 @@ export interface TerminalConfig {
   terminal_type: TerminalType;
   inactivity_seconds: number;
   min_shift_hours: number;
+  checkout_window_minutes: number;
 }
 export interface LessonClash {
   student_id: number;
@@ -88,6 +89,7 @@ export interface CoachLessonUpdate {
   absent_student_ids: number[];
   proposed_activity_id: number | null;
   notes: string | null;
+  early_reason: string | null;
 }
 
 export interface ScheduleRider {
