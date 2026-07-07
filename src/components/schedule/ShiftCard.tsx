@@ -105,13 +105,11 @@ function HeadingGroup({
   const label = heading?.label ?? "Staff";
   const target = heading ? effectiveCount(shift, heading) : undefined;
   const isLesson = !!ctx.activityById.get(shift.activity_id)?.is_lesson;
+  // Required role: the heading's qualifying role, else the shift's role (from its activity).
+  const requiredRole = heading?.qualifying_role_id ?? shift.role_id ?? null;
   const eligible = [...ctx.personById.values()]
     .filter((p) => p.is_active)
-    .filter(
-      (p) =>
-        !heading?.qualifying_role_id ||
-        p.roles.some((r) => r.id === heading.qualifying_role_id),
-    )
+    .filter((p) => !requiredRole || p.roles.some((r) => r.id === requiredRole))
     .filter((p) => !assigned.some((a) => a.person_id === p.id))
     .map((p) => ({ value: String(p.id), label: p.full_name }));
 
