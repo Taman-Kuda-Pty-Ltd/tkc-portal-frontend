@@ -152,6 +152,8 @@ export interface OnboardingCredential {
 export interface EngagementDetail {
   id: number;
   engagement_type: StaffType;
+  work_role_id: number | null;
+  work_role_name: string | null;
   employment_basis: EmploymentBasis | null;
   position_title: string | null;
   start_date: string | null;

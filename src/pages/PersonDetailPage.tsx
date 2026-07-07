@@ -120,6 +120,9 @@ export function PersonDetailPage() {
   const [retiring, setRetiring] = useState<EngagementDetail | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(new Date());
   const [endReason, setEndReason] = useState("");
+  const [addingEng, setAddingEng] = useState(false);
+  const [engNew, setEngNew] = useState<{ engagement_type: string; work_role_id: string | null; employment_basis: string; start_date: Date | null }>(
+    { engagement_type: "employee", work_role_id: null, employment_basis: "casual", start_date: null });
   const [pinOpen, setPinOpen] = useState(false);
   const [pinValue, setPinValue] = useState("");
 
@@ -221,6 +224,17 @@ export function PersonDetailPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["person", id] }); setRetiring(null); setEndReason(""); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+  const addEngM = useMutation({
+    mutationFn: () =>
+      api.post(`/people/${id}/engagements`, {
+        engagement_type: engNew.engagement_type,
+        work_role_id: engNew.work_role_id ? Number(engNew.work_role_id) : null,
+        employment_basis: engNew.engagement_type === "employee" ? engNew.employment_basis : null,
+        start_date: engNew.start_date ? dayjs(engNew.start_date).format("YYYY-MM-DD") : null,
+      }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["person", id] }); setAddingEng(false); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
 
   if (q.isLoading) return <Loader />;
   if (q.isError || !p) return <Text c="red">Could not load this person.</Text>;
@@ -305,7 +319,15 @@ export function PersonDetailPage() {
 
       {/* Engagements */}
       <Card withBorder>
-        <Title order={4} mb="sm">Engagements</Title>
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Engagements</Title>
+          {canManage && !editing && (
+            <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
+              onClick={() => { setEngNew({ engagement_type: "employee", work_role_id: null, employment_basis: "casual", start_date: new Date() }); setAddingEng(true); }}>
+              Add engagement
+            </Button>
+          )}
+        </Group>
         <Stack>
           {p.engagements.length === 0 && <Text size="sm" c="dimmed">None.</Text>}
           {p.engagements.map((e) => {
@@ -318,6 +340,7 @@ export function PersonDetailPage() {
                 <Group justify="space-between" wrap="wrap" mb="xs">
                   <Group gap="xs">
                     <Badge>{TYPE_LABEL[e.engagement_type] ?? e.engagement_type}</Badge>
+                    {e.work_role_name && <Badge variant="light" color="grape">{e.work_role_name}</Badge>}
                     {e.is_active ? (
                       <Badge color="teal" variant="light">Active</Badge>
                     ) : (
@@ -526,6 +549,28 @@ export function PersonDetailPage() {
               onClick={() => pinM.mutate(pinValue)}>
               Set PIN
             </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={addingEng} onClose={() => setAddingEng(false)} title="Add engagement">
+        <Stack>
+          <Text size="sm" c="dimmed">
+            An engagement is a work role at a basis (e.g. part-time groom). A person can hold several;
+            pay grades attach to it.
+          </Text>
+          <Select label="Type" data={Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l }))}
+            value={engNew.engagement_type} onChange={(v) => v && setEngNew({ ...engNew, engagement_type: v })} />
+          <Select label="Work role" placeholder="e.g. Groom, Stablehand, Coach" data={roleOptions}
+            value={engNew.work_role_id} onChange={(v) => setEngNew({ ...engNew, work_role_id: v })} searchable />
+          {engNew.engagement_type === "employee" && (
+            <Select label="Basis" data={BASIS_OPTIONS} value={engNew.employment_basis}
+              onChange={(v) => v && setEngNew({ ...engNew, employment_basis: v })} />
+          )}
+          <DateField label="Start date" value={engNew.start_date} onChange={(d) => setEngNew({ ...engNew, start_date: d })} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setAddingEng(false)}>Cancel</Button>
+            <Button loading={addEngM.isPending} disabled={!engNew.work_role_id} onClick={() => addEngM.mutate()}>Add</Button>
           </Group>
         </Stack>
       </Modal>
