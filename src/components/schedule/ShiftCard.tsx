@@ -51,6 +51,12 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
           {shift.status === "draft" && (
             <Badge size="sm" variant="light" color="gray">Draft</Badge>
           )}
+          {activity?.is_lesson && shift.assignments.length === 0 && (
+            <Badge size="sm" variant="light" color="orange" title="No coach assigned">No coach</Badge>
+          )}
+          {activity?.is_lesson && (shift.rides?.length ?? 0) === 0 && (
+            <Badge size="sm" variant="light" color="orange" title="No students assigned">No students</Badge>
+          )}
           {shift.approval_status === "pending" && (
             <Badge size="sm" variant="light" color="yellow">Pending</Badge>
           )}
