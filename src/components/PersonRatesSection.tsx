@@ -71,6 +71,7 @@ function EmployeeGrades({ personId, dob }: { personId: number; dob: string | nul
   const [from, setFrom] = useState<Date | null>(new Date());
   const [to, setTo] = useState<Date | null>(null);
   const [ack, setAck] = useState(false);
+  const [adding, setAdding] = useState(false);
   const q = useQuery({ queryKey: ["person-grades", personId], queryFn: () => api.get<EmployeeGrade[]>(`/people/${personId}/grades`) });
   const gradesQ = useQuery({ queryKey: ["pay-grades"], queryFn: () => api.get<PayGrade[]>("/pay-grades") });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["person-grades", personId] });
@@ -84,7 +85,7 @@ function EmployeeGrades({ personId, dob }: { personId: number; dob: string | nul
       pay_grade_id: Number(gradeId), basis,
       from_date: dayjs(from).format("YYYY-MM-DD"), to_date: to ? dayjs(to).format("YYYY-MM-DD") : null,
     }),
-    onSuccess: () => { invalidate(); setGradeId(null); setAck(false); },
+    onSuccess: () => { invalidate(); setGradeId(null); setAck(false); setAdding(false); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const delM = useMutation({
@@ -111,21 +112,30 @@ function EmployeeGrades({ personId, dob }: { personId: number; dob: string | nul
           <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(e.id)}><IconX size={12} /></ActionIcon>
         </Group>
       ))}
-      <Group align="flex-end" gap="xs">
-        <Select label="Grade" w={240} placeholder="Choose"
-          data={(gradesQ.data ?? []).map((g) => ({
-            value: String(g.id), label: `${g.capacity_role_name} · ${g.name} (${AGE_LABEL[g.age_category] ?? g.age_category})`,
-          }))}
-          value={gradeId} onChange={setGradeId} searchable comboboxProps={{ withinPortal: true }} />
-        <Select label="Basis" w={120} data={BASES} value={basis} onChange={(v) => v && setBasis(v)} comboboxProps={{ withinPortal: true }} />
-        <DateInput label="From" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
-        <DateInput label="To" w={130} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
-        <Button size="sm" variant="light" loading={addM.isPending}
-          disabled={!gradeId || !from || (mismatch && !ack)} onClick={() => addM.mutate()}>Add</Button>
-      </Group>
-      {mismatch && (
-        <Checkbox size="sm" checked={ack} onChange={(e) => setAck(e.currentTarget.checked)}
-          label={`This grade is ${AGE_LABEL[selected!.age_category]}, but their date of birth suggests ${AGE_LABEL[expectedAge!]}. I've checked and want to place them here.`} />
+      {!adding ? (
+        <Button size="xs" variant="light" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>
+          + Add grade
+        </Button>
+      ) : (
+        <>
+          <Group align="flex-end" gap="xs">
+            <Select label="Grade" w={240} placeholder="Choose"
+              data={(gradesQ.data ?? []).map((g) => ({
+                value: String(g.id), label: `${g.capacity_role_name} · ${g.name} (${AGE_LABEL[g.age_category] ?? g.age_category})`,
+              }))}
+              value={gradeId} onChange={setGradeId} searchable comboboxProps={{ withinPortal: true }} />
+            <Select label="Basis" w={120} data={BASES} value={basis} onChange={(v) => v && setBasis(v)} comboboxProps={{ withinPortal: true }} />
+            <DateInput label="From" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
+            <DateInput label="To" w={130} value={to} onChange={setTo} clearable valueFormat="D MMM YYYY" />
+            <Button size="sm" variant="light" loading={addM.isPending}
+              disabled={!gradeId || !from || (mismatch && !ack)} onClick={() => addM.mutate()}>Add</Button>
+            <Button size="sm" variant="subtle" onClick={() => setAdding(false)}>Cancel</Button>
+          </Group>
+          {mismatch && (
+            <Checkbox size="sm" checked={ack} onChange={(e) => setAck(e.currentTarget.checked)}
+              label={`This grade is ${AGE_LABEL[selected!.age_category]}, but their date of birth suggests ${AGE_LABEL[expectedAge!]}. I've checked and want to place them here.`} />
+          )}
+        </>
       )}
     </Stack>
   );
@@ -139,6 +149,7 @@ function ContractorRates({ personId }: { personId: number }) {
   const [sun, setSun] = useState<number>(0);
   const [ph, setPh] = useState<number>(0);
   const [from, setFrom] = useState<Date | null>(new Date());
+  const [adding, setAdding] = useState(false);
   const q = useQuery({ queryKey: ["contractor-rates", personId], queryFn: () => api.get<ContractorRate[]>(`/people/${personId}/contractor-rates`) });
   const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => api.get<Activity[]>("/activities") });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["contractor-rates", personId] });
@@ -149,7 +160,7 @@ function ContractorRates({ personId }: { personId: number }) {
       weekday_rate: wd, saturday_rate: sat, sunday_rate: sun, public_holiday_rate: ph,
       from_date: dayjs(from).format("YYYY-MM-DD"),
     }),
-    onSuccess: () => { invalidate(); setActivityId(null); setWd(0); setSat(0); setSun(0); setPh(0); },
+    onSuccess: () => { invalidate(); setActivityId(null); setWd(0); setSat(0); setSun(0); setPh(0); setAdding(false); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const delM = useMutation({
@@ -187,17 +198,24 @@ function ContractorRates({ personId }: { personId: number }) {
           ))}
         </Table.Tbody>
       </Table>
-      <Group align="flex-end" gap="xs">
-        <Select label="Work type" w={180} placeholder="Activity"
-          data={(activitiesQ.data ?? []).filter((a) => a.is_active).map((a) => ({ value: String(a.id), label: a.name }))}
-          value={activityId} onChange={setActivityId} searchable comboboxProps={{ withinPortal: true }} />
-        <NumberInput label="Weekday" w={90} min={0} step={0.5} value={wd} onChange={(v) => setWd(Number(v) || 0)} />
-        <NumberInput label="Sat" w={80} min={0} step={0.5} value={sat} onChange={(v) => setSat(Number(v) || 0)} />
-        <NumberInput label="Sun" w={80} min={0} step={0.5} value={sun} onChange={(v) => setSun(Number(v) || 0)} />
-        <NumberInput label="Pub. hol." w={90} min={0} step={0.5} value={ph} onChange={(v) => setPh(Number(v) || 0)} />
-        <DateInput label="Effective from" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
-        <Button size="sm" variant="light" loading={addM.isPending} disabled={!activityId || !from} onClick={() => addM.mutate()}>Add</Button>
-      </Group>
+      {!adding ? (
+        <Button size="xs" variant="light" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>
+          + Add rate
+        </Button>
+      ) : (
+        <Group align="flex-end" gap="xs">
+          <Select label="Work type" w={180} placeholder="Activity"
+            data={(activitiesQ.data ?? []).filter((a) => a.is_active).map((a) => ({ value: String(a.id), label: a.name }))}
+            value={activityId} onChange={setActivityId} searchable comboboxProps={{ withinPortal: true }} />
+          <NumberInput label="Weekday" w={90} min={0} step={0.5} value={wd} onChange={(v) => setWd(Number(v) || 0)} />
+          <NumberInput label="Sat" w={80} min={0} step={0.5} value={sat} onChange={(v) => setSat(Number(v) || 0)} />
+          <NumberInput label="Sun" w={80} min={0} step={0.5} value={sun} onChange={(v) => setSun(Number(v) || 0)} />
+          <NumberInput label="Pub. hol." w={90} min={0} step={0.5} value={ph} onChange={(v) => setPh(Number(v) || 0)} />
+          <DateInput label="Effective from" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />
+          <Button size="sm" variant="light" loading={addM.isPending} disabled={!activityId || !from} onClick={() => addM.mutate()}>Add</Button>
+          <Button size="sm" variant="subtle" onClick={() => setAdding(false)}>Cancel</Button>
+        </Group>
+      )}
     </Stack>
   );
 }
