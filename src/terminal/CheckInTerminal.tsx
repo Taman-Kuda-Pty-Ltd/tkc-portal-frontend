@@ -545,6 +545,20 @@ function CoachingSection({
       session.lessons.map((l) => [l.shift_id, { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id) }]),
     ),
   );
+  // Keep a state entry for every current lesson (session can refresh after check-in).
+  useEffect(() => {
+    setState((s) => {
+      const next = { ...s };
+      let changed = false;
+      for (const l of session.lessons) {
+        if (!next[l.shift_id]) {
+          next[l.shift_id] = { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id) };
+          changed = true;
+        }
+      }
+      return changed ? next : s;
+    });
+  }, [session.lessons]);
   const lessonTypesQ = useQuery({
     queryKey: ["terminal-activities"],
     queryFn: () => terminalApi.activities(),
@@ -621,11 +635,12 @@ function CoachingSection({
                     ))}
                   </div>
                 )}
-                {(state[l.shift_id]?.delivered ?? false) && (
+                {(state[l.shift_id]?.delivered ?? false) && lessonTypeOptions.length > 0 && (
                   <Select label="Lesson type" description="Change only if it wasn't the booked type — a manager reviews it."
-                    data={lessonTypeOptions} value={state[l.shift_id]?.type ?? String(l.activity_id)}
+                    data={lessonTypeOptions}
+                    value={lessonTypeOptions.some((o) => o.value === state[l.shift_id]?.type) ? state[l.shift_id]?.type : null}
                     onChange={(v) => v && setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], type: v } }))}
-                    comboboxProps={{ withinPortal: true }} />
+                    comboboxProps={{ withinPortal: true }} allowDeselect={false} />
                 )}
                 <Textarea
                   placeholder="Horse / training notes (optional)"

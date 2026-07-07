@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { CheckInTerminal } from "./CheckInTerminal";
 import { ScheduleDisplay } from "./ScheduleDisplay";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { getTerminalToken, setTerminalToken, terminalApi } from "./terminalApi";
 
 /** Kiosk shell. Reads a device token (from a ?token= setup link, stored on the
@@ -48,11 +49,13 @@ export function TerminalApp() {
 
   if (configQ.data.terminal_type === "checkin") {
     return (
-      <CheckInTerminal
-        name={configQ.data.name}
-        inactivitySeconds={configQ.data.inactivity_seconds}
-        minHours={configQ.data.min_shift_hours}
-      />
+      <ErrorBoundary label="The check-in screen hit an error.">
+        <CheckInTerminal
+          name={configQ.data.name}
+          inactivitySeconds={configQ.data.inactivity_seconds}
+          minHours={configQ.data.min_shift_hours}
+        />
+      </ErrorBoundary>
     );
   }
   if (configQ.data.terminal_type === "schedule") {
