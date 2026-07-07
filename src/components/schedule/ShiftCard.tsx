@@ -1,5 +1,5 @@
 import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { IconClock, IconPlus, IconX } from "@tabler/icons-react";
 import { formatISOTime } from "../../lib/time";
 import type { ActivityHeading, Shift } from "../../api/types";
 import { effectiveCount, shiftVisual } from "./types";
@@ -164,6 +164,13 @@ function HeadingGroup({
                   {a.coach_kind === "secondary" ? "2nd" : "Lead"}
                 </Badge>
               </Tooltip>
+            )}
+            {ctx.canManageShifts && (
+              <ActionIcon size="sm" variant="subtle" aria-label="Record attendance"
+                title="Record / correct attendance"
+                onClick={() => ctx.onRecordAttendance(shift, a.person_id, a.person_name ?? `#${a.person_id}`)}>
+                <IconClock size={14} />
+              </ActionIcon>
             )}
             {ctx.canAssign && (
               <ActionIcon size="sm" variant="subtle" color="red"

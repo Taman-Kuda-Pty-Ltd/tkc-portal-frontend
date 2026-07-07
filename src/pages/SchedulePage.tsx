@@ -19,6 +19,7 @@ import { api } from "../api/client";
 import type { Activity, Person, ScheduleLens, Shift } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ShiftModal } from "../components/ShiftModal";
+import { RecordAttendanceModal } from "../components/schedule/RecordAttendanceModal";
 import { DayView } from "../components/schedule/DayView";
 import { MonthView } from "../components/schedule/MonthView";
 import { TimeGrid } from "../components/schedule/TimeGrid";
@@ -45,6 +46,7 @@ export function SchedulePage() {
   const [lens, setLens] = useState<string>(() => localStorage.getItem(LENS_KEY) || "all");
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingOn, setAddingOn] = useState<Date | null>(null);
+  const [recordTarget, setRecordTarget] = useState<{ shift: Shift; personId: number; personName: string } | null>(null);
 
   const canManageShifts = can("manage_shifts");
   const canAssign = can("assign_staff") && can("manage_people");
@@ -162,6 +164,7 @@ export function SchedulePage() {
     onAssign: (shiftId, personId, headingId) => assignM.mutate({ shiftId, personId, headingId }),
     onUnassign: (shiftId, assignmentId) => unassignM.mutate({ shiftId, assignmentId }),
     onSetCoachKind: (shiftId, assignmentId, kind) => coachKindM.mutate({ shiftId, assignmentId, kind }),
+    onRecordAttendance: (shift, personId, personName) => setRecordTarget({ shift, personId, personName }),
   };
 
   // --- navigation ---
@@ -335,6 +338,7 @@ export function SchedulePage() {
           setAddingOn(null);
         }}
       />
+      <RecordAttendanceModal target={recordTarget} onClose={() => setRecordTarget(null)} />
     </Stack>
   );
 }

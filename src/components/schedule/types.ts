@@ -21,6 +21,7 @@ export interface ScheduleCtx {
   onAssign: (shiftId: number, personId: number, headingId: number | null) => void;
   onUnassign: (shiftId: number, assignmentId: number) => void;
   onSetCoachKind: (shiftId: number, assignmentId: number, kind: "primary" | "secondary") => void;
+  onRecordAttendance: (shift: Shift, personId: number, personName: string) => void;
 }
 
 export interface ShiftVisual {
