@@ -59,7 +59,7 @@ export function PayrollPage() {
     <Stack maw={860} w="100%" mx="auto">
       <Group justify="space-between">
         <Title order={2}>Payroll</Title>
-        {can("manage_settings") && (
+        {can("manage_pay_rates") && (
           <Button variant="light" leftSection={<IconCoin size={16} />} onClick={() => navigate("/payroll/rates")}>
             Pay rates
           </Button>

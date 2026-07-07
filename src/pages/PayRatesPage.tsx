@@ -16,7 +16,7 @@ export function PayRatesPage() {
         </Button>
       </Group>
       <Title order={2}>Pay grades & rates</Title>
-      {can("manage_settings") ? (
+      {can("manage_pay_rates") ? (
         <>
           <PayGradesSection />
           <Divider my="md" />
