@@ -12,6 +12,20 @@ const FREQUENCIES = [
   { value: "fortnightly", label: "Fortnightly" },
   { value: "monthly", label: "Monthly" },
 ];
+// The IANA zones the club is likely to run in (searchable; the backend accepts any valid zone).
+const TIMEZONES = [
+  "Australia/Sydney",
+  "Australia/Melbourne",
+  "Australia/Brisbane",
+  "Australia/Adelaide",
+  "Australia/Perth",
+  "Australia/Hobart",
+  "Australia/Darwin",
+  "Pacific/Auckland",
+  "Asia/Singapore",
+  "Asia/Kuala_Lumpur",
+  "UTC",
+];
 
 interface OrgSettings {
   min_shift_hours: number;
@@ -22,6 +36,7 @@ interface OrgSettings {
   checkout_window_minutes: number;
   pay_period_frequency: string;
   pay_period_anchor: string | null;
+  business_timezone: string;
 }
 
 export function OrgSettingsSection() {
@@ -37,6 +52,7 @@ export function OrgSettingsSection() {
   const [checkoutWindow, setCheckoutWindow] = useState<number | string>(45);
   const [frequency, setFrequency] = useState<string>("weekly");
   const [anchor, setAnchor] = useState<Date | null>(null);
+  const [tz, setTz] = useState<string>("Australia/Sydney");
   useEffect(() => {
     if (q.data) {
       setHours(q.data.min_shift_hours);
@@ -46,6 +62,7 @@ export function OrgSettingsSection() {
       setCheckoutWindow(q.data.checkout_window_minutes);
       setFrequency(q.data.pay_period_frequency ?? "weekly");
       setAnchor(q.data.pay_period_anchor ? dayjs(q.data.pay_period_anchor).toDate() : null);
+      setTz(q.data.business_timezone ?? "Australia/Sydney");
     }
   }, [q.data]);
 
@@ -63,6 +80,7 @@ export function OrgSettingsSection() {
         pay_period_frequency: frequency,
         pay_period_anchor:
           frequency === "fortnightly" && anchor ? dayjs(anchor).format("YYYY-MM-DD") : null,
+        business_timezone: tz,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["org-settings"] });
@@ -71,9 +89,18 @@ export function OrgSettingsSection() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  const tzData = TIMEZONES.includes(tz) ? TIMEZONES : [tz, ...TIMEZONES];
+
   return (
     <Stack gap="sm">
       <Text size="sm" c="dimmed">
+        The club's timezone. It sets when "today" rolls over on the terminals and reports,
+        and the offset used so scheduled times show correctly on every device.
+      </Text>
+      <Select label="Business timezone" w={260} data={tzData} value={tz}
+        onChange={(v) => v && setTz(v)} searchable allowDeselect={false}
+        comboboxProps={{ withinPortal: true }} />
+      <Text size="sm" c="dimmed" mt="xs">
         The minimum paid hours recorded for any stablehand/ad-hoc terminal check-out.
         If someone works or logs less than this, their hours are floored to it.
       </Text>
