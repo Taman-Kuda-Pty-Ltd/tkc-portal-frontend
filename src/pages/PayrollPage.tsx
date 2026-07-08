@@ -52,8 +52,17 @@ export function PayrollPage() {
   });
   const days = orgQ.data?.pay_period_days ?? 7;
   const [period, setPeriod] = useState<Dayjs | null>(null); // null = show the runs list
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createStart, setCreateStart] = useState<Dayjs | null>(null);
 
   const runsQ = useQuery({ queryKey: ["pay-runs"], queryFn: () => api.get<PayRun[]>("/reports/payroll/runs") });
+
+  // RUN-2: default a new run to the most-recent *completed* period, not "this week".
+  function openCreate() {
+    const cur = periodStartFor(dayjs(), orgQ.data!.pay_period_start_weekday);
+    setCreateStart(cur.subtract(days, "day"));
+    setCreateOpen(true);
+  }
 
   return (
     <Stack maw={860} w="100%" mx="auto">
@@ -77,8 +86,7 @@ export function PayrollPage() {
         <Stack>
           <Group justify="space-between">
             <Text c="dimmed" size="sm">Approved pay runs. Create one, review it, then approve.</Text>
-            <Button leftSection={<IconPlus size={16} />} disabled={!orgQ.data}
-              onClick={() => setPeriod(periodStartFor(dayjs(), orgQ.data!.pay_period_start_weekday))}>
+            <Button leftSection={<IconPlus size={16} />} disabled={!orgQ.data} onClick={openCreate}>
               Create pay run
             </Button>
           </Group>
@@ -117,6 +125,31 @@ export function PayrollPage() {
           )}
         </Stack>
       )}
+
+      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="New pay run">
+        <Stack>
+          <Text size="sm" c="dimmed">Which period are you paying? Defaults to the last completed period.</Text>
+          {createStart && (
+            <Group justify="center" gap="md">
+              <ActionIcon variant="light" aria-label="Earlier period"
+                onClick={() => setCreateStart((s) => s!.subtract(days, "day"))}>
+                <IconChevronLeft size={18} />
+              </ActionIcon>
+              <Text fw={600}>
+                {createStart.format("D MMM")} – {createStart.add(days - 1, "day").format("D MMM YYYY")}
+              </Text>
+              <ActionIcon variant="light" aria-label="Later period"
+                onClick={() => setCreateStart((s) => s!.add(days, "day"))}>
+                <IconChevronRight size={18} />
+              </ActionIcon>
+            </Group>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={() => { setPeriod(createStart); setCreateOpen(false); }}>Open run</Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
