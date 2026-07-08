@@ -4,7 +4,6 @@ import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
 import { OrgSettingsSection } from "../components/OrgSettingsSection";
 import { FacilitiesSection } from "../components/FacilitiesSection";
-import { TerminalsSection } from "../components/TerminalsSection";
 import { ActivitiesPage } from "./ActivitiesPage";
 import { LensesPage } from "./LensesPage";
 import { RolesPage } from "./RolesPage";
@@ -160,17 +159,6 @@ export function SettingsPage() {
             </Accordion.Control>
             <Accordion.Panel>
               <OrgSettingsSection />
-            </Accordion.Panel>
-          </Accordion.Item>
-        )}
-
-        {can("manage_settings") && (
-          <Accordion.Item value="terminals">
-            <Accordion.Control>
-              <Text fw={600}>Terminals</Text>
-            </Accordion.Control>
-            <Accordion.Panel>
-              <TerminalsSection />
             </Accordion.Panel>
           </Accordion.Item>
         )}

@@ -14,6 +14,7 @@ import { PeoplePage } from "./pages/PeoplePage";
 import { AddPersonPage } from "./pages/AddPersonPage";
 import { PersonDetailPage } from "./pages/PersonDetailPage";
 import { MyProfilePage } from "./pages/MyProfilePage";
+import { TerminalsPage } from "./pages/TerminalsPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ShiftTemplateEditorPage } from "./pages/ShiftTemplateEditorPage";
@@ -49,6 +50,7 @@ function AuthedApp() {
         <Route path="/people/new" element={<AddPersonPage />} />
         <Route path="/people/:id" element={<PersonDetailPage />} />
         <Route path="/horses" element={<HorsesPage />} />
+        <Route path="/terminals" element={<TerminalsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/schedule" replace />} />
       </Routes>

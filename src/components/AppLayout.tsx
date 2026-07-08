@@ -6,6 +6,7 @@ import {
   IconCalendar,
   IconChecklist,
   IconCoin,
+  IconDeviceDesktop,
   IconHorse,
   IconLogout,
   IconSettings,
@@ -13,6 +14,7 @@ import {
   IconUser,
   IconUsers,
 } from "@tabler/icons-react";
+import { terminalOnline } from "./TerminalsSection";
 
 function initials(name?: string): string {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
@@ -31,6 +33,7 @@ const NAV = [
   { to: "/templates", label: "Templates", icon: IconTemplate, cap: "view_schedule" },
   { to: "/approvals", label: "Approvals", icon: IconChecklist, cap: "manage_shifts" },
   { to: "/payroll", label: "Payroll", icon: IconCoin, cap: "manage_shifts" },
+  { to: "/terminals", label: "Terminals", icon: IconDeviceDesktop, cap: "manage_settings" },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -64,6 +67,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
   });
   const pendingTotal =
     (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) + (lessonTypeQ.data ?? 0);
+
+  // FH-3: badge the Terminals nav with devices that opted into offline alerts and
+  // haven't checked in recently.
+  const terminalsQ = useQuery({
+    queryKey: ["terminals"],
+    queryFn: () => api.get<{ is_active: boolean; alert_when_offline: boolean; last_seen_at: string | null }[]>("/terminals"),
+    enabled: can("manage_settings"),
+    refetchInterval: 60000,
+  });
+  const terminalsOffline = (terminalsQ.data ?? []).filter(
+    (t) => t.is_active && t.alert_when_offline && !terminalOnline(t),
+  ).length;
+  const badgeFor = (to: string): number =>
+    to === "/approvals" ? pendingTotal : to === "/terminals" ? terminalsOffline : 0;
 
   // Someone with no staff capabilities (e.g. a school client) has nowhere to go in
   // the staff app yet — show a friendly screen instead of empty/broken pages.
@@ -127,8 +144,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
               label={n.label}
               leftSection={<n.icon size={18} />}
               rightSection={
-                n.to === "/approvals" && pendingTotal > 0 ? (
-                  <Badge size="sm" color="red" variant="filled">{pendingTotal}</Badge>
+                badgeFor(n.to) > 0 ? (
+                  <Badge size="sm" color={n.to === "/terminals" ? "orange" : "red"} variant="filled">
+                    {badgeFor(n.to)}
+                  </Badge>
                 ) : undefined
               }
               active={location.pathname.startsWith(n.to)}

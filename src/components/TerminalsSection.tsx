@@ -26,9 +26,28 @@ interface Terminal {
   token: string;
   is_active: boolean;
   inactivity_seconds: number;
+  last_seen_at: string | null;
+  alert_when_offline: boolean;
 }
 
 const TYPE_LABEL: Record<string, string> = { checkin: "Staff check-in", schedule: "Schedule display" };
+
+// last_seen_at is naive UTC — append Z to parse as UTC.
+const seenMs = (t: { last_seen_at: string | null }) =>
+  t.last_seen_at ? Date.parse(t.last_seen_at + "Z") : null;
+export function terminalOnline(t: { last_seen_at: string | null }): boolean {
+  const ms = seenMs(t);
+  return ms != null && Date.now() - ms < 120_000; // ~2× the slowest poll (60s)
+}
+function seenLabel(t: Terminal): string {
+  const ms = seenMs(t);
+  if (ms == null) return "never seen";
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
+}
 
 export function TerminalsSection() {
   const qc = useQueryClient();
@@ -36,7 +55,11 @@ export function TerminalsSection() {
   const [type, setType] = useState<string>("checkin");
   const [settingsFor, setSettingsFor] = useState<Terminal | null>(null);
 
-  const q = useQuery({ queryKey: ["terminals"], queryFn: () => api.get<Terminal[]>("/terminals") });
+  const q = useQuery({
+    queryKey: ["terminals"],
+    queryFn: () => api.get<Terminal[]>("/terminals"),
+    refetchInterval: 30000, // keep the online status fresh
+  });
 
   const createM = useMutation({
     mutationFn: () => api.post<Terminal>("/terminals", { name, terminal_type: type }),
@@ -80,12 +103,22 @@ export function TerminalsSection() {
             <Group justify="space-between" wrap="wrap">
               <div>
                 <Group gap="xs">
+                  <div title={terminalOnline(t) ? "Online" : "Offline"}
+                    style={{
+                      width: 9, height: 9, borderRadius: "50%",
+                      background: terminalOnline(t) ? "var(--mantine-color-teal-6)" : "var(--mantine-color-gray-5)",
+                      boxShadow: terminalOnline(t) ? "0 0 0 3px var(--mantine-color-teal-1)" : undefined,
+                    }} />
                   <Text fw={600}>{t.name}</Text>
                   <Badge variant="light">{TYPE_LABEL[t.terminal_type]}</Badge>
-                  <Badge variant="light" color={t.is_active ? "teal" : "gray"}>
-                    {t.is_active ? "Active" : "Disabled"}
-                  </Badge>
+                  {!t.is_active && <Badge variant="light" color="gray">Disabled</Badge>}
+                  {t.alert_when_offline && !terminalOnline(t) && t.is_active && (
+                    <Badge variant="light" color="orange">Offline</Badge>
+                  )}
                 </Group>
+                <Text size="xs" c={terminalOnline(t) ? "teal" : "dimmed"} mt={2}>
+                  {terminalOnline(t) ? "Online" : "Offline"} · last seen {seenLabel(t)}
+                </Text>
               </div>
               <Group gap="xs">
                 <CopyButton value={setupUrl(t)}>
@@ -119,14 +152,18 @@ function TerminalSettingsModal({ terminal, onClose }: { terminal: Terminal; onCl
   const qc = useQueryClient();
   const [name, setName] = useState(terminal.name);
   const [inactivity, setInactivity] = useState<number>(terminal.inactivity_seconds);
+  const [alertOffline, setAlertOffline] = useState<boolean>(terminal.alert_when_offline);
   useEffect(() => {
     setName(terminal.name);
     setInactivity(terminal.inactivity_seconds);
+    setAlertOffline(terminal.alert_when_offline);
   }, [terminal]);
 
   const saveM = useMutation({
     mutationFn: () =>
-      api.patch(`/terminals/${terminal.id}`, { name: name.trim(), inactivity_seconds: inactivity }),
+      api.patch(`/terminals/${terminal.id}`, {
+        name: name.trim(), inactivity_seconds: inactivity, alert_when_offline: alertOffline,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["terminals"] });
       onClose();
@@ -149,6 +186,9 @@ function TerminalSettingsModal({ terminal, onClose }: { terminal: Terminal; onCl
         <NumberInput label="Auto sign-out after (seconds idle)"
           description="Returns to the name-select screen. 0 = never."
           min={0} step={30} value={inactivity} onChange={(v) => setInactivity(Number(v) || 0)} />
+        <Switch label="Alert me if this device goes offline"
+          description="Counts toward the Terminals nav badge when it stops checking in."
+          checked={alertOffline} onChange={(e) => setAlertOffline(e.currentTarget.checked)} />
         <Group justify="space-between" mt="sm">
           <Button variant="light" color="red" loading={delM.isPending}
             onClick={() => delM.mutate()}>
