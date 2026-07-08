@@ -1,5 +1,6 @@
 import { ActionIcon, Badge, Divider, Group, Paper, Select, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { IconClock, IconPlus, IconX } from "@tabler/icons-react";
+import { useEffect, useRef } from "react";
 import { formatISOTime } from "../../lib/time";
 import type { ActivityHeading, Shift } from "../../api/types";
 import { effectiveCount, shiftVisual } from "./types";
@@ -11,6 +12,14 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
   const v = shiftVisual(shift, ctx);
   const activity = ctx.activityById.get(shift.activity_id);
   const headings = (activity?.headings ?? []).filter((h) => h.is_active);
+  const highlighted = ctx.highlightShiftId === shift.id;
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (highlighted) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlighted]);
+  const highlightStyle = highlighted
+    ? { outline: "2px solid var(--mantine-color-teal-5)", outlineOffset: 2 }
+    : {};
 
   // Cancelled shifts are hidden by default; when shown they collapse to a struck line.
   if (shift.status === "cancelled") {
@@ -29,12 +38,14 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
 
   return (
     <Paper
+      ref={ref}
       radius="sm"
       p={6}
       bg="var(--mantine-color-default)"
       style={{
         border: "1px solid var(--mantine-color-default-border)",
         borderLeft: `4px solid ${v.color}`,
+        ...highlightStyle,
       }}
     >
       <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
@@ -52,10 +63,14 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
             <Badge size="sm" variant="light" color="gray">Draft</Badge>
           )}
           {activity?.is_lesson && shift.assignments.length === 0 && (
-            <Badge size="sm" variant="light" color="orange" title="No coach assigned">No coach</Badge>
+            <Badge size="sm" variant="light" color="orange" style={{ cursor: "pointer" }}
+              title="No coach assigned — open the shift"
+              onClick={() => ctx.onOpenShift(shift)}>No coach</Badge>
           )}
           {activity?.is_lesson && (shift.rides?.length ?? 0) === 0 && (
-            <Badge size="sm" variant="light" color="orange" title="No students assigned">No students</Badge>
+            <Badge size="sm" variant="light" color="orange" style={{ cursor: "pointer" }}
+              title="No students assigned — open the shift"
+              onClick={() => ctx.onOpenShift(shift)}>No students</Badge>
           )}
           {shift.approval_status === "pending" && (
             <Badge size="sm" variant="light" color="yellow">Pending</Badge>

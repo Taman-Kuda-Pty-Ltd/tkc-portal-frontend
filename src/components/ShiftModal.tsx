@@ -46,6 +46,7 @@ export function ShiftModal({
   canAssign = false,
   canManageShifts = false,
   onRecordAttendance,
+  onCreated,
 }: {
   shift: Shift | null;
   defaultDate: Date;
@@ -55,6 +56,7 @@ export function ShiftModal({
   canAssign?: boolean;
   canManageShifts?: boolean;
   onRecordAttendance?: (shift: Shift, personId: number, personName: string) => void;
+  onCreated?: (shift: Shift) => void;
 }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -208,10 +210,13 @@ export function ShiftModal({
             .map((r) => ({ student_id: Number(r.student_id), horse_id: r.horse_id ? Number(r.horse_id) : null })),
         );
       }
+      return saved;
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ["shifts"] });
+      const wasNew = !shift;
       onClose();
+      if (wasNew) onCreated?.(saved); // SC-7: offer to jump to the newly-created shift
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
@@ -263,6 +268,10 @@ export function ShiftModal({
   const updateRide = (i: number, patch: Partial<RideDraft>) =>
     setRides(rides.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const ro = !editing;
+  // SC-7: warn when the chosen date is suspiciously far from today.
+  const FAR_DATE_DAYS = 60;
+  const dayGap = date ? dayjs(date).startOf("day").diff(dayjs().startOf("day"), "day") : 0;
+  const farDateDays = Math.abs(dayGap) > FAR_DATE_DAYS ? Math.abs(dayGap) : null;
 
   return (
     <Modal
@@ -355,6 +364,19 @@ export function ShiftModal({
         )}
 
         <DateField label="Date" value={date} onChange={setDate} required disabled={ro} />
+        {editing && farDateDays !== null && (
+          <Alert color="yellow" py="xs">
+            <Group justify="space-between" wrap="nowrap" gap="sm">
+              <Text size="sm">
+                That's <b>{farDateDays}</b> {farDateDays === 1 ? "day" : "days"}{" "}
+                {dayjs(date).isBefore(dayjs(), "day") ? "ago" : "from now"} — is that right?
+              </Text>
+              <Button size="compact-xs" variant="light" onClick={() => setDate(dayjs().toDate())}>
+                Use today
+              </Button>
+            </Group>
+          </Alert>
+        )}
         <Group>
           <TimeField label="Start" value={start} onChange={setStart} disabled={ro} />
           <TimeField label="End" value={end} onChange={setEnd} disabled={ro} />

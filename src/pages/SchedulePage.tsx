@@ -47,6 +47,7 @@ export function SchedulePage() {
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingOn, setAddingOn] = useState<Date | null>(null);
   const [recordTarget, setRecordTarget] = useState<{ shift: Shift; personId: number; personName: string } | null>(null);
+  const [highlightShiftId, setHighlightShiftId] = useState<number | null>(null);
 
   const canManageShifts = can("manage_shifts");
   const canAssign = can("assign_staff") && can("manage_people");
@@ -161,6 +162,30 @@ export function SchedulePage() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  // SC-7 / SC-11: jump the schedule to a shift and briefly highlight it.
+  function goToShift(s: Shift) {
+    setAnchor(dayjs(s.starts_at));
+    setView("day");
+    setHighlightShiftId(s.id);
+  }
+  useEffect(() => {
+    if (highlightShiftId === null) return;
+    const t = window.setTimeout(() => setHighlightShiftId(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [highlightShiftId]);
+  function handleCreated(s: Shift) {
+    notifications.show({
+      color: "teal",
+      autoClose: 8000,
+      message: (
+        <Group justify="space-between" wrap="nowrap" gap="sm">
+          <span>Shift created for {dayjs(s.starts_at).format("ddd D MMM")}.</span>
+          <Button size="compact-xs" variant="white" onClick={() => goToShift(s)}>Go to it</Button>
+        </Group>
+      ),
+    });
+  }
+
   const ctx: ScheduleCtx = {
     activityById,
     personById,
@@ -168,6 +193,7 @@ export function SchedulePage() {
     canManageShifts,
     canAssign,
     timeFormat,
+    highlightShiftId,
     onOpenShift: setEditingShift,
     onAddShift: (d) => setAddingOn(d.toDate()),
     onAssign: (shiftId, personId, headingId) => assignM.mutate({ shiftId, personId, headingId }),
@@ -347,6 +373,7 @@ export function SchedulePage() {
         onRecordAttendance={(shift, personId, personName) =>
           setRecordTarget({ shift, personId, personName })
         }
+        onCreated={handleCreated}
         onClose={() => {
           setEditingShift(null);
           setAddingOn(null);

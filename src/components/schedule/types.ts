@@ -16,6 +16,8 @@ export interface ScheduleCtx {
   canManageShifts: boolean;
   canAssign: boolean;
   timeFormat: TimeFormat;
+  /** A recently-created/targeted shift to highlight + scroll to (SC-7 / SC-11). */
+  highlightShiftId?: number | null;
   onOpenShift: (s: Shift) => void;
   onAddShift: (d: Dayjs) => void;
   onAssign: (shiftId: number, personId: number, headingId: number | null) => void;
