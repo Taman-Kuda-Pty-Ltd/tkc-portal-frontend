@@ -65,8 +65,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
     enabled: can("manage_shifts"),
     refetchInterval: 30000,
   });
+  // Heads-up signals that weren't counted before (E): no-shows, still-checked-in,
+  // unrated staff (PR-4), un-onboarded assignees (PO-10).
+  const attn = { enabled: can("manage_shifts"), refetchInterval: 30000 };
+  const noShowQ = useQuery({ queryKey: ["no-shows-count"], queryFn: () => api.get<number>("/shifts/no-shows/count"), ...attn });
+  const openQ = useQuery({ queryKey: ["open-att-count"], queryFn: () => api.get<number>("/attendance/open/count"), ...attn });
+  const unratedQ = useQuery({ queryKey: ["unrated-count"], queryFn: () => api.get<number>("/reports/unrated-staff/count"), ...attn });
+  const unonbQ = useQuery({ queryKey: ["unonboarded-count"], queryFn: () => api.get<number>("/shifts/unonboarded-assignees/count"), ...attn });
   const pendingTotal =
-    (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) + (lessonTypeQ.data ?? 0);
+    (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) + (lessonTypeQ.data ?? 0) +
+    (noShowQ.data ?? 0) + (openQ.data ?? 0) + (unratedQ.data ?? 0) + (unonbQ.data ?? 0);
 
   // FH-3: badge the Terminals nav with devices that opted into offline alerts and
   // haven't checked in recently.

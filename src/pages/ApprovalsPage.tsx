@@ -1,5 +1,6 @@
-import { Badge, Button, Card, Group, Loader, Modal, NumberInput, SegmentedControl, Select, Stack, Text, Textarea, Title } from "@mantine/core";
+import { Anchor, Badge, Button, Card, Group, Loader, Modal, NumberInput, SegmentedControl, Select, Stack, Text, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
@@ -101,30 +102,24 @@ export function ApprovalsPage() {
     queryFn: () => api.get<OpenAtt[]>("/attendance/open"),
     refetchInterval: 60000,
   });
+  const unratedQ = useQuery({
+    queryKey: ["unrated-staff"],
+    queryFn: () => api.get<{ person_id: number; name: string; work_role_name: string | null }[]>("/reports/unrated-staff"),
+  });
+  const unonbQ = useQuery({
+    queryKey: ["unonboarded-assignees"],
+    queryFn: () => api.get<NoShow[]>("/shifts/unonboarded-assignees"),
+  });
 
   return (
     <Stack maw={780} w="100%" mx="auto">
       <Title order={2}>Approvals & attention</Title>
 
-      {(nsQ.data ?? []).length > 0 && (
-        <>
-          <Title order={4} mt="sm" c="orange">No-shows</Title>
-          <Text size="sm" c="dimmed">
-            Assigned to a started shift but not checked in. Mark them present if they're here.
-          </Text>
-          {(nsQ.data ?? []).map((n) => <NoShowRow key={`${n.shift_id}-${n.person_id}`} item={n} />)}
-        </>
-      )}
+      <Text tt="uppercase" fw={700} size="sm" c="dimmed" mt="xs" style={{ letterSpacing: 0.6 }}>
+        Needs action
+      </Text>
 
-      {(openQ.data ?? []).length > 0 && (
-        <>
-          <Title order={4} mt="lg">Still checked in</Title>
-          <Text size="sm" c="dimmed">People who haven't checked out. Close it off for them.</Text>
-          {(openQ.data ?? []).map((o) => <OpenAttRow key={o.attendance_id} item={o} />)}
-        </>
-      )}
-
-      <Title order={4} mt="lg">Extra tasks</Title>
+      <Title order={4} mt="xs">Extra tasks</Title>
       <Text size="sm" c="dimmed">
         Staff-logged extra tasks awaiting review. For a lesson, confirm (or change) the
         lesson type; otherwise the hours. The person is emailed the outcome.
@@ -174,6 +169,68 @@ export function ApprovalsPage() {
         <Text c="dimmed">Nothing to review.</Text>
       ) : (
         (ltQ.data ?? []).map((lt) => <LessonTypeChangeRow key={lt.id} item={lt} />)
+      )}
+
+      <Text tt="uppercase" fw={700} size="sm" c="dimmed" mt="xl" style={{ letterSpacing: 0.6 }}>
+        Heads up
+      </Text>
+
+      {(nsQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="xs" c="orange">No-shows</Title>
+          <Text size="sm" c="dimmed">
+            Assigned to a started shift but not checked in. Mark them present if they're here.
+          </Text>
+          {(nsQ.data ?? []).map((n) => <NoShowRow key={`${n.shift_id}-${n.person_id}`} item={n} />)}
+        </>
+      )}
+
+      {(openQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg">Still checked in</Title>
+          <Text size="sm" c="dimmed">People who haven't checked out. Close it off for them.</Text>
+          {(openQ.data ?? []).map((o) => <OpenAttRow key={o.attendance_id} item={o} />)}
+        </>
+      )}
+
+      {(unratedQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg" c="red">Staff with no pay rate</Title>
+          <Text size="sm" c="dimmed">
+            Active employees whose job has no pay grade — their hours won't be priced until you assign one.
+          </Text>
+          {(unratedQ.data ?? []).map((u) => (
+            <Card key={`${u.person_id}-${u.work_role_name}`} withBorder>
+              <Group justify="space-between">
+                <Text size="sm">
+                  <Anchor component={Link} to={`/people/${u.person_id}`} fw={600}>{u.name}</Anchor>
+                  {" — "}{u.work_role_name ?? "engagement"}, no pay grade
+                </Text>
+                <Anchor component={Link} to={`/people/${u.person_id}`} size="sm">Assign grade →</Anchor>
+              </Group>
+            </Card>
+          ))}
+        </>
+      )}
+
+      {(unonbQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg" c="orange">Assigned but not onboarded</Title>
+          <Text size="sm" c="dimmed">
+            These upcoming shifts are assigned to someone still Invited — they can't check in until they finish onboarding.
+          </Text>
+          {(unonbQ.data ?? []).map((n) => (
+            <Card key={`${n.shift_id}-${n.person_id}`} withBorder>
+              <Group justify="space-between">
+                <Text size="sm">
+                  <Anchor component={Link} to={`/people/${n.person_id}`} fw={600}>{n.person_name}</Anchor>
+                  {" — "}{n.title || n.activity_name} · {dayjs(n.starts_at).format("ddd D MMM, HH:mm")}
+                </Text>
+                <Badge color="yellow" variant="light">Invited</Badge>
+              </Group>
+            </Card>
+          ))}
+        </>
       )}
     </Stack>
   );
