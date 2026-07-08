@@ -313,10 +313,18 @@ export interface ShiftTemplate {
   slots: ShiftTemplateSlot[];
 }
 
+export interface ApplyPreviewItem {
+  starts_at: string;
+  ends_at: string;
+  label: string;
+  exists: boolean;
+}
+
 export interface ShiftTemplateApplyResult {
   requested_count: number;
   duplicate_count: number;
   created_count: number;
+  preview: ApplyPreviewItem[];
   created: Shift[];
 }
 

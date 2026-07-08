@@ -5,6 +5,7 @@ import {
   Group,
   Loader,
   Modal,
+  ScrollArea,
   Stack,
   Text,
   Title,
@@ -179,6 +180,32 @@ export function ShiftTemplatesPage() {
                 Back
               </Button>
             </>
+          )}
+
+          {preview && preview.requested_count > 0 && (preview.preview?.length ?? 0) > 0 && (
+            <ScrollArea.Autosize mah={240}>
+              <Stack gap={4}>
+                {preview.preview.map((p, i) => (
+                  <Group key={i} justify="space-between" wrap="nowrap"
+                    style={{
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: "var(--mantine-radius-sm)",
+                      padding: "5px 9px",
+                      background: p.exists ? "var(--mantine-color-red-light)" : undefined,
+                    }}>
+                    <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                      <Text size="xs" c="dimmed" ff="monospace" style={{ whiteSpace: "nowrap" }}>
+                        {dayjs(p.starts_at).format("ddd D MMM · HH:mm")}
+                      </Text>
+                      <Text size="sm" fw={500} lineClamp={1}>{p.label}</Text>
+                    </Group>
+                    <Badge size="sm" variant="light" color={p.exists ? "red" : "teal"}>
+                      {p.exists ? "Exists" : "New"}
+                    </Badge>
+                  </Group>
+                ))}
+              </Stack>
+            </ScrollArea.Autosize>
           )}
 
           {preview && preview.requested_count > 0 && preview.duplicate_count === 0 && (
