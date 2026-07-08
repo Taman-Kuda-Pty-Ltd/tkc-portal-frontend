@@ -286,12 +286,18 @@ export type RecurrenceUnit = "daily" | "weekly" | "fortnightly" | "monthly";
 export type ShiftStatus = "draft" | "published" | "cancelled";
 export type AssignmentStatus = "assigned" | "confirmed" | "declined";
 
+export interface SlotRider {
+  student_id: number;
+  horse_id: number | null;
+}
+
 export interface ShiftTemplateSlot {
   id: number;
   shift_template_id: number;
   activity_id: number;
   role_id: number | null;
   assigned_person_ids: number[];
+  riders: SlotRider[];
   abbreviation: string | null;
   title: string | null;
   description: string | null;

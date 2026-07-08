@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Anchor,
+  Badge,
   Button,
   Divider,
   Group,
@@ -15,21 +16,27 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconArrowLeft, IconCopy, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import type { Activity, Person, RecurrenceUnit, Role, ShiftTemplate } from "../api/types";
+import type { Activity, NamedResource, Person, RecurrenceUnit, Role, ShiftTemplate } from "../api/types";
 import { RECURRENCE_OPTIONS, WEEKDAYS } from "../lib/constants";
 import { TimeField } from "../components/TimeField";
 import { RichTextField } from "../components/RichText";
+
+interface RiderDraft {
+  student_id: string | null;
+  horse_id: string | null;
+}
 
 interface SlotDraft {
   activity_id: string | null;
   role_id: string | null;
   assigned_person_ids: string[];
+  riders: RiderDraft[];
   abbreviation: string;
   title: string;
   description: string;
@@ -43,10 +50,19 @@ interface SlotDraft {
 
 function emptySlot(): SlotDraft {
   return {
-    activity_id: null, role_id: null, assigned_person_ids: [],
+    activity_id: null, role_id: null, assigned_person_ids: [], riders: [],
     abbreviation: "", title: "", description: "",
     weekday: "0", week_in_cycle: "0", day_of_month: 1,
     start_time: "08:00", end_time: "12:00", headcount: 1,
+  };
+}
+
+/** Deep-copy a slot so a duplicate doesn't share nested arrays. */
+function cloneSlot(s: SlotDraft): SlotDraft {
+  return {
+    ...s,
+    assigned_person_ids: [...s.assigned_person_ids],
+    riders: s.riders.map((r) => ({ ...r })),
   };
 }
 
@@ -69,6 +85,8 @@ export function ShiftTemplateEditorPage() {
   const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => api.get<Activity[]>("/activities") });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
+  const studentsQ = useQuery({ queryKey: ["students"], queryFn: () => api.get<NamedResource[]>("/students") });
+  const horsesQ = useQuery({ queryKey: ["horses"], queryFn: () => api.get<NamedResource[]>("/horses") });
 
   const template = templateQ.data;
   useEffect(() => {
@@ -80,6 +98,10 @@ export function ShiftTemplateEditorPage() {
       activity_id: String(s.activity_id),
       role_id: s.role_id ? String(s.role_id) : null,
       assigned_person_ids: (s.assigned_person_ids ?? []).map(String),
+      riders: (s.riders ?? []).map((r) => ({
+        student_id: String(r.student_id),
+        horse_id: r.horse_id ? String(r.horse_id) : null,
+      })),
       abbreviation: s.abbreviation ?? "",
       title: s.title ?? "",
       description: s.description ?? "",
@@ -95,6 +117,10 @@ export function ShiftTemplateEditorPage() {
   const activityOptions = (activitiesQ.data ?? []).filter((a) => a.is_active).map((a) => ({ value: String(a.id), label: a.name }));
   const roleOptions = (rolesQ.data ?? []).map((r) => ({ value: String(r.id), label: r.name }));
   const peopleOptions = (peopleQ.data ?? []).filter((p) => p.is_active).map((p) => ({ value: String(p.id), label: p.full_name }));
+  const studentOptions = (studentsQ.data ?? []).filter((s) => s.is_active).map((s) => ({ value: String(s.id), label: s.name }));
+  const horseOptions = (horsesQ.data ?? []).filter((h) => h.is_active).map((h) => ({ value: String(h.id), label: h.name }));
+  const isLessonActivity = (activityId: string | null) =>
+    !!(activitiesQ.data ?? []).find((a) => a.id === Number(activityId))?.is_lesson;
 
   const updateSlot = (i: number, patch: Partial<SlotDraft>) =>
     setSlots((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -105,6 +131,11 @@ export function ShiftTemplateEditorPage() {
         activity_id: Number(s.activity_id),
         role_id: s.role_id ? Number(s.role_id) : null,
         assigned_person_ids: s.assigned_person_ids.map(Number),
+        riders: isLessonActivity(s.activity_id)
+          ? s.riders
+              .filter((r) => r.student_id)
+              .map((r) => ({ student_id: Number(r.student_id), horse_id: r.horse_id ? Number(r.horse_id) : null }))
+          : [],
         abbreviation: s.abbreviation.trim() || null,
         title: s.title.trim() || null,
         description: s.description.trim() || null,
@@ -170,11 +201,18 @@ export function ShiftTemplateEditorPage() {
           <Paper key={i} withBorder p="md" radius="sm">
             <Group justify="space-between" mb="sm">
               <Text fw={600} size="sm">Slot {i + 1}</Text>
-              <ActionIcon color="red" variant="subtle" aria-label="Remove slot"
-                disabled={slots.length === 1}
-                onClick={() => setSlots(slots.filter((_, idx) => idx !== i))}>
-                <IconTrash size={18} />
-              </ActionIcon>
+              <Group gap={4}>
+                <ActionIcon variant="subtle" color="gray" aria-label="Duplicate slot"
+                  title="Duplicate this slot"
+                  onClick={() => setSlots([...slots.slice(0, i + 1), cloneSlot(s), ...slots.slice(i + 1)])}>
+                  <IconCopy size={17} />
+                </ActionIcon>
+                <ActionIcon color="red" variant="subtle" aria-label="Remove slot"
+                  disabled={slots.length === 1}
+                  onClick={() => setSlots(slots.filter((_, idx) => idx !== i))}>
+                  <IconTrash size={18} />
+                </ActionIcon>
+              </Group>
             </Group>
 
             <Stack gap="sm">
@@ -219,6 +257,43 @@ export function ShiftTemplateEditorPage() {
                   onChange={(v) => updateSlot(i, { assigned_person_ids: v })} comboboxProps={{ withinPortal: true }} />
               </SimpleGrid>
 
+              {isLessonActivity(s.activity_id) && (
+                <div>
+                  <Group justify="space-between" mb={4}>
+                    <Text size="sm" fw={500}>Default riders</Text>
+                    <Button size="compact-xs" variant="light" leftSection={<IconPlus size={13} />}
+                      onClick={() => updateSlot(i, { riders: [...s.riders, { student_id: null, horse_id: null }] })}>
+                      Add rider
+                    </Button>
+                  </Group>
+                  <Text size="xs" c="dimmed" mb={6}>
+                    Students (horse optional) pre-filled onto every lesson this slot generates.
+                  </Text>
+                  <Stack gap="xs">
+                    {s.riders.length === 0 && <Text size="sm" c="dimmed">None — add the regular class.</Text>}
+                    {s.riders.map((r, ri) => (
+                      <Group key={ri} gap="xs" wrap="nowrap" align="flex-end">
+                        <Select placeholder="Student" data={studentOptions} value={r.student_id} searchable
+                          style={{ flex: 1 }} comboboxProps={{ withinPortal: true }}
+                          onChange={(v) => updateSlot(i, {
+                            riders: s.riders.map((x, xi) => (xi === ri ? { ...x, student_id: v } : x)),
+                          })} />
+                        <Text c="dimmed" pb={8}>on</Text>
+                        <Select placeholder="Horse" data={horseOptions} value={r.horse_id} searchable clearable
+                          style={{ flex: 1 }} comboboxProps={{ withinPortal: true }}
+                          onChange={(v) => updateSlot(i, {
+                            riders: s.riders.map((x, xi) => (xi === ri ? { ...x, horse_id: v } : x)),
+                          })} />
+                        <ActionIcon color="red" variant="subtle" aria-label="Remove rider"
+                          onClick={() => updateSlot(i, { riders: s.riders.filter((_, xi) => xi !== ri) })}>
+                          <IconX size={16} />
+                        </ActionIcon>
+                      </Group>
+                    ))}
+                  </Stack>
+                </div>
+              )}
+
               <RichTextField label="Description" placeholder="Longer detail shown in the day view (optional)"
                 value={s.description} onChange={(html) => updateSlot(i, { description: html })} />
             </Stack>
@@ -229,9 +304,19 @@ export function ShiftTemplateEditorPage() {
       <Group>
         <Button variant="light" leftSection={<IconPlus size={16} />}
           onClick={() => setSlots([...slots, emptySlot()])}>
-          Add slot
+          Blank slot
+        </Button>
+        <Button variant="default" leftSection={<IconCopy size={16} />} disabled={slots.length === 0}
+          onClick={() => setSlots([...slots, cloneSlot(slots[slots.length - 1])])}>
+          Copy last
         </Button>
       </Group>
+
+      <SlotPreview
+        slots={slots}
+        recurrence={recurrence}
+        activityName={(id) => activityOptions.find((a) => a.value === id)?.label ?? "Shift"}
+      />
 
       <Divider />
       <Group justify="flex-end">
@@ -239,5 +324,80 @@ export function ShiftTemplateEditorPage() {
         <Button loading={saveM.isPending} disabled={invalid} onClick={() => saveM.mutate()}>Save template</Button>
       </Group>
     </Stack>
+  );
+}
+
+/** A compact "what one cycle generates" preview (SC-10). Weekly/fortnightly show a
+ *  Mon–Sun grid; daily/monthly a short summary. */
+function SlotPreview({
+  slots,
+  recurrence,
+  activityName,
+}: {
+  slots: SlotDraft[];
+  recurrence: RecurrenceUnit;
+  activityName: (activityId: string | null) => string;
+}) {
+  const ready = slots.filter((s) => s.activity_id);
+  if (ready.length === 0) return null;
+
+  const block = (s: SlotDraft, key: number) => (
+    <Paper key={key} withBorder p={6} radius="sm" bg="var(--mantine-color-default)">
+      <Text size="xs" fw={600} lineClamp={1}>{s.title || activityName(s.activity_id)}</Text>
+      <Text size="xs" c="dimmed">{s.start_time}–{s.end_time}</Text>
+      <Group gap={4} mt={2}>
+        <Badge size="xs" variant="light" color="gray">{s.headcount} staff</Badge>
+        {s.riders.filter((r) => r.student_id).length > 0 && (
+          <Badge size="xs" variant="light" color="grape">
+            {s.riders.filter((r) => r.student_id).length} riders
+          </Badge>
+        )}
+      </Group>
+    </Paper>
+  );
+
+  let body: ReactNode;
+  if (recurrence === "weekly" || recurrence === "fortnightly") {
+    body = (
+      <SimpleGrid cols={{ base: 2, sm: 4, md: 7 }} spacing="xs">
+        {WEEKDAYS.map((d) => {
+          const dayslots = ready
+            .map((s, idx) => ({ s, idx }))
+            .filter(({ s }) => String(s.weekday) === d.value);
+          return (
+            <Stack key={d.value} gap={4}>
+              <Text size="xs" fw={700} ta="center" c="dimmed">{d.label.slice(0, 3)}</Text>
+              {dayslots.length === 0 && <Text size="xs" c="dimmed" ta="center">—</Text>}
+              {dayslots.map(({ s, idx }) => block(s, idx))}
+            </Stack>
+          );
+        })}
+      </SimpleGrid>
+    );
+  } else if (recurrence === "daily") {
+    body = (
+      <>
+        <Text size="xs" c="dimmed" mb={6}>Repeats every day in the applied range:</Text>
+        <Group gap="xs">{ready.map((s, idx) => block(s, idx))}</Group>
+      </>
+    );
+  } else {
+    body = (
+      <Stack gap={6}>
+        {ready.map((s, idx) => (
+          <Group key={idx} gap="xs" wrap="nowrap">
+            <Badge size="sm" variant="light">Day {s.day_of_month ?? 1}</Badge>
+            {block(s, idx)}
+          </Group>
+        ))}
+      </Stack>
+    );
+  }
+
+  return (
+    <Paper withBorder p="md" radius="sm">
+      <Text fw={600} size="sm" mb="xs">Preview — one cycle</Text>
+      {body}
+    </Paper>
   );
 }

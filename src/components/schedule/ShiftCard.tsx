@@ -90,6 +90,14 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
           <RichTextView html={shift.description} />
         </Text>
       )}
+      {activity?.is_lesson && (shift.rides?.length ?? 0) > 0 && (
+        <Text size="xs" c="dimmed" mt={4}>
+          <Text span fw={600} c="grape">Riders: </Text>
+          {shift.rides
+            .map((r) => (r.student_name ?? "Student") + (r.horse_name ? ` on ${r.horse_name}` : ""))
+            .join(", ")}
+        </Text>
+      )}
       {shift.notes.length > 0 && (
         <Text size="xs" c="dimmed" mt={4}>
           {shift.notes.length} note{shift.notes.length === 1 ? "" : "s"}
