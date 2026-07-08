@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Button, Card, Checkbox, Divider, Group, NumberInput, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Button, Card, Checkbox, Divider, Group, NumberInput, Select, Stack, Table, Text, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -25,6 +25,10 @@ interface PayGrade { id: number; name: string; age_category: string; capacity_ro
 const AGE_LABEL: Record<string, string> = {
   adult: "Adult", junior_16: "Jr ≤16", junior_17: "Jr 17", junior_18: "Jr 18", junior_19: "Jr 19",
 };
+// Adults first, then juniors youngest-up (PR-5).
+const AGE_ORDER: Record<string, number> = {
+  adult: 0, junior_16: 1, junior_17: 2, junior_18: 3, junior_19: 4,
+};
 
 /** The award age bracket a DOB falls in (mirrors the backend). */
 function ageCategoryFor(dob: string | null): string | null {
@@ -39,20 +43,23 @@ function ageCategoryFor(dob: string | null): string | null {
   return "adult";
 }
 
-export function PersonRatesSection({ personId, dob, canContractorRates = true }: {
+export function PersonRatesSection({
+  personId, dob, canContractorRates = true, showEmployee = true, showContractor = true,
+}: {
   personId: number; dob: string | null; canContractorRates?: boolean;
+  showEmployee?: boolean; showContractor?: boolean;
 }) {
   return (
     <Card withBorder>
       <Title order={4} mb="sm">Pay rates</Title>
       <Text size="sm" c="dimmed" mb="sm">
         Employees are paid by grade (per work type) at their basis; contractors get
-        per-activity rates. Use whichever matches this person's engagement.
+        per-activity rates. Shown per this person's engagement type.
       </Text>
-      <EmployeeGrades personId={personId} dob={dob} />
-      {canContractorRates && (
+      {showEmployee && <EmployeeGrades personId={personId} dob={dob} />}
+      {showContractor && canContractorRates && (
         <>
-          <Divider my="md" label="Contractor rates" labelPosition="left" />
+          {showEmployee && <Divider my="md" label="Contractor rates" labelPosition="left" />}
           <ContractorRates personId={personId} />
         </>
       )}
@@ -94,10 +101,27 @@ function EmployeeGrades({ personId, dob }: { personId: number; dob: string | nul
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  // PR-5: adults first, then juniors youngest-up, within each work type.
+  const gradeOptions = [...(gradesQ.data ?? [])]
+    .sort((a, b) =>
+      (a.capacity_role_name ?? "").localeCompare(b.capacity_role_name ?? "") ||
+      (AGE_ORDER[a.age_category] ?? 9) - (AGE_ORDER[b.age_category] ?? 9) ||
+      a.name.localeCompare(b.name),
+    )
+    .map((g) => ({
+      value: String(g.id),
+      label: `${g.capacity_role_name} · ${g.name} (${AGE_LABEL[g.age_category] ?? g.age_category})`,
+    }));
+
   return (
     <Stack gap="xs">
       <Text size="sm" fw={500}>Employee grades</Text>
-      {(q.data ?? []).length === 0 && <Text size="sm" c="dimmed">None.</Text>}
+      {(q.data ?? []).length === 0 && !adding && (
+        <Alert color="red" variant="light" py={6}>
+          <Text size="sm" fw={500}>Not rated</Text>
+          <Text size="xs">Employee hours won't be priced until a grade is assigned.</Text>
+        </Alert>
+      )}
       {(q.data ?? []).map((e) => (
         <Group key={e.id} gap={8}>
           <Badge variant="light">{e.capacity_role_name}</Badge>
@@ -120,9 +144,7 @@ function EmployeeGrades({ personId, dob }: { personId: number; dob: string | nul
         <>
           <Group align="flex-end" gap="xs">
             <Select label="Grade" w={240} placeholder="Choose"
-              data={(gradesQ.data ?? []).map((g) => ({
-                value: String(g.id), label: `${g.capacity_role_name} · ${g.name} (${AGE_LABEL[g.age_category] ?? g.age_category})`,
-              }))}
+              data={gradeOptions}
               value={gradeId} onChange={setGradeId} searchable comboboxProps={{ withinPortal: true }} />
             <Select label="Basis" w={120} data={BASES} value={basis} onChange={(v) => v && setBasis(v)} comboboxProps={{ withinPortal: true }} />
             <DateInput label="From" w={140} value={from} onChange={setFrom} valueFormat="D MMM YYYY" />

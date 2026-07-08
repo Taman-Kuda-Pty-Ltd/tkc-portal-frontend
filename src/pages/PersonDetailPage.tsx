@@ -550,9 +550,18 @@ export function PersonDetailPage() {
 
       {canManage && <PersonContextsSection personId={p.id} personName={p.full_name} />}
 
-      {p.engagements.length > 0 && (can("manage_pay_rates") || can("manage_shifts")) && (
-        <PersonRatesSection personId={p.id} dob={p.date_of_birth} canContractorRates={can("manage_pay_rates")} />
-      )}
+      {/* PR-2: pay rates only for payable engagements — never for volunteers/students. */}
+      {(() => {
+        const hasEmployee = p.engagements.some((e) => e.engagement_type === "employee");
+        const hasContractor = p.engagements.some((e) => e.engagement_type === "contractor");
+        if (!(hasEmployee || hasContractor)) return null;
+        if (!(can("manage_pay_rates") || can("manage_shifts"))) return null;
+        return (
+          <PersonRatesSection personId={p.id} dob={p.date_of_birth}
+            canContractorRates={can("manage_pay_rates")}
+            showEmployee={hasEmployee} showContractor={hasContractor} />
+        );
+      })()}
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
