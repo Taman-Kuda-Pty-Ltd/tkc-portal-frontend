@@ -8,8 +8,10 @@ import {
   Divider,
   Group,
   Loader,
+  Menu,
   Modal,
   MultiSelect,
+  PasswordInput,
   Select,
   SimpleGrid,
   Stack,
@@ -19,7 +21,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft, IconPlus, IconX } from "@tabler/icons-react";
+import { IconArrowLeft, IconDots, IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -125,6 +127,15 @@ export function PersonDetailPage() {
     { engagement_type: "employee", work_role_id: null, employment_basis: "casual", start_date: null });
   const [pinOpen, setPinOpen] = useState(false);
   const [pinValue, setPinValue] = useState("");
+  // A4: manage actions moved onto the person page (re-onboard / reset password).
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [reOpen, setReOpen] = useState(false);
+  const [reDraft, setReDraft] = useState({
+    engagement_type: "employee", employment_basis: "casual", position_title: "",
+    start_date: null as Date | null, role_ids: [] as string[],
+  });
 
   const q = useQuery({ queryKey: ["person", id], queryFn: () => api.get<PersonDetail>(`/people/${id}`) });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles"), enabled: canManage });
@@ -218,6 +229,45 @@ export function PersonDetailPage() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  const pwM = useMutation({
+    mutationFn: () => api.patch(`/people/${id}`, { password: pw }),
+    onSuccess: () => {
+      setPwOpen(false); setPw(""); setPwConfirm("");
+      notifications.show({ color: "teal", message: "Password reset." });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const activeM = useMutation({
+    mutationFn: (is_active: boolean) => api.patch(`/people/${id}`, { is_active }),
+    onSuccess: (_d, is_active) => {
+      qc.invalidateQueries({ queryKey: ["person", id] });
+      notifications.show({ color: "teal", message: is_active ? "Reactivated." : "Deactivated." });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const reonboardM = useMutation({
+    mutationFn: () =>
+      api.post<{ email_sent?: boolean; email?: string }>(`/invitations/reonboard`, {
+        person_id: Number(id),
+        engagement_type: reDraft.engagement_type,
+        employment_basis: reDraft.engagement_type === "employee" ? reDraft.employment_basis : null,
+        position_title: reDraft.position_title || null,
+        start_date: reDraft.start_date ? dayjs(reDraft.start_date).format("YYYY-MM-DD") : null,
+        role_ids: reDraft.role_ids.map(Number),
+      }),
+    onSuccess: (inv: { email_sent?: boolean; email?: string }) => {
+      qc.invalidateQueries({ queryKey: ["person", id] });
+      setReOpen(false);
+      notifications.show({
+        color: inv.email_sent ? "teal" : "yellow",
+        message: inv.email_sent ? `Re-onboarding link emailed to ${inv.email}.` : "Re-onboarding started — email couldn't be sent.",
+      });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
   const engM = useMutation({
     mutationFn: (v: { engId: number; body: Record<string, unknown> }) =>
       api.patch(`/people/${id}/engagements/${v.engId}`, v.body),
@@ -262,7 +312,33 @@ export function PersonDetailPage() {
               <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>Save</Button>
             </Group>
           ) : (
-            <Button variant="light" onClick={() => setEditing(true)}>Edit details</Button>
+            <Group gap="xs">
+              <Button variant="light" onClick={() => setEditing(true)}>Edit details</Button>
+              <Menu position="bottom-end" withinPortal>
+                <Menu.Target>
+                  <ActionIcon variant="default" size="lg" aria-label="More actions"><IconDots size={18} /></ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item onClick={() => {
+                    setReDraft({
+                      engagement_type: "employee", employment_basis: "casual", position_title: "",
+                      start_date: null, role_ids: p.roles.map((r) => String(r.id)),
+                    });
+                    setReOpen(true);
+                  }}>Re-onboard…</Menu.Item>
+                  <Menu.Item onClick={() => { setPw(""); setPwConfirm(""); setPwOpen(true); }}>Reset password…</Menu.Item>
+                  <Menu.Item onClick={() => { setPinValue(""); setPinOpen(true); }}>
+                    {p.has_pin ? "Reset check-in PIN…" : "Set check-in PIN…"}
+                  </Menu.Item>
+                  <Menu.Divider />
+                  {p.is_active ? (
+                    <Menu.Item color="red" onClick={() => activeM.mutate(false)}>Deactivate</Menu.Item>
+                  ) : (
+                    <Menu.Item color="teal" onClick={() => activeM.mutate(true)}>Reactivate</Menu.Item>
+                  )}
+                </Menu.Dropdown>
+              </Menu>
+            </Group>
           )
         )}
       </Group>
@@ -574,6 +650,45 @@ export function PersonDetailPage() {
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setAddingEng(false)}>Cancel</Button>
             <Button loading={addEngM.isPending} disabled={!engNew.work_role_id} onClick={() => addEngM.mutate()}>Add</Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={pwOpen} onClose={() => setPwOpen(false)} title="Reset password">
+        <Stack>
+          <Text size="sm" c="dimmed">Set a new password for {p.full_name}. They can change it later.</Text>
+          <PasswordInput label="New password" value={pw} onChange={(e) => setPw(e.currentTarget.value)} />
+          <PasswordInput label="Confirm password" value={pwConfirm}
+            error={pwConfirm && pw !== pwConfirm ? "Passwords don't match" : null}
+            onChange={(e) => setPwConfirm(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setPwOpen(false)}>Cancel</Button>
+            <Button loading={pwM.isPending} disabled={pw.length < 8 || pw !== pwConfirm} onClick={() => pwM.mutate()}>
+              Reset password
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={reOpen} onClose={() => setReOpen(false)} title="Re-onboard" closeOnClickOutside={false}>
+        <Stack>
+          <Text size="sm" c="dimmed">
+            Invite {p.full_name} to complete onboarding for a new engagement — same login, a fresh set-up link.
+          </Text>
+          <Select label="Type" data={Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l }))}
+            value={reDraft.engagement_type} onChange={(v) => v && setReDraft({ ...reDraft, engagement_type: v })} />
+          {reDraft.engagement_type === "employee" && (
+            <Select label="Basis" data={BASIS_OPTIONS} value={reDraft.employment_basis}
+              onChange={(v) => v && setReDraft({ ...reDraft, employment_basis: v })} />
+          )}
+          <TextInput label="Position title" placeholder="Optional" value={reDraft.position_title}
+            onChange={(e) => setReDraft({ ...reDraft, position_title: e.currentTarget.value })} />
+          <DateField label="Start date" value={reDraft.start_date} onChange={(d) => setReDraft({ ...reDraft, start_date: d })} />
+          <MultiSelect label="Portal access" data={roleOptions} value={reDraft.role_ids} searchable
+            onChange={(v) => setReDraft({ ...reDraft, role_ids: v })} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setReOpen(false)}>Cancel</Button>
+            <Button loading={reonboardM.isPending} onClick={() => reonboardM.mutate()}>Send re-onboarding link</Button>
           </Group>
         </Stack>
       </Modal>
