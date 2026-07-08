@@ -79,6 +79,10 @@ export function ShiftModal({
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
+  // MODAL-COACH: the just-created shift, kept locally so the modal can stay open
+  // on it and reveal the (persisted-shift-only) staff/coach assign section.
+  const [createdShift, setCreatedShift] = useState<Shift | null>(null);
+  const activeShift = shift ?? createdShift;
   const isDraft = shift?.status === "draft";
   const isPublished = shift?.status === "published";
 
@@ -140,11 +144,13 @@ export function ShiftModal({
   useEffect(() => {
     if (!opened) {
       loadedKey.current = null;
+      setCreatedShift(null); // discard any stay-open created shift when fully closed
       return;
     }
     const key = shift ? `s${shift.id}` : "new";
     if (loadedKey.current === key) return;
     loadedKey.current = key;
+    setCreatedShift(null);
     setEditing(shift === null); // new shift opens straight into edit
     seedForm(shift);
   }, [shift, opened, defaultDate]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -216,6 +222,13 @@ export function ShiftModal({
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ["shifts"] });
       const wasNew = !shift;
+      // MODAL-COACH: a new lesson stays open on the saved shift so a coach can be
+      // assigned right away (the assign section needs a persisted shift).
+      if (wasNew && canAssign && isLesson) {
+        setCreatedShift(saved);
+        setEditing(false);
+        return;
+      }
       onClose();
       if (wasNew) onCreated?.(saved); // SC-7: offer to jump to the newly-created shift
     },
@@ -279,7 +292,7 @@ export function ShiftModal({
       opened={opened}
       onClose={onClose}
       closeOnClickOutside={false}
-      title={shift ? (editing ? "Edit shift" : "Shift") : "Add shift"}
+      title={activeShift ? (editing ? "Edit shift" : "Shift") : "Add shift"}
     >
       <Stack>
         {shift && (
@@ -514,14 +527,20 @@ export function ShiftModal({
           </Group>
         )}
 
-        {shift && canAssign && (() => {
+        {activeShift && canAssign && (() => {
           // Staff attach to the shift's *saved* activity/headings (not the edit dropdown).
-          const savedActivity = (activitiesQ.data ?? []).find((a) => a.id === shift.activity_id);
+          const savedActivity = (activitiesQ.data ?? []).find((a) => a.id === activeShift.activity_id);
           return (
             <>
+              {createdShift && !shift && (
+                <Alert color="teal" py="xs">
+                  Shift created. You can assign {savedActivity?.is_lesson ? "a coach" : "staff"} below,
+                  then close.
+                </Alert>
+              )}
               <Divider label={savedActivity?.is_lesson ? "Coaches & staff" : "Staff"} labelPosition="left" />
               <StaffAssign
-                shift={shift}
+                shift={activeShift}
                 activity={savedActivity}
                 canAssign={canAssign}
                 canManageShifts={canManageShifts}
