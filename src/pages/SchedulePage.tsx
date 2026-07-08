@@ -14,7 +14,7 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Activity, Person, ScheduleLens, Shift } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -74,6 +74,15 @@ export function SchedulePage() {
         )}`,
       ),
   });
+  // Keep the open shift modal in sync with fresh data after any ["shifts"]
+  // invalidation, so notes/assignments/rides added in the modal appear live
+  // (the modal renders from this object, not its own refetch).
+  useEffect(() => {
+    if (!editingShift || !shiftsQ.data) return;
+    const fresh = shiftsQ.data.find((s) => s.id === editingShift.id);
+    if (fresh && fresh !== editingShift) setEditingShift(fresh);
+  }, [shiftsQ.data, editingShift]);
+
   const activitiesQ = useQuery({
     queryKey: ["activities"],
     queryFn: () => api.get<Activity[]>("/activities"),

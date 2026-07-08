@@ -6,6 +6,7 @@ import {
   Collapse,
   Divider,
   Group,
+  Menu,
   Modal,
   NumberInput,
   Select,
@@ -15,16 +16,16 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { IconChevronDown, IconChevronRight, IconPlus, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconDots, IconPlus, IconX } from "@tabler/icons-react";
 import { TimeField } from "./TimeField";
 import { DateField } from "./DateField";
 import { RichTextField, RichTextView } from "./RichText";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, Clash, NamedResource, Role, Shift, ShiftNote } from "../api/types";
+import type { Activity, Clash, NamedResource, Role, Shift } from "../api/types";
 import { StaffAssign } from "./StaffAssign";
 
 interface RideDraft {
@@ -66,7 +67,6 @@ export function ShiftModal({
   const [start, setStart] = useState("08:00");
   const [end, setEnd] = useState("12:00");
   const [headcount, setHeadcount] = useState(1);
-  const [notes, setNotes] = useState<ShiftNote[]>([]);
   const [newNote, setNewNote] = useState("");
   const [headingCounts, setHeadingCounts] = useState<Record<number, number>>({});
   const [facilityId, setFacilityId] = useState<string | null>(null);
@@ -88,26 +88,27 @@ export function ShiftModal({
   const studentsQ = useQuery({ queryKey: ["students"], queryFn: () => api.get<NamedResource[]>("/students") });
   const horsesQ = useQuery({ queryKey: ["horses"], queryFn: () => api.get<NamedResource[]>("/horses") });
 
-  useEffect(() => {
-    if (!opened) return;
-    setEditing(shift === null); // new shift opens straight into edit
+  // Reset every form field from the shift (or blank, for a new one). Used both on
+  // (re)open and when discarding an in-progress edit.
+  function seedForm(s: Shift | null) {
     setNewNote("");
-    if (shift) {
-      setActivityId(String(shift.activity_id));
-      setRoleId(shift.role_id ? String(shift.role_id) : null);
-      setAbbreviation(shift.abbreviation ?? "");
-      setTitle(shift.title ?? "");
-      setShowLabels(!!(shift.title || shift.abbreviation));
-      setDescription(shift.description ?? "");
-      setDate(dayjs(shift.starts_at).toDate());
-      setStart(dayjs(shift.starts_at).format("HH:mm"));
-      setEnd(dayjs(shift.ends_at).format("HH:mm"));
-      setHeadcount(shift.headcount);
-      setNotes(shift.notes);
-      setHeadingCounts(Object.fromEntries(shift.heading_counts.map((c) => [c.heading_id, c.count])));
-      setFacilityId(shift.facility_id ? String(shift.facility_id) : null);
-      setPayHours(shift.pay_hours ?? "");
-      setRides(shift.rides.map((r) => ({
+    setCancelling(false);
+    setAmendmentReason("");
+    if (s) {
+      setActivityId(String(s.activity_id));
+      setRoleId(s.role_id ? String(s.role_id) : null);
+      setAbbreviation(s.abbreviation ?? "");
+      setTitle(s.title ?? "");
+      setShowLabels(!!(s.title || s.abbreviation));
+      setDescription(s.description ?? "");
+      setDate(dayjs(s.starts_at).toDate());
+      setStart(dayjs(s.starts_at).format("HH:mm"));
+      setEnd(dayjs(s.ends_at).format("HH:mm"));
+      setHeadcount(s.headcount);
+      setHeadingCounts(Object.fromEntries(s.heading_counts.map((c) => [c.heading_id, c.count])));
+      setFacilityId(s.facility_id ? String(s.facility_id) : null);
+      setPayHours(s.pay_hours ?? "");
+      setRides(s.rides.map((r) => ({
         student_id: String(r.student_id),
         horse_id: r.horse_id ? String(r.horse_id) : null,
       })));
@@ -122,13 +123,28 @@ export function ShiftModal({
       setStart("08:00");
       setEnd("12:00");
       setHeadcount(1);
-      setNotes([]);
       setHeadingCounts({});
       setFacilityId(null);
       setPayHours("");
       setRides([]);
     }
-  }, [shift, opened, defaultDate]);
+  }
+
+  // Seed the form only when the modal opens or the shift *identity* changes — not
+  // when the same shift's data refreshes underneath (which would clobber edits in
+  // progress). Live refreshes still flow to read-through displays (notes, staff).
+  const loadedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!opened) {
+      loadedKey.current = null;
+      return;
+    }
+    const key = shift ? `s${shift.id}` : "new";
+    if (loadedKey.current === key) return;
+    loadedKey.current = key;
+    setEditing(shift === null); // new shift opens straight into edit
+    seedForm(shift);
+  }, [shift, opened, defaultDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedActivity = (activitiesQ.data ?? []).find((a) => a.id === Number(activityId));
   const headings = (selectedActivity?.headings ?? []).filter((h) => h.is_active);
@@ -219,10 +235,12 @@ export function ShiftModal({
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  // Notes render from the live shift prop (kept fresh by the parent after each
+  // ["shifts"] invalidation), so add/delete just need to invalidate.
+  const notes = shift?.notes ?? [];
   const addNoteM = useMutation({
-    mutationFn: () => api.post<ShiftNote>(`/shifts/${shift!.id}/notes`, { body: newNote.trim() }),
-    onSuccess: (n) => {
-      setNotes((prev) => [...prev, n]);
+    mutationFn: () => api.post(`/shifts/${shift!.id}/notes`, { body: newNote.trim() }),
+    onSuccess: () => {
       setNewNote("");
       qc.invalidateQueries({ queryKey: ["shifts"] });
     },
@@ -231,10 +249,7 @@ export function ShiftModal({
 
   const delNoteM = useMutation({
     mutationFn: (noteId: number) => api.del(`/shifts/${shift!.id}/notes/${noteId}`),
-    onSuccess: (_d, noteId) => {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      qc.invalidateQueries({ queryKey: ["shifts"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
@@ -258,13 +273,37 @@ export function ShiftModal({
     >
       <Stack>
         {shift && (
-          <Group gap="xs">
-            <Badge variant="light" color={isDraft ? "gray" : isPublished ? "teal" : "red"}>
-              {shift.status}
-            </Badge>
-            {isDraft && <Text size="xs" c="dimmed">Staff can't see this until it's published.</Text>}
+          <Group justify="space-between" wrap="nowrap" align="flex-start">
+            <Group gap="xs">
+              <Badge variant="light" color={isDraft ? "gray" : isPublished ? "teal" : "red"}>
+                {shift.status}
+              </Badge>
+              {isDraft && <Text size="xs" c="dimmed">Staff can't see this until it's published.</Text>}
+            </Group>
+            {canEdit && (
+              <Group gap="xs" wrap="nowrap">
+                {!editing && <Button size="xs" variant="light" onClick={() => setEditing(true)}>Edit</Button>}
+                <Menu position="bottom-end" withinPortal>
+                  <Menu.Target>
+                    <ActionIcon variant="subtle" color="gray" aria-label="More actions">
+                      <IconDots size={18} />
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    {isDraft ? (
+                      <Menu.Item color="red" onClick={() => deleteM.mutate()}>Delete draft</Menu.Item>
+                    ) : (
+                      <Menu.Item color="orange" onClick={() => { setEditing(true); setCancelling(true); }}>
+                        Cancel shift
+                      </Menu.Item>
+                    )}
+                  </Menu.Dropdown>
+                </Menu>
+              </Group>
+            )}
           </Group>
         )}
+        <Divider label="Details" labelPosition="left" />
         {/* Activity drives the labels + role — usually the only choice you need. */}
         <Select label="Activity" data={activityOptions} value={activityId} onChange={setActivityId}
           required disabled={ro} comboboxProps={{ withinPortal: true }} />
@@ -420,35 +459,23 @@ export function ShiftModal({
         )}
 
         {editing ? (
-          <Group justify="space-between">
-            {shift ? (
-              isDraft ? (
-                <Button color="red" variant="light" loading={deleteM.isPending} onClick={() => deleteM.mutate()}>
-                  Delete
-                </Button>
-              ) : (
-                <Button color="orange" variant="light" onClick={() => setCancelling(true)}>
-                  Cancel shift
-                </Button>
-              )
-            ) : (
-              <span />
-            )}
-            <Group gap="xs">
-              {isDraft && (
-                <Button color="teal" loading={publishM.isPending} onClick={() => publishM.mutate()}>
-                  Publish
-                </Button>
-              )}
-              <Button loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
-                Save
+          <Group justify="flex-end" gap="xs">
+            {/* New shift can be abandoned; existing edits discard and return to view. */}
+            <Button variant="default" onClick={() => { if (shift) { seedForm(shift); setEditing(false); } else { onClose(); } }}>
+              {shift ? "Cancel" : "Discard"}
+            </Button>
+            {isDraft && (
+              <Button color="teal" loading={publishM.isPending} onClick={() => publishM.mutate()}>
+                Publish
               </Button>
-            </Group>
+            )}
+            <Button loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
+              Save
+            </Button>
           </Group>
         ) : (
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>Close</Button>
-            {canEdit && <Button onClick={() => setEditing(true)}>Edit</Button>}
           </Group>
         )}
 
