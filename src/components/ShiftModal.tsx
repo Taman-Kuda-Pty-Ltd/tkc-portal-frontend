@@ -15,8 +15,9 @@ import {
   Text,
   Textarea,
   TextInput,
+  Tooltip,
 } from "@mantine/core";
-import { IconChevronDown, IconChevronRight, IconDots, IconPlus, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconDots, IconInfoCircle, IconPlus, IconX } from "@tabler/icons-react";
 import { TimeField } from "./TimeField";
 import { DateField } from "./DateField";
 import { RichTextField, RichTextView } from "./RichText";
@@ -314,7 +315,19 @@ export function ShiftModal({
         )}
         <Divider label="Details" labelPosition="left" />
         {/* Activity drives the labels + role — usually the only choice you need. */}
-        <Select label="Activity" data={activityOptions} value={activityId} onChange={setActivityId}
+        <Select
+          label={
+            <Group gap={4} component="span" style={{ display: "inline-flex", verticalAlign: "middle" }}>
+              <span>Activity</span>
+              <Tooltip
+                multiline w={260} withArrow position="right"
+                label="Activity = the kind of work (Groom, Lesson…). Role = who's qualified for it (auto-set from the activity). Engagement = how a person is employed — set on their profile, not here."
+              >
+                <IconInfoCircle size={14} style={{ opacity: 0.6, cursor: "help" }} />
+              </Tooltip>
+            </Group>
+          }
+          data={activityOptions} value={activityId} onChange={setActivityId}
           required disabled={ro} comboboxProps={{ withinPortal: true }} />
         {/* The role is dictated by the activity when it has a default; only editable otherwise (e.g. "Other"). */}
         {selectedActivity?.default_role_id ? (

@@ -28,7 +28,11 @@ import type { ScheduleCtx } from "../components/schedule/types";
 import { DAY_KEY, groupByDay, mondayOf } from "../lib/dates";
 import { useSettings } from "../settings/SettingsContext";
 
-type View = "month" | "week" | "day";
+type Span = "month" | "week" | "day";
+// How the schedule is drawn (List = rows, Grid = hour-grid, Calendar = month boxes)
+// and, for List/Grid, over what range. Calendar always spans a month (SC-8).
+type Mode = "list" | "grid" | "calendar";
+type DayWeek = "day" | "week";
 
 export function SchedulePage() {
   const { can } = useAuth();
@@ -36,12 +40,17 @@ export function SchedulePage() {
   const qc = useQueryClient();
 
   const LENS_KEY = "tkc_activity_lens";
-  const LAYOUT_KEY = "tkc_schedule_layout";
-  const [view, setView] = useState<View>("week");
+  const MODE_KEY = "tkc_schedule_mode";
+  const RANGE_KEY = "tkc_schedule_range";
   const [anchor, setAnchor] = useState<Dayjs>(() => dayjs());
-  const [layout, setLayout] = useState<"list" | "time">(
-    () => (localStorage.getItem(LAYOUT_KEY) as "list" | "time") || "list",
+  const [mode, setMode] = useState<Mode>(
+    () => (localStorage.getItem(MODE_KEY) as Mode) || "list",
   );
+  const [range, setRange] = useState<DayWeek>(
+    () => (localStorage.getItem(RANGE_KEY) as DayWeek) || "week",
+  );
+  // The effective time span: Calendar is always a month; List/Grid follow the range.
+  const span: Span = mode === "calendar" ? "month" : range;
   // Which activity "lens" is active: "all" or a specific lens id (as string).
   const [lens, setLens] = useState<string>(() => localStorage.getItem(LENS_KEY) || "all");
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
@@ -54,17 +63,17 @@ export function SchedulePage() {
 
   // Visible date range for the current view.
   const [rangeStart, rangeEnd] = useMemo<[Dayjs, Dayjs]>(() => {
-    if (view === "month") {
+    if (span === "month") {
       const s = mondayOf(anchor.startOf("month"));
       return [s, s.add(42, "day")];
     }
-    if (view === "week") {
+    if (span === "week") {
       const s = mondayOf(anchor);
       return [s, s.add(7, "day")];
     }
     const s = anchor.startOf("day");
     return [s, s.add(1, "day")];
-  }, [view, anchor]);
+  }, [span, anchor]);
 
   const shiftsQ = useQuery({
     queryKey: ["shifts", rangeStart.format(DAY_KEY), rangeEnd.format(DAY_KEY)],
@@ -126,9 +135,13 @@ export function SchedulePage() {
     setLens(next);
     localStorage.setItem(LENS_KEY, next);
   }
-  function chooseLayout(v: string) {
-    setLayout(v as "list" | "time");
-    localStorage.setItem(LAYOUT_KEY, v);
+  function chooseMode(v: string) {
+    setMode(v as Mode);
+    localStorage.setItem(MODE_KEY, v);
+  }
+  function chooseRange(v: string) {
+    setRange(v as DayWeek);
+    localStorage.setItem(RANGE_KEY, v);
   }
 
   const assignM = useMutation({
@@ -165,7 +178,8 @@ export function SchedulePage() {
   // SC-7 / SC-11: jump the schedule to a shift and briefly highlight it.
   function goToShift(s: Shift) {
     setAnchor(dayjs(s.starts_at));
-    setView("day");
+    if (mode === "calendar") chooseMode("list"); // a card view so the highlight shows
+    chooseRange("day");
     setHighlightShiftId(s.id);
   }
   useEffect(() => {
@@ -204,32 +218,36 @@ export function SchedulePage() {
 
   // --- navigation ---
   function navigate(dir: 1 | -1) {
-    if (view === "month") setAnchor(anchor.add(dir, "month"));
-    else if (view === "week") setAnchor(anchor.add(dir * 7, "day"));
+    if (span === "month") setAnchor(anchor.add(dir, "month"));
+    else if (span === "week") setAnchor(anchor.add(dir * 7, "day"));
     else setAnchor(anchor.add(dir, "day"));
   }
+  // Drilling into a day/week from the Calendar hands off to a List view of it.
   function selectDay(d: Dayjs) {
     setAnchor(d);
-    setView("day");
+    if (mode === "calendar") chooseMode("list");
+    chooseRange("day");
   }
   function selectWeek(ws: Dayjs) {
     setAnchor(ws);
-    setView("week");
+    if (mode === "calendar") chooseMode("list");
+    chooseRange("week");
   }
+  // Zoom out: day → week (same mode) → month calendar.
   function zoomOut() {
-    if (view === "day") setView("week");
-    else if (view === "week") setView("month");
+    if (span === "day") chooseRange("week");
+    else if (span === "week") chooseMode("calendar");
   }
 
   const title =
-    view === "month"
+    span === "month"
       ? anchor.format("MMMM YYYY")
-      : view === "week"
+      : span === "week"
         ? `${mondayOf(anchor).format("D MMM")} – ${mondayOf(anchor).add(6, "day").format("D MMM YYYY")}`
         : anchor.format("ddd D MMM YYYY");
 
   const addDefault =
-    view === "day" ? anchor : view === "week" ? mondayOf(anchor) : anchor.startOf("month");
+    span === "day" ? anchor : span === "week" ? mondayOf(anchor) : anchor.startOf("month");
 
   return (
     <Stack>
@@ -239,8 +257,8 @@ export function SchedulePage() {
             variant="subtle"
             px={6}
             onClick={zoomOut}
-            disabled={view === "month"}
-            leftSection={view !== "month" ? <IconChevronUp size={16} /> : undefined}
+            disabled={span === "month"}
+            leftSection={span !== "month" ? <IconChevronUp size={16} /> : undefined}
           >
             <Text fw={700} size="lg">
               {title}
@@ -265,27 +283,27 @@ export function SchedulePage() {
         </Group>
 
         <Group gap="xs" wrap="wrap">
-          {view !== "month" && (
+          <SegmentedControl
+            size="xs"
+            value={mode}
+            onChange={chooseMode}
+            data={[
+              { label: "List", value: "list" },
+              { label: "Grid", value: "grid" },
+              { label: "Calendar", value: "calendar" },
+            ]}
+          />
+          {mode !== "calendar" && (
             <SegmentedControl
               size="xs"
-              value={layout}
-              onChange={chooseLayout}
+              value={range}
+              onChange={chooseRange}
               data={[
-                { label: "List", value: "list" },
-                { label: "Time", value: "time" },
+                { label: "Day", value: "day" },
+                { label: "Week", value: "week" },
               ]}
             />
           )}
-          <SegmentedControl
-            size="xs"
-            value={view}
-            onChange={(v) => setView(v as View)}
-            data={[
-              { label: "Month", value: "month" },
-              { label: "Week", value: "week" },
-              { label: "Day", value: "day" },
-            ]}
-          />
           <Group gap={4} wrap="nowrap">
             <ActionIcon variant="default" onClick={() => navigate(-1)} aria-label="Previous">
               <IconChevronLeft size={18} />
@@ -333,7 +351,7 @@ export function SchedulePage() {
 
       {shiftsQ.isLoading ? (
         <Loader />
-      ) : view === "month" ? (
+      ) : mode === "calendar" ? (
         <MonthView
           anchor={anchor}
           shiftsByDay={shiftsByDay}
@@ -341,8 +359,8 @@ export function SchedulePage() {
           onSelectDay={selectDay}
           onSelectWeek={selectWeek}
         />
-      ) : view === "week" ? (
-        layout === "time" ? (
+      ) : range === "week" ? (
+        mode === "grid" ? (
           <TimeGrid
             days={Array.from({ length: 7 }, (_, i) => mondayOf(anchor).add(i, "day"))}
             shiftsByDay={shiftsByDay}
@@ -357,7 +375,7 @@ export function SchedulePage() {
             onSelectDay={selectDay}
           />
         )
-      ) : layout === "time" ? (
+      ) : mode === "grid" ? (
         <TimeGrid days={[anchor]} shiftsByDay={shiftsByDay} ctx={ctx} />
       ) : (
         <DayView day={anchor} shifts={shiftsByDay.get(anchor.format(DAY_KEY)) ?? []} ctx={ctx} />
