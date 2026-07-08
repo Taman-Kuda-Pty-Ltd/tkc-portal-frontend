@@ -28,7 +28,11 @@ interface PayrollPerson {
   base_total: number; adjustment_total: number; total: number;
   base_pay: number; adjustment_pay: number; total_pay: number;
   has_pending: boolean; has_unrated: boolean; age_warning: boolean;
+  kind: string; // employee | contractor | other
 }
+const GROUP_LABEL: Record<string, string> = {
+  employee: "Employees (wages)", contractor: "Contractors (invoices)", other: "Other",
+};
 interface PayrollReport {
   period_start: string; period_end: string; closed: boolean; people: PayrollPerson[];
 }
@@ -207,9 +211,37 @@ function PeriodReport({ start, days, onBack, onSetStart }: {
       ) : report.people.length === 0 ? (
         <Text c="dimmed">No hours recorded this period.</Text>
       ) : (
-        report.people.map((p) => (
-          <PayrollRow key={p.person_id} person={p} periodStart={key} closed={report.closed} />
-        ))
+        <>
+          {["employee", "contractor", "other"].map((kind) => {
+            const group = report.people.filter((p) => p.kind === kind);
+            if (group.length === 0) return null;
+            const hrs = group.reduce((s, p) => s + p.total, 0);
+            const pay = group.reduce((s, p) => s + p.total_pay, 0);
+            return (
+              <Stack key={kind} gap="xs">
+                <Text fw={700} tt="uppercase" size="xs" c="dimmed" mt="sm" style={{ letterSpacing: 0.6 }}>
+                  {GROUP_LABEL[kind]}
+                </Text>
+                {group.map((p) => (
+                  <PayrollRow key={p.person_id} person={p} periodStart={key} closed={report.closed} />
+                ))}
+                <Group justify="space-between" px="sm" py={4}
+                  style={{ borderTop: "2px solid var(--mantine-color-default-border)" }}>
+                  <Text size="sm" fw={600}>{GROUP_LABEL[kind]} subtotal</Text>
+                  <Text size="sm" fw={600}>{hrs.toFixed(2)}h · ${pay.toFixed(2)}</Text>
+                </Group>
+              </Stack>
+            );
+          })}
+          <Group justify="space-between" px="sm" py={6}
+            style={{ borderTop: "2px solid var(--mantine-color-default-border)" }}>
+            <Text fw={700}>Run total</Text>
+            <Text fw={700}>
+              {report.people.reduce((s, p) => s + p.total, 0).toFixed(2)}h ·{" "}
+              ${report.people.reduce((s, p) => s + p.total_pay, 0).toFixed(2)}
+            </Text>
+          </Group>
+        </>
       )}
     </Stack>
   );
