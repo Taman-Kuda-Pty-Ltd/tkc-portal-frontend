@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Button,
+  Collapse,
   Divider,
   Group,
   Modal,
@@ -14,7 +15,7 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconPlus, IconX } from "@tabler/icons-react";
 import { TimeField } from "./TimeField";
 import { DateField } from "./DateField";
 import { RichTextField, RichTextView } from "./RichText";
@@ -74,6 +75,7 @@ export function ShiftModal({
   const [amendmentReason, setAmendmentReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [showLabels, setShowLabels] = useState(false);
   const isDraft = shift?.status === "draft";
   const isPublished = shift?.status === "published";
 
@@ -95,6 +97,7 @@ export function ShiftModal({
       setRoleId(shift.role_id ? String(shift.role_id) : null);
       setAbbreviation(shift.abbreviation ?? "");
       setTitle(shift.title ?? "");
+      setShowLabels(!!(shift.title || shift.abbreviation));
       setDescription(shift.description ?? "");
       setDate(dayjs(shift.starts_at).toDate());
       setStart(dayjs(shift.starts_at).format("HH:mm"));
@@ -113,6 +116,7 @@ export function ShiftModal({
       setRoleId(null);
       setAbbreviation("");
       setTitle("");
+      setShowLabels(false);
       setDescription("");
       setDate(defaultDate);
       setStart("08:00");
@@ -261,10 +265,7 @@ export function ShiftModal({
             {isDraft && <Text size="xs" c="dimmed">Staff can't see this until it's published.</Text>}
           </Group>
         )}
-        <TextInput label="Title" placeholder="Short label (defaults to the activity name)"
-          value={title} disabled={ro} onChange={(e) => setTitle(e.currentTarget.value)} />
-        <TextInput label="Abbreviation" placeholder="For compact views, e.g. AM" maxLength={10}
-          value={abbreviation} disabled={ro} onChange={(e) => setAbbreviation(e.currentTarget.value)} />
+        {/* Activity drives the labels + role — usually the only choice you need. */}
         <Select label="Activity" data={activityOptions} value={activityId} onChange={setActivityId}
           required disabled={ro} comboboxProps={{ withinPortal: true }} />
         {/* The role is dictated by the activity when it has a default; only editable otherwise (e.g. "Other"). */}
@@ -276,6 +277,44 @@ export function ShiftModal({
           <Select label="Required role" data={roleOptions} value={roleId} onChange={setRoleId}
             placeholder="Any" clearable disabled={ro} comboboxProps={{ withinPortal: true }} />
         )}
+
+        {/* Title/abbreviation auto-mirror the activity; opt in to override (SC-6). */}
+        {(!ro || title || abbreviation) && (
+          <div>
+            <Button variant="subtle" size="compact-sm" color="gray" px={4} disabled={ro && !showLabels}
+              leftSection={showLabels ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+              onClick={() => setShowLabels((s) => !s)}>
+              Custom name &amp; abbreviation
+              {!showLabels && !title && !abbreviation && (
+                <Badge ml={8} size="xs" variant="light" color="teal">Auto</Badge>
+              )}
+            </Button>
+            <Collapse in={showLabels}>
+              <Stack gap="xs" mt="xs">
+                <TextInput
+                  label={
+                    <Group gap={6} component="span">
+                      <span>Title</span>
+                      {!title && selectedActivity && <Badge size="xs" variant="light" color="teal">Auto</Badge>}
+                    </Group>
+                  }
+                  placeholder={selectedActivity ? selectedActivity.name : "Short label"}
+                  value={title} disabled={ro} onChange={(e) => setTitle(e.currentTarget.value)} />
+                <TextInput
+                  label={
+                    <Group gap={6} component="span">
+                      <span>Abbreviation</span>
+                      {!abbreviation && selectedActivity && <Badge size="xs" variant="light" color="teal">Auto</Badge>}
+                    </Group>
+                  }
+                  placeholder={selectedActivity?.abbreviation || selectedActivity?.name || "e.g. AM"}
+                  maxLength={10} value={abbreviation} disabled={ro}
+                  onChange={(e) => setAbbreviation(e.currentTarget.value)} />
+              </Stack>
+            </Collapse>
+          </div>
+        )}
+
         <DateField label="Date" value={date} onChange={setDate} required disabled={ro} />
         <Group>
           <TimeField label="Start" value={start} onChange={setStart} disabled={ro} />
