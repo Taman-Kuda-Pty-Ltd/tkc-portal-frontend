@@ -119,7 +119,7 @@ export interface Clash {
   ends_at: string;
 }
 
-export type StaffType = "employee" | "contractor" | "volunteer" | "other";
+export type EngagementType = "employee" | "contractor" | "volunteer" | "other";
 export type EmploymentBasis = "full_time" | "part_time" | "casual";
 export type TaxResidency = "resident" | "non_resident" | "working_holiday_maker";
 export type SuperFundType = "apra" | "smsf";
@@ -152,7 +152,7 @@ export interface OnboardingCredential {
 
 export interface EngagementDetail {
   id: number;
-  engagement_type: StaffType;
+  engagement_type: EngagementType;
   work_role_id: number | null;
   work_role_name: string | null;
   employment_basis: EmploymentBasis | null;
@@ -244,7 +244,7 @@ export interface OnboardingContext {
   email: string | null;
   mobile: string | null;
   date_of_birth: string | null;
-  staff_type: StaffType;
+  engagement_type: EngagementType;
   employment_basis: EmploymentBasis | null;
   position_title: string | null;
   start_date: string | null;

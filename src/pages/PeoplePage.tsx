@@ -25,14 +25,14 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api/client";
-import type { EmploymentBasis, Invitation, Person, Role, StaffType } from "../api/types";
+import type { EmploymentBasis, Invitation, Person, Role, EngagementType } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
 import { PhoneField } from "../components/PhoneField";
 import { StudentRegisterModal } from "../components/StudentRegisterModal";
 
 interface ReDraft {
-  staff_type: StaffType;
+  engagement_type: EngagementType;
   employment_basis: EmploymentBasis | "";
   position_title: string;
   start_date: Date | null;
@@ -76,7 +76,7 @@ interface InviteDraft {
   email: string;
   mobile: string;
   kind: "staff" | "school_client";
-  staff_type: StaffType;
+  engagement_type: EngagementType;
   work_role_id: string | null;
   employment_basis: EmploymentBasis | "";
   position_title: string;
@@ -90,7 +90,7 @@ const EMPTY_INVITE: InviteDraft = {
   email: "",
   mobile: "",
   kind: "staff",
-  staff_type: "employee",
+  engagement_type: "employee",
   work_role_id: null,
   employment_basis: "",
   position_title: "",
@@ -115,7 +115,7 @@ export function PeoplePage() {
   const [invite, setInvite] = useState<InviteDraft>(EMPTY_INVITE);
   const [reonboarding, setReonboarding] = useState<Person | null>(null);
   const [reDraft, setReDraft] = useState<ReDraft>({
-    staff_type: "employee",
+    engagement_type: "employee",
     employment_basis: "",
     position_title: "",
     start_date: null,
@@ -218,10 +218,10 @@ export function PeoplePage() {
         email: invite.email,
         mobile: invite.mobile || null,
         kind: invite.kind,
-        staff_type: invite.staff_type,
+        engagement_type: invite.engagement_type,
         work_role_id: invite.kind === "staff" && invite.work_role_id ? Number(invite.work_role_id) : null,
         employment_basis:
-          invite.kind === "staff" && invite.staff_type === "employee" && invite.employment_basis
+          invite.kind === "staff" && invite.engagement_type === "employee" && invite.employment_basis
             ? invite.employment_basis
             : null,
         position_title: invite.kind === "staff" ? invite.position_title || null : null,
@@ -253,9 +253,9 @@ export function PeoplePage() {
     mutationFn: () =>
       api.post<Invitation>("/invitations/reonboard", {
         person_id: reonboarding!.id,
-        staff_type: reDraft.staff_type,
+        engagement_type: reDraft.engagement_type,
         employment_basis:
-          reDraft.staff_type === "employee" && reDraft.employment_basis
+          reDraft.engagement_type === "employee" && reDraft.employment_basis
             ? reDraft.employment_basis
             : null,
         position_title: reDraft.position_title || null,
@@ -467,7 +467,7 @@ export function PeoplePage() {
                             variant="subtle"
                             onClick={() => {
                               setReDraft({
-                                staff_type: "employee",
+                                engagement_type: "employee",
                                 employment_basis: "",
                                 position_title: "",
                                 start_date: null,
@@ -557,8 +557,8 @@ export function PeoplePage() {
                 <Select
                   label="Type"
                   data={STAFF_TYPES}
-                  value={invite.staff_type}
-                  onChange={(v) => setInvite({ ...invite, staff_type: (v as StaffType) ?? "employee" })}
+                  value={invite.engagement_type}
+                  onChange={(v) => setInvite({ ...invite, engagement_type: (v as EngagementType) ?? "employee" })}
                   allowDeselect={false}
                 />
                 <Select
@@ -569,7 +569,7 @@ export function PeoplePage() {
                   onChange={(v) => setInvite({ ...invite, work_role_id: v })}
                   searchable
                 />
-                {invite.staff_type === "employee" && (
+                {invite.engagement_type === "employee" && (
                   <Select
                     label="Employment basis"
                     data={[
@@ -639,11 +639,11 @@ export function PeoplePage() {
             <Select
               label="Type"
               data={STAFF_TYPES}
-              value={reDraft.staff_type}
-              onChange={(v) => setReDraft({ ...reDraft, staff_type: (v as StaffType) ?? "employee" })}
+              value={reDraft.engagement_type}
+              onChange={(v) => setReDraft({ ...reDraft, engagement_type: (v as EngagementType) ?? "employee" })}
               allowDeselect={false}
             />
-            {reDraft.staff_type === "employee" && (
+            {reDraft.engagement_type === "employee" && (
               <Select
                 label="Employment basis"
                 data={[

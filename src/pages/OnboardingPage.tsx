@@ -158,7 +158,7 @@ export function OnboardingPage() {
     }
   }, [personal.given_name, personal.family_name, displayEdited]);
 
-  const staffType = ctxQ.data?.staff_type ?? "employee";
+  const staffType = ctxQ.data?.engagement_type ?? "employee";
   const isEmployee = staffType === "employee";
   const isContractor = staffType === "contractor";
   const isMinor = !!dob && dayjs().diff(dayjs(dob), "year") < 18;
