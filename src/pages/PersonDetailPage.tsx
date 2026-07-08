@@ -302,7 +302,8 @@ export function PersonDetailPage() {
           </SimpleGrid>
         </Stack>
         <Divider my="sm" />
-        <MultiSelect label="Roles" data={roleOptions} value={draft.role_ids} disabled={ro} searchable
+        <MultiSelect label="Portal access" description="What this person can see and do in the app (separate from their job / engagement)"
+          data={roleOptions} value={draft.role_ids} disabled={ro} searchable
           onChange={(v) => setDraft({ ...draft, role_ids: v })} />
         <Switch mt="sm" label="Active" checked={draft.is_active} disabled={ro}
           onChange={(e) => setDraft({ ...draft, is_active: e.currentTarget.checked })} />

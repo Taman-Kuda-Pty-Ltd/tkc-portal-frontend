@@ -78,8 +78,14 @@ export function AddPersonPage() {
     .map((r) => ({ value: String(r.id), label: r.name }));
 
   const emailInvalid = !!email.trim() && !EMAIL_RE.test(email.trim());
-  const updateEng = (i: number, patch: Partial<EngagementDraft>) =>
+  const updateEng = (i: number, patch: Partial<EngagementDraft>) => {
     setEngagements((prev) => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
+    // Choosing a Job pre-ticks the matching Portal access (they usually want the
+    // portal for the work they do). They can still untick it.
+    if (patch.work_role_id) {
+      setRoleIds((prev) => (prev.includes(patch.work_role_id!) ? prev : [...prev, patch.work_role_id!]));
+    }
+  };
 
   const inviteM = useMutation({
     mutationFn: () =>
