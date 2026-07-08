@@ -47,7 +47,21 @@ async function request<T>(
     let detail = res.statusText;
     try {
       const data = await res.json();
-      detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+      if (typeof data.detail === "string") {
+        detail = data.detail;
+      } else if (Array.isArray(data.detail)) {
+        // FastAPI validation errors: [{ loc, msg, type }] — surface a readable message
+        // instead of dumping raw JSON (ST-4).
+        detail = data.detail
+          .map((e: { loc?: (string | number)[]; msg?: string }) => {
+            const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : undefined;
+            const msg = (e.msg ?? "Invalid value").replace(/^Value error,\s*/, "");
+            return typeof field === "string" && field !== "body" ? `${field}: ${msg}` : msg;
+          })
+          .join("; ");
+      } else if (data.detail) {
+        detail = String(data.detail);
+      }
     } catch {
       /* keep statusText */
     }
