@@ -21,7 +21,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api, setToken } from "../api/client";
+import { api, ApiError, setToken } from "../api/client";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import type { CredentialType, OnboardingContext } from "../api/types";
@@ -110,6 +110,7 @@ export function OnboardingPage() {
   const [pin, setPin] = useState("");
   const [changingAuth, setChangingAuth] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const d = ctxQ.data;
@@ -194,11 +195,20 @@ export function OnboardingPage() {
       sessionStorage.setItem("tkc_welcome", displayName || personal.given_name);
       window.location.assign("/schedule"); // hard reload so auth re-initialises
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => {
+      // Map 422 field errors (VAL-1/VAL-2) under each field instead of one banner.
+      if (e instanceof ApiError && e.fields && Object.keys(e.fields).length) {
+        setFieldErrors(e.fields);
+        setError("Please fix the highlighted fields below.");
+      } else {
+        setError(e.message);
+      }
+    },
   });
 
   function submit() {
     setError(null);
+    setFieldErrors({});
     if (!personal.given_name || !personal.family_name) return setError("Please enter your name.");
     if (!dob) return setError("Date of birth is required.");
     if (!phoneOk(personal.mobile)) return setError("Enter a valid mobile number.");
@@ -263,7 +273,7 @@ export function OnboardingPage() {
             <TextInput label="Display name" value={displayName}
               onChange={(e) => { setDisplayEdited(true); setDisplayName(e.currentTarget.value); }} />
             <DateField label="Date of birth" required value={dob} onChange={setDob} maxDate={new Date()} />
-            <PhoneField label="Mobile" value={personal.mobile}
+            <PhoneField label="Mobile" value={personal.mobile} error={fieldErrors["mobile"]}
               onChange={(v) => setPersonal({ ...personal, mobile: v })} />
           </SimpleGrid>
         </Paper>
@@ -297,6 +307,7 @@ export function OnboardingPage() {
                 onChange={(v) => setEmergency({ ...emergency, relationship: v || "" })} />
             </SimpleGrid>
             <PhoneField label="Phone" value={emergency.phone}
+              error={fieldErrors["emergency_contacts.0.phone"]}
               onChange={(v) => setEmergency({ ...emergency, phone: v })} />
           </Stack>
         </Paper>
@@ -330,6 +341,7 @@ export function OnboardingPage() {
                 onChange={(v) => setTax({ ...tax, residency: (v as never) ?? "resident" })} />
               <div>
                 <TextInput label="Tax File Number" value={tax.tfn} disabled={tax.tfn_not_provided}
+                  error={fieldErrors["tax.tfn"]}
                   onChange={(e) => setTax({ ...tax, tfn: e.currentTarget.value })} />
                 <Checkbox mt={6} label="I have not provided a TFN" checked={tax.tfn_not_provided}
                   onChange={(e) => setTax({ ...tax, tfn_not_provided: e.currentTarget.checked })} />
@@ -357,18 +369,21 @@ export function OnboardingPage() {
                 onChange={(e) => setSupera({ ...supera, fund_name: e.currentTarget.value })} />
               {supera.fund_type === "apra" ? (
                 <TextInput label="Fund USI" value={supera.fund_usi}
+                  error={fieldErrors["superannuation.fund_usi"]}
                   onChange={(e) => setSupera({ ...supera, fund_usi: e.currentTarget.value })} />
               ) : (
                 <TextInput label="ESA (electronic service address)" value={supera.esa}
                   onChange={(e) => setSupera({ ...supera, esa: e.currentTarget.value })} />
               )}
               <TextInput label="Fund ABN" value={supera.fund_abn}
+                error={fieldErrors["superannuation.fund_abn"]}
                 onChange={(e) => setSupera({ ...supera, fund_abn: e.currentTarget.value })} />
               <TextInput label="Member number" value={supera.member_number}
                 onChange={(e) => setSupera({ ...supera, member_number: e.currentTarget.value })} />
               {supera.fund_type === "smsf" && (
                 <>
                   <TextInput label="SMSF bank BSB" placeholder="XXX-XXX" value={supera.smsf_bank_bsb}
+                    error={fieldErrors["superannuation.smsf_bank_bsb"]}
                     onChange={(e) => setSupera({ ...supera, smsf_bank_bsb: formatBsb(e.currentTarget.value) })} />
                   <TextInput label="SMSF bank account" value={supera.smsf_bank_account}
                     onChange={(e) => setSupera({ ...supera, smsf_bank_account: e.currentTarget.value })} />
@@ -387,6 +402,7 @@ export function OnboardingPage() {
               <TextInput label="Bank name" value={bank.bank_name}
                 onChange={(e) => setBank({ ...bank, bank_name: e.currentTarget.value })} />
               <TextInput label="BSB" required placeholder="XXX-XXX" value={bank.bsb}
+                error={fieldErrors["bank.bsb"]}
                 onChange={(e) => setBank({ ...bank, bsb: formatBsb(e.currentTarget.value) })} />
               <TextInput label="Account number" required value={bank.account_number}
                 onChange={(e) => setBank({ ...bank, account_number: e.currentTarget.value })} />
@@ -402,7 +418,7 @@ export function OnboardingPage() {
                 onChange={(e) => setBusiness({ ...business, legal_name: e.currentTarget.value })} />
               <TextInput label="Trading name" value={business.trading_name}
                 onChange={(e) => setBusiness({ ...business, trading_name: e.currentTarget.value })} />
-              <TextInput label="ABN" value={business.abn}
+              <TextInput label="ABN" value={business.abn} error={fieldErrors["business.abn"]}
                 onChange={(e) => setBusiness({ ...business, abn: e.currentTarget.value })} />
             </SimpleGrid>
             <Checkbox label="Registered for GST" checked={business.gst_registered} mt="sm"
@@ -446,7 +462,7 @@ export function OnboardingPage() {
                 onChange={(e) => setGuardian({ ...guardian, guardian_name: e.currentTarget.value })} />
               <TextInput label="Relationship" value={guardian.relationship}
                 onChange={(e) => setGuardian({ ...guardian, relationship: e.currentTarget.value })} />
-              <PhoneField label="Phone" value={guardian.phone}
+              <PhoneField label="Phone" value={guardian.phone} error={fieldErrors["guardian.phone"]}
                 onChange={(v) => setGuardian({ ...guardian, phone: v })} />
               <TextInput label="Email" value={guardian.email}
                 onChange={(e) => setGuardian({ ...guardian, email: e.currentTarget.value })} />
@@ -473,10 +489,12 @@ export function OnboardingPage() {
           )}
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <PasswordInput label="Password" value={password} required={!hasAccount} disabled={authDisabled}
+              error={fieldErrors["password"]}
               onChange={(e) => setPassword(e.currentTarget.value)} />
             <PasswordInput label="Confirm password" value={confirm} required={!hasAccount} disabled={authDisabled}
               onChange={(e) => setConfirm(e.currentTarget.value)} />
             <TextInput label="PIN (6–8 digits)" value={pin} disabled={authDisabled}
+              error={fieldErrors["pin"]}
               description="For quick check-in on shared terminals (coming soon)"
               onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
           </SimpleGrid>

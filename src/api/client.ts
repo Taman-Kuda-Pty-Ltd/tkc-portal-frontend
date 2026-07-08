@@ -13,9 +13,13 @@ export function setToken(token: string | null) {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  // Per-field messages from a 422, keyed by the field path (loc without the
+  // leading "body"), e.g. { "tax.tfn": "...", "mobile": "..." }.
+  fields?: Record<string, string>;
+  constructor(status: number, message: string, fields?: Record<string, string>) {
     super(message);
     this.status = status;
+    this.fields = fields;
   }
 }
 
@@ -45,27 +49,34 @@ async function request<T>(
   }
   if (!res.ok) {
     let detail = res.statusText;
+    let fields: Record<string, string> | undefined;
     try {
       const data = await res.json();
       if (typeof data.detail === "string") {
         detail = data.detail;
       } else if (Array.isArray(data.detail)) {
         // FastAPI validation errors: [{ loc, msg, type }] — surface a readable message
-        // instead of dumping raw JSON (ST-4).
+        // instead of dumping raw JSON (ST-4), and expose per-field errors (VAL-2).
+        fields = {};
         detail = data.detail
           .map((e: { loc?: (string | number)[]; msg?: string }) => {
-            const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : undefined;
+            const loc = Array.isArray(e.loc) ? e.loc : [];
+            const field = loc.length ? loc[loc.length - 1] : undefined;
             const msg = (e.msg ?? "Invalid value").replace(/^Value error,\s*/, "");
+            // Field path without the leading "body" wrapper, e.g. "tax.tfn".
+            const path = loc.filter((p) => p !== "body").join(".");
+            if (path) fields![path] = msg;
             return typeof field === "string" && field !== "body" ? `${field}: ${msg}` : msg;
           })
           .join("; ");
+        if (fields && Object.keys(fields).length === 0) fields = undefined;
       } else if (data.detail) {
         detail = String(data.detail);
       }
     } catch {
       /* keep statusText */
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, detail, fields);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
