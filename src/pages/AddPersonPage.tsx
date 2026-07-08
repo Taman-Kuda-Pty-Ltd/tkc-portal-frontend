@@ -41,6 +41,11 @@ const BASES = [
   { value: "casual", label: "Casual" },
 ];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AGE_LABEL: Record<string, string> = {
+  adult: "Adult", junior_16: "Jr ≤16", junior_17: "Jr 17", junior_18: "Jr 18", junior_19: "Jr 19",
+};
+const AGE_ORDER: Record<string, number> = { adult: 0, junior_16: 1, junior_17: 2, junior_18: 3, junior_19: 4 };
+interface PayGrade { id: number; name: string; age_category: string; capacity_role_name: string | null; capacity_role_id: number }
 
 interface EngagementDraft {
   engagement_type: EngagementType;
@@ -48,6 +53,7 @@ interface EngagementDraft {
   employment_basis: EmploymentBasis | "";
   position_title: string;
   start_date: Date | null;
+  pay_grade_id: string | null;
 }
 const emptyEngagement = (): EngagementDraft => ({
   engagement_type: "employee",
@@ -55,6 +61,7 @@ const emptyEngagement = (): EngagementDraft => ({
   employment_basis: "casual",
   position_title: "",
   start_date: null,
+  pay_grade_id: null,
 });
 
 export function AddPersonPage() {
@@ -73,9 +80,23 @@ export function AddPersonPage() {
   const [clientModal, setClientModal] = useState(false);
 
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
+  const gradesQ = useQuery({ queryKey: ["pay-grades"], queryFn: () => api.get<PayGrade[]>("/pay-grades") });
   const roleOptions = (rolesQ.data ?? [])
     .filter((r) => r.is_selectable !== false)
     .map((r) => ({ value: String(r.id), label: r.name }));
+  // Grade options for an engagement's work role, adults-first (matches the person page).
+  const gradeOptionsFor = (workRoleId: string | null) =>
+    [...(gradesQ.data ?? [])]
+      .filter((g) => !workRoleId || String(g.capacity_role_id) === workRoleId)
+      .sort((a, b) =>
+        (a.capacity_role_name ?? "").localeCompare(b.capacity_role_name ?? "") ||
+        (AGE_ORDER[a.age_category] ?? 9) - (AGE_ORDER[b.age_category] ?? 9) ||
+        a.name.localeCompare(b.name),
+      )
+      .map((g) => ({
+        value: String(g.id),
+        label: `${g.capacity_role_name} · ${g.name} (${AGE_LABEL[g.age_category] ?? g.age_category})`,
+      }));
 
   const emailInvalid = !!email.trim() && !EMAIL_RE.test(email.trim());
   const updateEng = (i: number, patch: Partial<EngagementDraft>) => {
@@ -101,6 +122,7 @@ export function AddPersonPage() {
           employment_basis: e.engagement_type === "employee" && e.employment_basis ? e.employment_basis : null,
           position_title: e.position_title.trim() || null,
           start_date: e.start_date ? dayjs(e.start_date).format("YYYY-MM-DD") : null,
+          pay_grade_id: e.engagement_type === "employee" && e.pay_grade_id ? Number(e.pay_grade_id) : null,
         })),
         role_ids: roleIds.map(Number),
       }),
@@ -239,6 +261,13 @@ export function AddPersonPage() {
                       onChange={(ev) => updateEng(i, { position_title: ev.currentTarget.value })} />
                     <DateField label="Start date" value={e.start_date} onChange={(d) => updateEng(i, { start_date: d })} />
                   </SimpleGrid>
+                  {e.engagement_type === "employee" && (
+                    <Select mt="sm" label="Pay grade"
+                      description="Optional — rates this person from day one; you can also set it later on their profile"
+                      placeholder={e.work_role_id ? "Choose a grade" : "Pick a job first"}
+                      data={gradeOptionsFor(e.work_role_id)} value={e.pay_grade_id} searchable clearable
+                      onChange={(v) => updateEng(i, { pay_grade_id: v })} comboboxProps={{ withinPortal: true }} />
+                  )}
                 </Paper>
               ))}
             </Stack>
