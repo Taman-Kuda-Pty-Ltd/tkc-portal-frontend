@@ -114,25 +114,78 @@ export function PayGradesSection() {
   );
 }
 
+interface EditRow { wd: number; sat: number; sun: number; ph: number }
+
 function RoleRates({ roleName, grades, asAt, onSaved }: { roleName: string; grades: PayGrade[]; asAt: string; onSaved: () => void }) {
   const [age, setAge] = useState("adult");
   const [basis, setBasis] = useState("full_time");
   const [edit, setEdit] = useState<PayGrade | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [rows, setRows] = useState<Record<number, EditRow>>({});
+  const [editFrom, setEditFrom] = useState<Date | null>(dayjs(asAt).toDate());
   const levels = grades.filter((g) => g.age_category === age).sort((a, b) => a.position - b.position);
   const money = (n: number | undefined) => (n == null ? "—" : `$${n.toFixed(2)}`);
 
+  function startEdit() {
+    const seed: Record<number, EditRow> = {};
+    for (const g of levels) {
+      const r = rateFor(g, basis);
+      seed[g.id] = {
+        wd: r?.weekday_rate ?? 0, sat: r?.saturday_rate ?? 0,
+        sun: r?.sunday_rate ?? 0, ph: r?.public_holiday_rate ?? 0,
+      };
+    }
+    setRows(seed);
+    setEditFrom(dayjs(asAt).toDate());
+    setEditing(true);
+  }
+  const setCell = (id: number, patch: Partial<EditRow>) =>
+    setRows((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+
+  // Only write rows that actually changed (or that had no rate for this basis yet).
+  const saveM = useMutation({
+    mutationFn: async () => {
+      const from_date = dayjs(editFrom).format("YYYY-MM-DD");
+      const changed = levels.filter((g) => {
+        const r = rateFor(g, basis);
+        const e = rows[g.id];
+        return !r || e.wd !== r.weekday_rate || e.sat !== r.saturday_rate ||
+          e.sun !== r.sunday_rate || e.ph !== r.public_holiday_rate;
+      });
+      await Promise.all(changed.map((g) =>
+        api.post(`/pay-grades/${g.id}/rates`, {
+          basis, weekday_rate: rows[g.id].wd, saturday_rate: rows[g.id].sat,
+          sunday_rate: rows[g.id].sun, public_holiday_rate: rows[g.id].ph, from_date,
+        })));
+    },
+    onSuccess: () => { onSaved(); setEditing(false); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
   return (
     <Card withBorder>
-      <Text fw={700} mb="xs">{roleName}</Text>
+      <Group justify="space-between" mb="xs">
+        <Text fw={700}>{roleName}</Text>
+        {editing ? (
+          <Group gap="xs" align="flex-end">
+            <DateInput label="Effective from" size="xs" w={150} value={editFrom} onChange={setEditFrom} valueFormat="D MMM YYYY" />
+            <Button size="xs" variant="default" onClick={() => setEditing(false)}>Cancel</Button>
+            <Button size="xs" loading={saveM.isPending} disabled={!editFrom} onClick={() => saveM.mutate()}>Save column</Button>
+          </Group>
+        ) : (
+          <Button size="xs" variant="light" leftSection={<IconPencil size={13} />} onClick={startEdit}>Edit rates</Button>
+        )}
+      </Group>
       <Group mb="sm" gap="lg">
-        <SegmentedControl size="xs" data={AGES} value={age} onChange={setAge} />
-        <SegmentedControl size="xs" data={BASES} value={basis} onChange={setBasis} />
+        {/* Locked while editing so the edited column stays consistent. */}
+        <SegmentedControl size="xs" data={AGES} value={age} onChange={setAge} disabled={editing} />
+        <SegmentedControl size="xs" data={BASES} value={basis} onChange={setBasis} disabled={editing} />
       </Group>
       <Table striped withTableBorder fz="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Grade</Table.Th><Table.Th>Weekday</Table.Th><Table.Th>Sat</Table.Th>
-            <Table.Th>Sun</Table.Th><Table.Th>Pub. hol.</Table.Th><Table.Th /></Table.Tr>
+            <Table.Th>Sun</Table.Th><Table.Th>Pub. hol.</Table.Th>{!editing && <Table.Th />}</Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {levels.length === 0 && (
@@ -140,6 +193,21 @@ function RoleRates({ roleName, grades, asAt, onSaved }: { roleName: string; grad
           )}
           {levels.map((g) => {
             const r = rateFor(g, basis);
+            if (editing) {
+              const e = rows[g.id] ?? { wd: 0, sat: 0, sun: 0, ph: 0 };
+              const cell = (key: keyof EditRow) => (
+                <Table.Td>
+                  <NumberInput size="xs" w={90} min={0} step={0.5} hideControls value={e[key]}
+                    onChange={(v) => setCell(g.id, { [key]: Number(v) || 0 })} />
+                </Table.Td>
+              );
+              return (
+                <Table.Tr key={g.id}>
+                  <Table.Td>{g.name}</Table.Td>
+                  {cell("wd")}{cell("sat")}{cell("sun")}{cell("ph")}
+                </Table.Tr>
+              );
+            }
             return (
               <Table.Tr key={g.id}>
                 <Table.Td>{g.name}</Table.Td>
@@ -155,6 +223,12 @@ function RoleRates({ roleName, grades, asAt, onSaved }: { roleName: string; grad
           })}
         </Table.Tbody>
       </Table>
+      {editing && (
+        <Text size="xs" c="dimmed" mt={6}>
+          Editing <b>{AGES.find((a) => a.value === age)?.label}</b> · <b>{BASES.find((b) => b.value === basis)?.label}</b> $/h.
+          Saving writes a new effective-from row for each changed grade — history is kept.
+        </Text>
+      )}
       {edit && <GradeRatesModal grade={edit} basis={basis} asAt={asAt} onClose={() => setEdit(null)} onSaved={onSaved} />}
     </Card>
   );
