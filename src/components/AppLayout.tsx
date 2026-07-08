@@ -1,4 +1,4 @@
-import { AppShell, Badge, Burger, Button, Card, Center, Group, NavLink, ScrollArea, Stack, Text, Title, UnstyledButton } from "@mantine/core";
+import { AppShell, Avatar, Badge, Burger, Button, Card, Center, Group, Menu, NavLink, ScrollArea, Stack, Text, Title, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -10,8 +10,16 @@ import {
   IconLogout,
   IconSettings,
   IconTemplate,
+  IconUser,
   IconUsers,
 } from "@tabler/icons-react";
+
+function initials(name?: string): string {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 import type { ReactNode } from "react";
 import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -89,9 +97,23 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Text fw={700}>Taman Kuda Club</Text>
           </Group>
-          <Text size="sm" c="dimmed" visibleFrom="xs">
-            {me?.full_name}
-          </Text>
+          <Menu position="bottom-end" withinPortal>
+            <Menu.Target>
+              <UnstyledButton>
+                <Group gap="xs">
+                  <Avatar radius="xl" size="sm" color="teal">{initials(me?.full_name)}</Avatar>
+                  <Text size="sm" c="dimmed" visibleFrom="xs">{me?.full_name}</Text>
+                </Group>
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item leftSection={<IconUser size={16} />}
+                onClick={() => { navigate("/me"); close(); }}>My profile</Menu.Item>
+              <Menu.Divider />
+              <Menu.Item color="red" leftSection={<IconLogout size={16} />}
+                onClick={() => { logout(); navigate("/login"); }}>Sign out</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       </AppShell.Header>
 

@@ -13,6 +13,7 @@ import { PayrollPage } from "./pages/PayrollPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { AddPersonPage } from "./pages/AddPersonPage";
 import { PersonDetailPage } from "./pages/PersonDetailPage";
+import { MyProfilePage } from "./pages/MyProfilePage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ShiftTemplateEditorPage } from "./pages/ShiftTemplateEditorPage";
@@ -43,6 +44,7 @@ function AuthedApp() {
         <Route path="/templates" element={<ShiftTemplatesPage />} />
         <Route path="/templates/new" element={<ShiftTemplateEditorPage />} />
         <Route path="/templates/:id" element={<ShiftTemplateEditorPage />} />
+        <Route path="/me" element={<MyProfilePage />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/people/new" element={<AddPersonPage />} />
         <Route path="/people/:id" element={<PersonDetailPage />} />
