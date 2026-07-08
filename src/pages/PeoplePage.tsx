@@ -20,6 +20,7 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
@@ -354,15 +355,9 @@ export function PeoplePage() {
     <Stack>
       <Group justify="space-between">
         <Title order={2}>People</Title>
-        <Group gap="xs">
-          {canInvite && (
-            <Button onClick={() => { setDupPerson(null); setInviting(true); }}>Invite</Button>
-          )}
-          <Button variant="light" onClick={() => setRegistering(true)}>Register student</Button>
-          <Button variant="default" onClick={() => { setDupPerson(null); setCreating(true); }}>
-            Add manually
-          </Button>
-        </Group>
+        <Button leftSection={<IconPlus size={16} />} onClick={() => navigate("/people/new")}>
+          Add person
+        </Button>
       </Group>
 
       <StudentRegisterModal opened={registering} onClose={() => setRegistering(false)} />

@@ -142,6 +142,7 @@ export interface Invitation {
   email: string | null;
   email_sent: boolean;
   email_error: string | null;
+  onboarding_url?: string | null;
 }
 
 export interface OnboardingCredential {
