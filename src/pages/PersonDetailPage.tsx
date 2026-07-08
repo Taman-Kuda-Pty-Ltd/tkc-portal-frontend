@@ -557,7 +557,7 @@ export function PersonDetailPage() {
         if (!(hasEmployee || hasContractor)) return null;
         if (!(can("manage_pay_rates") || can("manage_shifts"))) return null;
         return (
-          <PersonRatesSection personId={p.id} dob={p.date_of_birth}
+          <PersonRatesSection personId={p.id} dob={p.date_of_birth} superPercent={p.super_percent ?? null}
             canContractorRates={can("manage_pay_rates")}
             showEmployee={hasEmployee} showContractor={hasContractor} />
         );

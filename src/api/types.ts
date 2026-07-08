@@ -213,6 +213,7 @@ export interface PersonDetail {
   is_student?: boolean;
   is_account_holder?: boolean;
   has_pin: boolean;
+  super_percent?: number | null;
   roles: Role[];
   address: {
     line1: string | null;

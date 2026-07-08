@@ -44,9 +44,9 @@ function ageCategoryFor(dob: string | null): string | null {
 }
 
 export function PersonRatesSection({
-  personId, dob, canContractorRates = true, showEmployee = true, showContractor = true,
+  personId, dob, superPercent = null, canContractorRates = true, showEmployee = true, showContractor = true,
 }: {
-  personId: number; dob: string | null; canContractorRates?: boolean;
+  personId: number; dob: string | null; superPercent?: number | null; canContractorRates?: boolean;
   showEmployee?: boolean; showContractor?: boolean;
 }) {
   return (
@@ -56,6 +56,7 @@ export function PersonRatesSection({
         Employees are paid by grade (per work type) at their basis; contractors get
         per-activity rates. Shown per this person's engagement type.
       </Text>
+      {showEmployee && <SuperOverride personId={personId} value={superPercent} />}
       {showEmployee && <EmployeeGrades personId={personId} dob={dob} />}
       {showContractor && canContractorRates && (
         <>
@@ -69,6 +70,25 @@ export function PersonRatesSection({
 
 function fmtRange(from: string, to: string | null) {
   return `from ${dayjs(from).format("D MMM YYYY")}${to ? ` to ${dayjs(to).format("D MMM YYYY")}` : ""}`;
+}
+
+/** Optional per-person super % override; blank = the org default in force. */
+function SuperOverride({ personId, value }: { personId: number; value: number | null }) {
+  const qc = useQueryClient();
+  const [pct, setPct] = useState<number | string>(value ?? "");
+  const saveM = useMutation({
+    mutationFn: (v: number | null) => api.patch(`/people/${personId}`, { super_percent: v }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["person", String(personId)] }),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Group align="flex-end" gap="xs" mb="md">
+      <NumberInput label="Super override %" description="Blank = use the org default"
+        w={170} min={0} max={100} step={0.5} value={pct} onChange={setPct} />
+      <Button size="sm" variant="light" loading={saveM.isPending}
+        onClick={() => saveM.mutate(pct === "" ? null : Number(pct))}>Save</Button>
+    </Group>
+  );
 }
 
 function EmployeeGrades({ personId, dob }: { personId: number; dob: string | null }) {

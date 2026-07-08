@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { PayGradesSection } from "../components/PayGradesSection";
 import { PublicHolidaysSection } from "../components/PublicHolidaysSection";
+import { SuperRatesSection } from "../components/SuperRatesSection";
 
 export function PayRatesPage() {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ export function PayRatesPage() {
       {can("manage_pay_rates") ? (
         <>
           <PayGradesSection />
+          <Divider my="md" />
+          <SuperRatesSection />
           <Divider my="md" />
           <PublicHolidaysSection />
         </>

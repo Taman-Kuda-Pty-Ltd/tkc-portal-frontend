@@ -29,6 +29,7 @@ interface PayrollPerson {
   base_pay: number; adjustment_pay: number; total_pay: number;
   has_pending: boolean; has_unrated: boolean; age_warning: boolean;
   kind: string; // employee | contractor | other
+  super_pct: number; super_amount: number;
 }
 const GROUP_LABEL: Record<string, string> = {
   employee: "Employees (wages)", contractor: "Contractors (invoices)", other: "Other",
@@ -217,6 +218,7 @@ function PeriodReport({ start, days, onBack, onSetStart }: {
             if (group.length === 0) return null;
             const hrs = group.reduce((s, p) => s + p.total, 0);
             const pay = group.reduce((s, p) => s + p.total_pay, 0);
+            const sup = group.reduce((s, p) => s + p.super_amount, 0);
             return (
               <Stack key={kind} gap="xs">
                 <Text fw={700} tt="uppercase" size="xs" c="dimmed" mt="sm" style={{ letterSpacing: 0.6 }}>
@@ -228,7 +230,10 @@ function PeriodReport({ start, days, onBack, onSetStart }: {
                 <Group justify="space-between" px="sm" py={4}
                   style={{ borderTop: "2px solid var(--mantine-color-default-border)" }}>
                   <Text size="sm" fw={600}>{GROUP_LABEL[kind]} subtotal</Text>
-                  <Text size="sm" fw={600}>{hrs.toFixed(2)}h · ${pay.toFixed(2)}</Text>
+                  <Text size="sm" fw={600}>
+                    {hrs.toFixed(2)}h · ${pay.toFixed(2)}
+                    {sup > 0 && <Text span size="xs" c="dimmed"> · +${sup.toFixed(2)} super</Text>}
+                  </Text>
                 </Group>
               </Stack>
             );
@@ -307,6 +312,9 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
         <div style={{ textAlign: "right" }}>
           <Text fw={700} fz="xl">${person.total_pay.toFixed(2)}</Text>
           <Text size="sm" c="dimmed">{person.total}h</Text>
+          {person.super_amount > 0 && (
+            <Text size="xs" c="dimmed">+ ${person.super_amount.toFixed(2)} super ({person.super_pct}%)</Text>
+          )}
           {person.adjustment_total !== 0 && (
             <Text size="xs" c="dimmed">{person.base_total}h base {person.adjustment_total > 0 ? "+" : ""}{person.adjustment_total}h adj</Text>
           )}
