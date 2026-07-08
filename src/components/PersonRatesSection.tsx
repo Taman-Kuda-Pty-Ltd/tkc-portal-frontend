@@ -52,15 +52,20 @@ export function PersonRatesSection({
   return (
     <Card withBorder>
       <Title order={4} mb="sm">Pay rates</Title>
-      <Text size="sm" c="dimmed" mb="sm">
-        Employees are paid by grade (per work type) at their basis; contractors get
-        per-activity rates. Shown per this person's engagement type.
-      </Text>
+      {showEmployee && (
+        <Text size="sm" c="dimmed" mb="sm">
+          Employees are paid by grade (per work type) at their employment basis.
+        </Text>
+      )}
       {showEmployee && <SuperOverride personId={personId} value={superPercent} />}
       {showEmployee && <EmployeeGrades personId={personId} dob={dob} />}
       {showContractor && canContractorRates && (
         <>
           {showEmployee && <Divider my="md" label="Contractor rates" labelPosition="left" />}
+          <Text size="sm" c="dimmed" mb="sm">
+            Contractors are paid per-activity rates — weekday, Saturday, Sunday and public
+            holiday — not by grade.
+          </Text>
           <ContractorRates personId={personId} />
         </>
       )}

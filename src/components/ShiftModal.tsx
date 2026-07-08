@@ -517,7 +517,8 @@ export function ShiftModal({
                 Publish
               </Button>
             )}
-            <Button loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
+            {/* BTN-1: Save is outline so it's visually distinct from the teal Publish. */}
+            <Button variant="outline" loading={saveM.isPending} disabled={!activityId} onClick={() => saveM.mutate()}>
               Save
             </Button>
           </Group>
