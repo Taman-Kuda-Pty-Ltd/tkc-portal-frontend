@@ -108,6 +108,25 @@ export function AddPersonPage() {
     }
   };
 
+  const onInviteSuccess = (inv: Invitation) => {
+    qc.invalidateQueries({ queryKey: ["people"] });
+    qc.invalidateQueries({ queryKey: ["invitations"] });
+    if (inv.email_sent) {
+      notifications.show({ color: "teal", message: `Invitation emailed to ${inv.email}.` });
+      navigate("/people");
+    } else {
+      // No email (or send failed) → show the link to copy/hand over.
+      setResult(inv);
+    }
+  };
+  const onInviteError = (e: Error) => {
+    const msg =
+      e instanceof ApiError && e.status === 409
+        ? "Someone already uses that email address."
+        : e.message;
+    notifications.show({ color: "red", message: msg });
+  };
+
   const inviteM = useMutation({
     mutationFn: () =>
       api.post<Invitation>("/invitations", {
@@ -126,24 +145,25 @@ export function AddPersonPage() {
         })),
         role_ids: roleIds.map(Number),
       }),
-    onSuccess: (inv) => {
-      qc.invalidateQueries({ queryKey: ["people"] });
-      qc.invalidateQueries({ queryKey: ["invitations"] });
-      if (inv.email_sent) {
-        notifications.show({ color: "teal", message: `Invitation emailed to ${inv.email}.` });
-        navigate("/people");
-      } else {
-        // No email (or send failed) → show the link to copy/hand over.
-        setResult(inv);
-      }
-    },
-    onError: (e: Error) => {
-      const msg =
-        e instanceof ApiError && e.status === 409
-          ? "Someone already uses that email address."
-          : e.message;
-      notifications.show({ color: "red", message: msg });
-    },
+    onSuccess: onInviteSuccess,
+    onError: onInviteError,
+  });
+
+  // STU-1: a school client can also be onboarded by email/link (server assigns
+  // the client role and runs the client onboarding flow) — not only manually.
+  const clientInviteM = useMutation({
+    mutationFn: () =>
+      api.post<Invitation>("/invitations", {
+        given_name: given.trim(),
+        family_name: family.trim(),
+        email: email.trim() || null,
+        mobile: mobile || null,
+        kind: "school_client",
+        engagements: [],
+        role_ids: [],
+      }),
+    onSuccess: onInviteSuccess,
+    onError: onInviteError,
   });
 
   const canSubmit = given.trim() && family.trim() && !emailInvalid;
@@ -196,13 +216,42 @@ export function AddPersonPage() {
       />
 
       {kind === "school_client" ? (
-        <Paper withBorder p="md">
-          <Text size="sm" c="dimmed" mb="sm">
-            Register a rider and/or the account holder who's responsible for them.
-          </Text>
-          <Button variant="light" onClick={() => setClientModal(true)}>Register rider / account holder</Button>
-          <StudentRegisterModal opened={clientModal} onClose={() => { setClientModal(false); navigate("/people"); }} />
-        </Paper>
+        <>
+          <Paper withBorder p="md">
+            <Text size="sm" c="dimmed" mb="sm">
+              Invite the account holder to complete their own (and their rider's) details,
+              by email or a copyable link.
+            </Text>
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <TextInput label="Given name" required value={given} onChange={(e) => setGiven(e.currentTarget.value)} />
+              <TextInput label="Family name" required value={family} onChange={(e) => setFamily(e.currentTarget.value)} />
+              <TextInput
+                label="Email"
+                description="Optional — leave blank to hand over a link yourself"
+                value={email}
+                error={emailInvalid ? "Enter a valid email address" : null}
+                onChange={(e) => setEmail(e.currentTarget.value)}
+              />
+              <PhoneField label="Mobile" value={mobile} onChange={setMobile} />
+            </SimpleGrid>
+            <Group justify="flex-end" mt="md">
+              <Button loading={clientInviteM.isPending} disabled={!canSubmit || !can("manage_onboarding")}
+                onClick={() => clientInviteM.mutate()}>
+                {email.trim() ? "Send invite" : "Add & get link"}
+              </Button>
+            </Group>
+          </Paper>
+
+          <Divider label="or register manually" labelPosition="center" />
+
+          <Paper withBorder p="md">
+            <Text size="sm" c="dimmed" mb="sm">
+              Register a rider and/or the account holder who's responsible for them.
+            </Text>
+            <Button variant="light" onClick={() => setClientModal(true)}>Register rider / account holder</Button>
+            <StudentRegisterModal opened={clientModal} onClose={() => { setClientModal(false); navigate("/people"); }} />
+          </Paper>
+        </>
       ) : (
         <>
           <Paper withBorder p="md">
