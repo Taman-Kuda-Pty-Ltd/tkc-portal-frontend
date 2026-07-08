@@ -42,20 +42,52 @@ interface PayRun {
   person_count: number; total_pay: number;
 }
 
-/** period 0=Mon..6=Sun; align today to the most recent start weekday. */
+interface OrgPeriod {
+  pay_period_start_weekday: number;
+  pay_period_frequency: string;
+  pay_period_anchor: string | null;
+}
+
+/** period 0=Mon..6=Sun; align a date back to the most recent start weekday. */
 function periodStartFor(today: Dayjs, weekday: number): Dayjs {
   const dowMon = (today.day() + 6) % 7;
   return today.subtract((dowMon - weekday + 7) % 7, "day").startOf("day");
 }
+
+/** The start of the period containing `ref`, honouring frequency. */
+function periodStart(ref: Dayjs, org: OrgPeriod): Dayjs {
+  if (org.pay_period_frequency === "monthly") return ref.startOf("month");
+  if (org.pay_period_frequency === "fortnightly" && org.pay_period_anchor) {
+    const anchor = dayjs(org.pay_period_anchor).startOf("day");
+    const k = Math.floor(ref.startOf("day").diff(anchor, "day") / 14);
+    return anchor.add(k * 14, "day");
+  }
+  return periodStartFor(ref, org.pay_period_start_weekday);
+}
+
+/** The last (inclusive) day of the period starting at `start`. */
+function periodEndInclusive(start: Dayjs, org: OrgPeriod): Dayjs {
+  if (org.pay_period_frequency === "monthly") return start.endOf("month").startOf("day");
+  return start.add(org.pay_period_frequency === "fortnightly" ? 13 : 6, "day");
+}
+
+/** Step to the previous/next period. */
+function stepPeriod(start: Dayjs, org: OrgPeriod, dir: 1 | -1): Dayjs {
+  if (org.pay_period_frequency === "monthly") return start.add(dir, "month").startOf("month");
+  return start.add(dir * (org.pay_period_frequency === "fortnightly" ? 14 : 7), "day");
+}
+
+const periodLabel = (start: Dayjs, org: OrgPeriod) =>
+  `${start.format("D MMM")} – ${periodEndInclusive(start, org).format("D MMM YYYY")}`;
 
 export function PayrollPage() {
   const { can } = useAuth();
   const navigate = useNavigate();
   const orgQ = useQuery({
     queryKey: ["org-settings"],
-    queryFn: () => api.get<{ pay_period_start_weekday: number; pay_period_days: number }>("/settings/org"),
+    queryFn: () => api.get<OrgPeriod>("/settings/org"),
   });
-  const days = orgQ.data?.pay_period_days ?? 7;
+  const org = orgQ.data;
   const [period, setPeriod] = useState<Dayjs | null>(null); // null = show the runs list
   const [createOpen, setCreateOpen] = useState(false);
   const [createStart, setCreateStart] = useState<Dayjs | null>(null);
@@ -64,8 +96,7 @@ export function PayrollPage() {
 
   // RUN-2: default a new run to the most-recent *completed* period, not "this week".
   function openCreate() {
-    const cur = periodStartFor(dayjs(), orgQ.data!.pay_period_start_weekday);
-    setCreateStart(cur.subtract(days, "day"));
+    setCreateStart(stepPeriod(periodStart(dayjs(), org!), org!, -1));
     setCreateOpen(true);
   }
 
@@ -80,10 +111,10 @@ export function PayrollPage() {
         )}
       </Group>
 
-      {period ? (
+      {period && org ? (
         <PeriodReport
           start={period}
-          days={days}
+          org={org}
           onBack={() => setPeriod(null)}
           onSetStart={setPeriod}
         />
@@ -134,17 +165,15 @@ export function PayrollPage() {
       <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="New pay run">
         <Stack>
           <Text size="sm" c="dimmed">Which period are you paying? Defaults to the last completed period.</Text>
-          {createStart && (
+          {createStart && org && (
             <Group justify="center" gap="md">
               <ActionIcon variant="light" aria-label="Earlier period"
-                onClick={() => setCreateStart((s) => s!.subtract(days, "day"))}>
+                onClick={() => setCreateStart((s) => stepPeriod(s!, org, -1))}>
                 <IconChevronLeft size={18} />
               </ActionIcon>
-              <Text fw={600}>
-                {createStart.format("D MMM")} – {createStart.add(days - 1, "day").format("D MMM YYYY")}
-              </Text>
+              <Text fw={600}>{periodLabel(createStart, org)}</Text>
               <ActionIcon variant="light" aria-label="Later period"
-                onClick={() => setCreateStart((s) => s!.add(days, "day"))}>
+                onClick={() => setCreateStart((s) => stepPeriod(s!, org, 1))}>
                 <IconChevronRight size={18} />
               </ActionIcon>
             </Group>
@@ -159,8 +188,8 @@ export function PayrollPage() {
   );
 }
 
-function PeriodReport({ start, days, onBack, onSetStart }: {
-  start: Dayjs; days: number; onBack: () => void; onSetStart: (d: Dayjs) => void;
+function PeriodReport({ start, org, onBack, onSetStart }: {
+  start: Dayjs; org: OrgPeriod; onBack: () => void; onSetStart: (d: Dayjs) => void;
 }) {
   const qc = useQueryClient();
   const key = start.format("YYYY-MM-DD");
@@ -197,11 +226,11 @@ function PeriodReport({ start, days, onBack, onSetStart }: {
         </Group>
       </Group>
       <Group gap="xs">
-        <ActionIcon variant="light" onClick={() => onSetStart(start.subtract(days, "day"))}>
+        <ActionIcon variant="light" onClick={() => onSetStart(stepPeriod(start, org, -1))}>
           <IconChevronLeft size={16} />
         </ActionIcon>
-        <Text fw={600}>{start.format("D MMM")} – {start.add(days - 1, "day").format("D MMM YYYY")}</Text>
-        <ActionIcon variant="light" onClick={() => onSetStart(start.add(days, "day"))}>
+        <Text fw={600}>{periodLabel(start, org)}</Text>
+        <ActionIcon variant="light" onClick={() => onSetStart(stepPeriod(start, org, 1))}>
           <IconChevronRight size={16} />
         </ActionIcon>
         {report?.closed && <Badge color="blue">Approved</Badge>}

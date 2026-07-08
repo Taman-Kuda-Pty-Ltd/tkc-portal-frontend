@@ -1,10 +1,17 @@
 import { Button, Group, NumberInput, Select, Stack, Text } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const FREQUENCIES = [
+  { value: "weekly", label: "Weekly" },
+  { value: "fortnightly", label: "Fortnightly" },
+  { value: "monthly", label: "Monthly" },
+];
 
 interface OrgSettings {
   min_shift_hours: number;
@@ -13,6 +20,8 @@ interface OrgSettings {
   pay_period_start_weekday: number;
   pay_period_days: number;
   checkout_window_minutes: number;
+  pay_period_frequency: string;
+  pay_period_anchor: string | null;
 }
 
 export function OrgSettingsSection() {
@@ -25,18 +34,22 @@ export function OrgSettingsSection() {
   const [lessonHours, setLessonHours] = useState<number | string>(1);
   const [secShare, setSecShare] = useState<number | string>(0.5);
   const [weekday, setWeekday] = useState<string>("0");
-  const [periodDays, setPeriodDays] = useState<number | string>(7);
   const [checkoutWindow, setCheckoutWindow] = useState<number | string>(45);
+  const [frequency, setFrequency] = useState<string>("weekly");
+  const [anchor, setAnchor] = useState<Date | null>(null);
   useEffect(() => {
     if (q.data) {
       setHours(q.data.min_shift_hours);
       setLessonHours(q.data.default_lesson_hours);
       setSecShare(q.data.secondary_coach_share);
       setWeekday(String(q.data.pay_period_start_weekday));
-      setPeriodDays(q.data.pay_period_days);
       setCheckoutWindow(q.data.checkout_window_minutes);
+      setFrequency(q.data.pay_period_frequency ?? "weekly");
+      setAnchor(q.data.pay_period_anchor ? dayjs(q.data.pay_period_anchor).toDate() : null);
     }
   }, [q.data]);
+
+  const periodDays = frequency === "fortnightly" ? 14 : 7; // monthly derives on the backend
 
   const saveM = useMutation({
     mutationFn: () =>
@@ -45,8 +58,11 @@ export function OrgSettingsSection() {
         default_lesson_hours: Number(lessonHours) || 0,
         secondary_coach_share: Number(secShare) || 0,
         pay_period_start_weekday: Number(weekday) || 0,
-        pay_period_days: Number(periodDays) || 7,
+        pay_period_days: periodDays,
         checkout_window_minutes: Number(checkoutWindow) || 0,
+        pay_period_frequency: frequency,
+        pay_period_anchor:
+          frequency === "fortnightly" && anchor ? dayjs(anchor).format("YYYY-MM-DD") : null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["org-settings"] });
@@ -84,12 +100,20 @@ export function OrgSettingsSection() {
       <NumberInput label="Check-out window (minutes before end)" min={0} step={5} w={260}
         value={checkoutWindow} onChange={setCheckoutWindow} />
       <Text size="sm" c="dimmed" mt="xs">
-        The pay period used by payroll reports (weekly, starting Monday by default).
+        The pay period used by payroll reports. Monthly uses calendar months; fortnightly
+        counts from the anchor date so periods never drift.
       </Text>
       <Group align="flex-end">
-        <Select label="Pay period starts" w={160} data={WEEKDAYS.map((d, i) => ({ value: String(i), label: d }))}
-          value={weekday} onChange={(v) => v && setWeekday(v)} />
-        <NumberInput label="Days in period" min={1} w={140} value={periodDays} onChange={setPeriodDays} />
+        <Select label="Frequency" w={150} data={FREQUENCIES} value={frequency}
+          onChange={(v) => v && setFrequency(v)} allowDeselect={false} />
+        {frequency !== "monthly" && (
+          <Select label="Starts on" w={150} data={WEEKDAYS.map((d, i) => ({ value: String(i), label: d }))}
+            value={weekday} onChange={(v) => v && setWeekday(v)} />
+        )}
+        {frequency === "fortnightly" && (
+          <DateInput label="Anchor date" w={160} value={anchor} onChange={setAnchor} valueFormat="D MMM YYYY"
+            description="Any day in a known fortnight" />
+        )}
         <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>Save</Button>
       </Group>
     </Stack>
