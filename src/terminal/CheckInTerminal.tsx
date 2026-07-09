@@ -806,6 +806,7 @@ function ShiftCheckCard({
           </Text>
         </div>
         <Group gap="xs">
+          {shift.is_new && <Badge size="lg" color="grape" variant="light">New shift</Badge>}
           {adhoc && <Badge size="lg" color="yellow" variant="light">Pending approval</Badge>}
           {att?.status === "checked_in" && <Badge size="lg" color="teal">On site</Badge>}
           {att?.status === "checked_out" && <Badge size="lg" color="blue">Left</Badge>}

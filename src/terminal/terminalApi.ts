@@ -67,6 +67,7 @@ export interface ShiftBrief {
   riders: string[];
   rider_details: ShiftRiderBrief[];
   completed: boolean;
+  is_new: boolean; // moved into this slot after a completed cycle — checkable again
   is_adhoc: boolean;
   pay_hours: number | null;
   variance_margin: number | null;
