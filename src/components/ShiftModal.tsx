@@ -26,12 +26,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, Clash, NamedResource, Role, Shift } from "../api/types";
+import type { Activity, Clash, NamedResource, Role, Shift, SuitabilityResult } from "../api/types";
 import { StaffAssign } from "./StaffAssign";
 
 interface RideDraft {
   student_id: string | null;
   horse_id: string | null;
+  override_note?: string | null;
 }
 
 function toDateTime(date: Date, time: string): string {
@@ -118,6 +119,7 @@ export function ShiftModal({
       setRides(s.rides.map((r) => ({
         student_id: String(r.student_id),
         horse_id: r.horse_id ? String(r.horse_id) : null,
+        override_note: r.override_note ?? null,
       })));
     } else {
       setActivityId(null);
@@ -185,6 +187,22 @@ export function ShiftModal({
     enabled: editing && isLesson && !!date && (!!facilityId || horseIds.length > 0),
   });
 
+  // HB-2: warn on rider↔horse suitability mismatches (weight/level/do-not-ride).
+  const suitPairs = rides
+    .filter((r) => r.student_id && r.horse_id)
+    .map((r) => ({ student_id: Number(r.student_id), horse_id: Number(r.horse_id) }));
+  const suitQ = useQuery({
+    queryKey: ["suitability", suitPairs.map((p) => `${p.student_id}:${p.horse_id}`).join(",")],
+    queryFn: () => api.post<{ results: SuitabilityResult[] }>("/horses/suitability-check", { pairs: suitPairs }),
+    enabled: editing && isLesson && suitPairs.length > 0,
+  });
+  const warningsFor = (studentId: string | null, horseId: string | null): string[] => {
+    if (!studentId || !horseId) return [];
+    return (suitQ.data?.results ?? []).find(
+      (x) => x.student_id === Number(studentId) && x.horse_id === Number(horseId),
+    )?.warnings ?? [];
+  };
+
   const saveM = useMutation({
     mutationFn: async () => {
       const body = {
@@ -214,7 +232,11 @@ export function ShiftModal({
           `/shifts/${saved.id}/rides`,
           rides
             .filter((r) => r.student_id)
-            .map((r) => ({ student_id: Number(r.student_id), horse_id: r.horse_id ? Number(r.horse_id) : null })),
+            .map((r) => ({
+              student_id: Number(r.student_id),
+              horse_id: r.horse_id ? Number(r.horse_id) : null,
+              override_note: r.horse_id && r.override_note ? r.override_note : null,
+            })),
         );
       }
       return saved;
@@ -449,14 +471,18 @@ export function ShiftModal({
               </Group>
               <Stack gap="xs">
                 {rides.length === 0 && <Text size="sm" c="dimmed">No riders yet.</Text>}
-                {rides.map((r, i) => (
-                  <Group key={i} gap="xs" wrap="nowrap" align="flex-end">
+                {rides.map((r, i) => {
+                  const warnings = warningsFor(r.student_id, r.horse_id);
+                  return (
+                  <div key={i}>
+                  <Group gap="xs" wrap="nowrap" align="flex-end">
                     <Select placeholder="Student" data={studentOptions} value={r.student_id} disabled={ro}
                       searchable style={{ flex: 1 }} onChange={(v) => updateRide(i, { student_id: v })}
                       comboboxProps={{ withinPortal: true }} />
                     <Text c="dimmed" pb={8}>on</Text>
                     <Select placeholder="Horse" data={horseOptions} value={r.horse_id} disabled={ro}
-                      searchable clearable style={{ flex: 1 }} onChange={(v) => updateRide(i, { horse_id: v })}
+                      searchable clearable style={{ flex: 1 }}
+                      onChange={(v) => updateRide(i, { horse_id: v, override_note: null })}
                       comboboxProps={{ withinPortal: true }} />
                     {!ro && (
                       <ActionIcon color="red" variant="subtle" aria-label="Remove rider"
@@ -465,7 +491,34 @@ export function ShiftModal({
                       </ActionIcon>
                     )}
                   </Group>
-                ))}
+                  {warnings.length > 0 && (
+                    <Alert color="red" mt={4} title="Horse may not suit this rider" p="xs">
+                      <Stack gap={4}>
+                        {warnings.map((w, wi) => <Text key={wi} size="sm">{w}</Text>)}
+                        {!ro && r.override_note == null && (
+                          <Group gap="xs" mt={2}>
+                            <Button size="xs" variant="light"
+                              onClick={() => updateRide(i, { horse_id: null })}>Pick another</Button>
+                            <Button size="xs" variant="light" color="red"
+                              onClick={() => updateRide(i, { override_note: "" })}>
+                              Assign anyway (note why)
+                            </Button>
+                          </Group>
+                        )}
+                        {!ro && r.override_note != null && (
+                          <Textarea size="xs" mt={2} autosize minRows={1}
+                            label="Why assign despite the warning?" value={r.override_note}
+                            onChange={(e) => updateRide(i, { override_note: e.currentTarget.value })} />
+                        )}
+                        {ro && r.override_note && (
+                          <Text size="xs" c="dimmed">Assigned anyway: {r.override_note}</Text>
+                        )}
+                      </Stack>
+                    </Alert>
+                  )}
+                  </div>
+                  );
+                })}
               </Stack>
             </div>
             {editing && (clashQ.data?.length ?? 0) > 0 && (
