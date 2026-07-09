@@ -20,11 +20,12 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft, IconPlus, IconX } from "@tabler/icons-react";
+import { IconArrowLeft, IconPlus, IconUsers, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { RichTextView } from "../components/RichText";
+import { dateInBusinessTz, fmtTime, nowInBusinessTz, type TimeFormat } from "./timeFormat";
 import {
   terminalApi,
   TerminalError,
@@ -66,20 +67,43 @@ function useNow(everyMs = 30000): number {
   return now;
 }
 
+/** Large live clock + date in the club's business timezone, 24h/12h per setting.
+ *  Ticks internally so the rest of the terminal isn't re-rendered every second. */
+function TerminalClock({ tz, format }: { tz: string; format: TimeFormat }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  return (
+    <Stack gap={0} align="flex-end">
+      <Text fz={44} fw={800} lh={1} style={{ fontVariantNumeric: "tabular-nums" }}>
+        {nowInBusinessTz(tz, format, now)}
+      </Text>
+      <Text c="dimmed">{dateInBusinessTz(tz, now)}</Text>
+    </Stack>
+  );
+}
+
 export function CheckInTerminal({
   name,
   inactivitySeconds,
   minHours,
   checkoutWindowMinutes,
+  timeFormat,
+  businessTimezone,
 }: {
   name: string;
   inactivitySeconds: number;
   minHours: number;
   checkoutWindowMinutes: number;
+  timeFormat: TimeFormat;
+  businessTimezone: string;
 }) {
   const [session, setSession] = useState<TerminalSession | null>(null);
   const [pin, setPin] = useState("");
   const [pinFor, setPinFor] = useState<RosterPerson | null>(null);
+  const [showOthers, setShowOthers] = useState(false);
 
   const rosterQ = useQuery({
     queryKey: ["terminal-roster"],
@@ -91,6 +115,7 @@ export function CheckInTerminal({
     setSession(null);
     setPin("");
     setPinFor(null);
+    setShowOthers(false);
   }
 
   // Auto sign-out to the name-select screen after inactivity (0 = never).
@@ -117,6 +142,7 @@ export function CheckInTerminal({
         pin={pin}
         minHours={minHours}
         checkoutWindowMinutes={checkoutWindowMinutes}
+        timeFormat={timeFormat}
         onRefresh={async () => setSession(await terminalApi.session(session.person_id, pin))}
         onDone={() => {
           reset();
@@ -140,50 +166,98 @@ export function CheckInTerminal({
     );
   }
 
+  const roster = rosterQ.data ?? [];
+  // Big tap cards for people actually on today; everyone else is behind "Someone else".
+  const onToday = roster.filter((p) => p.has_shift || p.status !== "off");
+  const others = roster.filter((p) => !p.has_shift && p.status === "off");
+
   return (
-    <Stack p="xl" gap="lg">
-      <Group justify="space-between">
-        <Title order={2}>{name}</Title>
-        <Text c="dimmed">{dayjs().format("dddd D MMMM")}</Text>
+    <Stack p="xl" gap="lg" mih="100vh">
+      <Group justify="space-between" align="flex-start">
+        <div>
+          <Title order={2}>{name}</Title>
+          <Text size="lg" c="dimmed">Tap your name to check in or out.</Text>
+        </div>
+        <TerminalClock tz={businessTimezone} format={timeFormat} />
       </Group>
-      <Text size="lg" c="dimmed">Tap your name to check in or out.</Text>
+
       {rosterQ.isLoading ? (
         <Center h="50vh"><Loader /></Center>
       ) : (
-        <Box
-          style={{
-            display: "grid",
-            gap: "var(--mantine-spacing-lg)",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-          }}
-        >
-          {(rosterQ.data ?? []).map((p) => (
-            <Card
-              key={p.id}
-              withBorder
-              padding="lg"
-              onClick={() => setPinFor(p)}
-              style={{ cursor: "pointer" }}
-            >
-              <Group gap="md" wrap="nowrap">
-                <Avatar radius="xl" size={56} color={avatarColor(p.display_name)}>
-                  {initials(p.display_name)}
-                </Avatar>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Text fw={700} size="lg" lineClamp={2}>{p.display_name}</Text>
-                  <Group gap={6} mt={4}>
-                    <Badge size="lg" color={STATUS[p.status].color} variant="light">
-                      {STATUS[p.status].label}
-                    </Badge>
-                    {!p.has_shift && <Badge size="lg" color="gray" variant="outline">No shift</Badge>}
-                  </Group>
-                </div>
+        <Stack align="center" gap="lg" style={{ flex: 1 }}>
+          <Box
+            style={{
+              display: "grid",
+              gap: "var(--mantine-spacing-lg)",
+              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 300px))",
+              justifyContent: "center",
+              width: "100%",
+              maxWidth: 980,
+            }}
+          >
+            {onToday.map((p) => (
+              <RosterCard key={p.id} person={p} onTap={() => setPinFor(p)} />
+            ))}
+            {onToday.length === 0 && (
+              <Text c="dimmed" size="lg" ta="center" style={{ gridColumn: "1 / -1" }}>
+                Nobody is rostered on today.
+              </Text>
+            )}
+          </Box>
+
+          {others.length > 0 && !showOthers && (
+            <Button variant="light" size="lg" leftSection={<IconUsers size={20} />}
+              onClick={() => setShowOthers(true)}>
+              Someone else
+            </Button>
+          )}
+          {showOthers && (
+            <Card withBorder padding="lg" w="100%" maw={460}>
+              <Group justify="space-between" mb="sm">
+                <Text fw={700} size="lg">Someone else</Text>
+                <Button variant="subtle" size="sm" onClick={() => setShowOthers(false)}>Hide</Button>
               </Group>
+              <Box style={{ maxHeight: "50vh", overflowY: "auto" }}>
+                <Stack gap="xs">
+                  {others.map((p) => (
+                    <Button key={p.id} variant="default" size="lg" justify="flex-start"
+                      leftSection={
+                        <Avatar radius="xl" size={36} color={avatarColor(p.display_name)}>
+                          {initials(p.display_name)}
+                        </Avatar>
+                      }
+                      onClick={() => setPinFor(p)}>
+                      {p.display_name}
+                    </Button>
+                  ))}
+                </Stack>
+              </Box>
             </Card>
-          ))}
-        </Box>
+          )}
+        </Stack>
       )}
     </Stack>
+  );
+}
+
+function RosterCard({ person, onTap }: { person: RosterPerson; onTap: () => void }) {
+  return (
+    <Card withBorder padding="lg" onClick={onTap} style={{ cursor: "pointer" }}>
+      <Group gap="md" wrap="nowrap">
+        <Avatar radius="xl" size={56} color={avatarColor(person.display_name)}>
+          {initials(person.display_name)}
+        </Avatar>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Text fw={700} size="lg" lineClamp={2}>{person.display_name}</Text>
+          <Group gap={6} mt={4}>
+            <Badge size="lg" color={STATUS[person.status].color} variant="light">
+              {STATUS[person.status].label}
+            </Badge>
+            {!person.has_shift && <Badge size="lg" color="gray" variant="outline">No shift</Badge>}
+          </Group>
+        </div>
+      </Group>
+    </Card>
   );
 }
 
@@ -255,6 +329,7 @@ function PersonView({
   pin,
   minHours,
   checkoutWindowMinutes,
+  timeFormat,
   onRefresh,
   onDone,
 }: {
@@ -262,6 +337,7 @@ function PersonView({
   pin: string;
   minHours: number;
   checkoutWindowMinutes: number;
+  timeFormat: TimeFormat;
   onRefresh: () => Promise<void>;
   onDone: () => void;
 }) {
@@ -280,13 +356,15 @@ function PersonView({
       )}
       {session.shifts.map((s) => (
         <ShiftCheckCard key={s.shift_id} shift={s} personId={session.person_id} pin={pin}
-          minHours={minHours} checkoutWindowMinutes={checkoutWindowMinutes} onRefresh={onRefresh} />
+          minHours={minHours} checkoutWindowMinutes={checkoutWindowMinutes}
+          timeFormat={timeFormat} onRefresh={onRefresh} />
       ))}
       {session.lessons.length > 0 && (
         <CoachingSection
           key={session.coaching_attendance?.status ?? "none"}
           session={session}
           pin={pin}
+          timeFormat={timeFormat}
           onRefresh={onRefresh}
         />
       )}
@@ -546,13 +624,26 @@ function AdhocTaskCard({
   );
 }
 
+function LessonStatusPill({ starts, ends, now }: { starts: string; ends: string; now: number }) {
+  const n = dayjs(now);
+  if (n.isAfter(dayjs(ends))) return null;
+  const live = !n.isBefore(dayjs(starts));
+  return (
+    <Badge size="lg" variant={live ? "filled" : "light"} color={live ? "teal" : "gray"}>
+      {live ? "On now" : "Later"}
+    </Badge>
+  );
+}
+
 function CoachingSection({
   session,
   pin,
+  timeFormat,
   onRefresh,
 }: {
   session: TerminalSession;
   pin: string;
+  timeFormat: TimeFormat;
   onRefresh: () => Promise<void>;
 }) {
   const now = useNow();
@@ -620,17 +711,34 @@ function CoachingSection({
 
       <Stack gap="sm">
         {session.lessons.map((l) => (
-          <Card key={l.shift_id} withBorder radius="sm" bg="var(--mantine-color-default)">
-            <Group justify="space-between" wrap="wrap">
-              <Text fw={600} size="lg">
-                {dayjs(l.starts_at).format("HH:mm")}
-                {l.facility_name ? ` · ${l.facility_name}` : ""}
-              </Text>
-              {done && l.completed && <Badge color="teal">Delivered</Badge>}
+          <Card key={l.shift_id} withBorder radius="md" p="md" bg="var(--mantine-color-default)">
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Rider + horse are the loud element */}
+                {l.riders.length > 0 ? (
+                  <Group gap={8} mb={6}>
+                    {l.riders.map((r, i) => (
+                      <Badge key={i} size="lg" variant="light" color="teal"
+                        styles={{ label: { textTransform: "none", fontSize: 15 } }}>
+                        {r.replace(/ on /, " · ")}
+                      </Badge>
+                    ))}
+                  </Group>
+                ) : (
+                  <Text fw={700} size="lg" mb={6}>{l.title || "Lesson"}</Text>
+                )}
+                {/* Time is the anchor */}
+                <Text fw={700} size="lg">{fmtTime(l.starts_at, timeFormat)}</Text>
+                {/* Facility drops to a caption */}
+                {l.facility_name && (
+                  <Text size="sm" c="dimmed">{l.facility_name}</Text>
+                )}
+              </div>
+              <Stack gap={6} align="flex-end">
+                <LessonStatusPill starts={l.starts_at} ends={l.ends_at} now={now} />
+                {done && l.completed && <Badge color="teal">Delivered</Badge>}
+              </Stack>
             </Group>
-            {!checkedIn && l.riders.length > 0 && (
-              <Text c="dimmed" mt={2}>{l.riders.join(", ")}</Text>
-            )}
             {checkedIn && (
               <Stack gap="xs" mt="sm">
                 <Checkbox
@@ -662,7 +770,7 @@ function CoachingSection({
                 {(state[l.shift_id]?.delivered ?? false) && dayjs(now).isBefore(dayjs(l.starts_at)) && (
                   <Textarea
                     label="Reason for finishing early (required)"
-                    description={`This lesson isn't due to start until ${dayjs(l.starts_at).format("HH:mm")}.`}
+                    description={`This lesson isn't due to start until ${fmtTime(l.starts_at, timeFormat)}.`}
                     value={state[l.shift_id]?.earlyReason ?? ""}
                     autosize minRows={2} size="md"
                     onChange={(e) =>
@@ -725,7 +833,7 @@ function CoachingSection({
       )}
       {done && (
         <Text mt="md" size="lg">
-          Checked out at <b>{dayjs(coaching!.checked_out_at!).format("HH:mm")}</b>.
+          Checked out at <b>{fmtTime(coaching!.checked_out_at!, timeFormat)}</b>.
         </Text>
       )}
     </Card>
@@ -738,6 +846,7 @@ function ShiftCheckCard({
   pin,
   minHours,
   checkoutWindowMinutes,
+  timeFormat,
   onRefresh,
 }: {
   shift: ShiftBrief;
@@ -745,9 +854,11 @@ function ShiftCheckCard({
   pin: string;
   minHours: number;
   checkoutWindowMinutes: number;
+  timeFormat: TimeFormat;
   onRefresh: () => Promise<void>;
 }) {
   const now = useNow();
+  const tf = timeFormat === "12h" ? "h:mm A" : "HH:mm";
   const att = shift.attendance;
   const adhoc = shift.is_adhoc;
   const plannedH = dayjs(shift.ends_at).diff(dayjs(shift.starts_at), "minute") / 60;
@@ -799,8 +910,8 @@ function ShiftCheckCard({
         <div>
           <Text fw={700} size="xl">{shift.title || shift.activity_name || "Shift"}</Text>
           <Text c="dimmed">
-            {dayjs(shift.starts_at).format("HH:mm")}
-            {adhoc ? "" : `–${dayjs(shift.ends_at).format("HH:mm")}`}
+            {dayjs(shift.starts_at).format(tf)}
+            {adhoc ? "" : `–${dayjs(shift.ends_at).format(tf)}`}
             {shift.activity_name ? ` · ${shift.activity_name}` : ""}
             {adhoc ? " · extra task" : ` · planned ${plannedH}h`}
           </Text>
@@ -833,7 +944,7 @@ function ShiftCheckCard({
       {/* Checked in — offer check-out (two-stage: gated by the check-out window) */}
       {att?.status === "checked_in" && (
         <Stack mt="md">
-          <Text>Checked in at <b>{dayjs(att.checked_in_at).format("HH:mm")}</b>.</Text>
+          <Text>Checked in at <b>{dayjs(att.checked_in_at).format(tf)}</b>.</Text>
           {!checkingOut && withinWindow && (
             <Button size="xl" color="orange" onClick={() => startCheckout(false)}>
               Check out
@@ -843,8 +954,8 @@ function ShiftCheckCard({
             <>
               <Text c="dimmed">
                 Enjoy your shift — it's scheduled until{" "}
-                <b>{dayjs(shift.ends_at).format("HH:mm")}</b>. Check-out opens at{" "}
-                <b>{windowOpensAt.format("HH:mm")}</b>.
+                <b>{dayjs(shift.ends_at).format(tf)}</b>. Check-out opens at{" "}
+                <b>{windowOpensAt.format(tf)}</b>.
               </Text>
               <Button size="md" variant="subtle" color="orange" onClick={() => startCheckout(true)}>
                 Need to leave early?
@@ -855,7 +966,7 @@ function ShiftCheckCard({
             <>
               {earlyLeave && (
                 <Text c="orange" fw={500}>
-                  Leaving before your scheduled end ({dayjs(shift.ends_at).format("HH:mm")}).
+                  Leaving before your scheduled end ({dayjs(shift.ends_at).format(tf)}).
                 </Text>
               )}
               <NumberInput label={adhoc ? "Hours worked" : `Hours worked (planned ${planned}h)`}
@@ -887,7 +998,7 @@ function ShiftCheckCard({
       {/* Done */}
       {att?.status === "checked_out" && (
         <Text mt="md" size="lg">
-          Checked out at <b>{dayjs(att.checked_out_at!).format("HH:mm")}</b>
+          Checked out at <b>{dayjs(att.checked_out_at!).format(tf)}</b>
           {att.claimed_hours != null ? ` · ${att.claimed_hours}h recorded` : ""}.
         </Text>
       )}

@@ -1,4 +1,4 @@
-import { Button, Group, NumberInput, Select, Stack, Text } from "@mantine/core";
+import { Button, Group, NumberInput, SegmentedControl, Select, Stack, Text } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,7 @@ interface OrgSettings {
   pay_period_frequency: string;
   pay_period_anchor: string | null;
   business_timezone: string;
+  terminal_time_format: string;
 }
 
 export function OrgSettingsSection() {
@@ -55,6 +56,7 @@ export function OrgSettingsSection() {
   const [frequency, setFrequency] = useState<string>("weekly");
   const [anchor, setAnchor] = useState<Date | null>(null);
   const [tz, setTz] = useState<string>("Australia/Sydney");
+  const [timeFmt, setTimeFmt] = useState<string>("24h");
   useEffect(() => {
     if (q.data) {
       setHours(q.data.min_shift_hours);
@@ -66,6 +68,7 @@ export function OrgSettingsSection() {
       setFrequency(q.data.pay_period_frequency ?? "weekly");
       setAnchor(q.data.pay_period_anchor ? dayjs(q.data.pay_period_anchor).toDate() : null);
       setTz(q.data.business_timezone ?? "Australia/Sydney");
+      setTimeFmt(q.data.terminal_time_format ?? "24h");
     }
   }, [q.data]);
 
@@ -85,6 +88,7 @@ export function OrgSettingsSection() {
         pay_period_anchor:
           frequency === "fortnightly" && anchor ? dayjs(anchor).format("YYYY-MM-DD") : null,
         business_timezone: tz,
+        terminal_time_format: timeFmt,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["org-settings"] });
@@ -104,6 +108,15 @@ export function OrgSettingsSection() {
       <Select label="Business timezone" w={260} data={tzData} value={tz}
         onChange={(v) => v && setTz(v)} searchable allowDeselect={false}
         comboboxProps={{ withinPortal: true }} />
+      <Text size="sm" c="dimmed" mt="xs">
+        How the kiosk terminals show the clock and times — 24-hour or 12-hour (AM/PM).
+        Affects the terminals only; each user's own app preference is separate.
+      </Text>
+      <div>
+        <Text size="sm" fw={500} mb={4}>Terminal time format</Text>
+        <SegmentedControl value={timeFmt} onChange={setTimeFmt}
+          data={[{ label: "24-hour", value: "24h" }, { label: "12-hour", value: "12h" }]} />
+      </div>
       <Text size="sm" c="dimmed" mt="xs">
         The minimum paid hours recorded for any stablehand/ad-hoc terminal check-out.
         If someone works or logs less than this, their hours are floored to it.

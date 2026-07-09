@@ -19,6 +19,8 @@ export interface TerminalConfig {
   inactivity_seconds: number;
   min_shift_hours: number;
   checkout_window_minutes: number;
+  time_format: "12h" | "24h";
+  business_timezone: string;
 }
 export interface LessonClash {
   student_id: number;

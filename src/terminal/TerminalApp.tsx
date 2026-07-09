@@ -55,6 +55,8 @@ export function TerminalApp() {
           inactivitySeconds={configQ.data.inactivity_seconds}
           minHours={configQ.data.min_shift_hours}
           checkoutWindowMinutes={configQ.data.checkout_window_minutes}
+          timeFormat={configQ.data.time_format}
+          businessTimezone={configQ.data.business_timezone}
         />
       </ErrorBoundary>
     );
