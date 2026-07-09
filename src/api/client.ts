@@ -28,6 +28,7 @@ async function request<T>(
   path: string,
   body?: unknown,
   isForm = false,
+  signal?: AbortSignal,
 ): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getToken();
@@ -41,7 +42,7 @@ async function request<T>(
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(`/api${path}`, { method, headers, body: payload });
+  const res = await fetch(`/api${path}`, { method, headers, body: payload, signal });
 
   if (res.status === 401) {
     setToken(null);
@@ -83,7 +84,8 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(p: string) => request<T>("GET", p),
+  get: <T>(p: string, opts?: { signal?: AbortSignal }) =>
+    request<T>("GET", p, undefined, false, opts?.signal),
   post: <T>(p: string, body?: unknown) => request<T>("POST", p, body),
   put: <T>(p: string, body?: unknown) => request<T>("PUT", p, body),
   patch: <T>(p: string, body?: unknown) => request<T>("PATCH", p, body),

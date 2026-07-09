@@ -43,17 +43,30 @@ function streetPart(display: string): string {
   return (comma === -1 ? display : display.slice(0, comma)).trim();
 }
 
+// Hard cap on a single /addresses/search call. A dead/slow lookup server must
+// never hang the field — abort well before the user notices and fall back.
+const SEARCH_TIMEOUT_MS = 4000;
+
 /**
  * Address line 1 with G-NAF autocomplete. Debounces typing (~300ms), calls the
  * app's /addresses/search proxy, and on select fills the structured address
- * parts via `onSelect`. If the address service is not configured it degrades to
- * a plain text input so forms keep working.
+ * parts via `onSelect`. Autocomplete is a pure enhancement — the field is always
+ * usable for manual typing and degrades to a plain text input when:
+ *   - the service is not configured, or the status probe fails; or
+ *   - a live lookup fails at query time (network error, timeout, non-2xx).
+ * On a runtime failure it stops hitting the (likely dead) server for the rest of
+ * the session, keeps whatever the user has typed, and shows a small inline hint.
  */
 export function AddressAutocomplete({ value, onChange, onSelect, label = "Address line 1", placeholder, disabled }: Props) {
+  // Once a live lookup fails we stay in manual mode for the session, rather than
+  // hammering a dead server on every keystroke.
+  const [degraded, setDegraded] = useState(false);
+
   const status = useQuery({
     queryKey: ["address-status"],
     queryFn: () => api.get<{ configured: boolean }>("/addresses/status"),
     staleTime: 5 * 60 * 1000,
+    retry: false,
   });
   const configured = !!status.data?.configured;
 
@@ -63,10 +76,29 @@ export function AddressAutocomplete({ value, onChange, onSelect, label = "Addres
 
   const search = useQuery({
     queryKey: ["address-search", debounced],
-    queryFn: () => api.get<AddressSuggestion[]>(`/addresses/search?q=${encodeURIComponent(debounced.trim())}`),
-    enabled: configured && debounced.trim().length >= 2,
+    queryFn: async () => {
+      // Impose our own timeout on top of whatever react-query does — a hung
+      // socket should abort at SEARCH_TIMEOUT_MS and surface as an error.
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), SEARCH_TIMEOUT_MS);
+      try {
+        return await api.get<AddressSuggestion[]>(
+          `/addresses/search?q=${encodeURIComponent(debounced.trim())}`,
+          { signal: ac.signal },
+        );
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    enabled: configured && !degraded && debounced.trim().length >= 2,
     staleTime: 60 * 1000,
+    retry: 1, // one retry, then we degrade — don't keep retrying a dead server
   });
+
+  // Any failure (status probe or a live lookup) → switch to manual entry for good.
+  useEffect(() => {
+    if (status.isError || search.isError) setDegraded(true);
+  }, [status.isError, search.isError]);
 
   const [options, setOptions] = useState<string[]>([]);
   useEffect(() => {
@@ -83,14 +115,16 @@ export function AddressAutocomplete({ value, onChange, onSelect, label = "Addres
     setOptions(labels);
   }, [search.data]);
 
-  // Not configured (or the status probe failed) or disabled -> plain text input.
-  if (disabled || (status.isSuccess && !configured)) {
+  // Disabled, not configured, status probe failed, or a lookup failed at query
+  // time -> plain text input. Manual entry always works.
+  if (disabled || degraded || (status.isSuccess && !configured)) {
     return (
       <TextInput
         label={label}
         placeholder={placeholder}
         value={value}
         disabled={disabled}
+        description={degraded ? "Address lookup unavailable — enter manually." : undefined}
         onChange={(e) => onChange(e.currentTarget.value)}
       />
     );
