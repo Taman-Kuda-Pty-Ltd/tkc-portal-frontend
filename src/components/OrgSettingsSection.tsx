@@ -1,4 +1,4 @@
-import { Button, Group, NumberInput, SegmentedControl, Select, Stack, Text } from "@mantine/core";
+import { Button, Group, NumberInput, SegmentedControl, Select, Stack, Switch, Text } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +39,7 @@ interface OrgSettings {
   pay_period_anchor: string | null;
   business_timezone: string;
   terminal_time_format: string;
+  require_onboarding_2fa: boolean;
 }
 
 export function OrgSettingsSection() {
@@ -57,6 +58,7 @@ export function OrgSettingsSection() {
   const [anchor, setAnchor] = useState<Date | null>(null);
   const [tz, setTz] = useState<string>("Australia/Sydney");
   const [timeFmt, setTimeFmt] = useState<string>("24h");
+  const [require2fa, setRequire2fa] = useState(false);
   useEffect(() => {
     if (q.data) {
       setHours(q.data.min_shift_hours);
@@ -69,6 +71,7 @@ export function OrgSettingsSection() {
       setAnchor(q.data.pay_period_anchor ? dayjs(q.data.pay_period_anchor).toDate() : null);
       setTz(q.data.business_timezone ?? "Australia/Sydney");
       setTimeFmt(q.data.terminal_time_format ?? "24h");
+      setRequire2fa(q.data.require_onboarding_2fa ?? false);
     }
   }, [q.data]);
 
@@ -89,6 +92,7 @@ export function OrgSettingsSection() {
           frequency === "fortnightly" && anchor ? dayjs(anchor).format("YYYY-MM-DD") : null,
         business_timezone: tz,
         terminal_time_format: timeFmt,
+        require_onboarding_2fa: require2fa,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["org-settings"] });
@@ -149,6 +153,12 @@ export function OrgSettingsSection() {
       </Text>
       <NumberInput label="Check-out overdue grace (minutes after end)" min={0} step={5} w={260}
         value={overdueGrace} onChange={setOverdueGrace} />
+      <Text size="sm" c="dimmed" mt="xs">
+        Require new people to verify their mobile with an SMS code before they can finish
+        onboarding. When off, verification is offered but optional.
+      </Text>
+      <Switch label="Require mobile verification (2FA) during onboarding" checked={require2fa}
+        onChange={(e) => setRequire2fa(e.currentTarget.checked)} />
       <Text size="sm" c="dimmed" mt="xs">
         The pay period used by payroll reports. Monthly uses calendar months; fortnightly
         counts from the anchor date so periods never drift.

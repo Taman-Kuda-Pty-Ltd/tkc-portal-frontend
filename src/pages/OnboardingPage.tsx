@@ -25,6 +25,7 @@ import { api, ApiError, setToken } from "../api/client";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
+import { PhoneVerification } from "../components/PhoneVerification";
 import type { CredentialType, OnboardingContext } from "../api/types";
 import { ClientOnboarding } from "./ClientOnboarding";
 
@@ -113,6 +114,7 @@ export function OnboardingPage() {
   const [changingAuth, setChangingAuth] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   useEffect(() => {
     const d = ctxQ.data;
@@ -166,6 +168,7 @@ export function OnboardingPage() {
   const isEmployee = staffType === "employee";
   const isContractor = staffType === "contractor";
   const isMinor = !!dob && dayjs().diff(dayjs(dob), "year") < 18;
+  const requirePhone = ctxQ.data?.require_phone_verification ?? false;
 
   const submitM = useMutation({
     mutationFn: () =>
@@ -216,6 +219,8 @@ export function OnboardingPage() {
     if (!personal.given_name || !personal.family_name) return setError("Please enter your name.");
     if (!dob) return setError("Date of birth is required.");
     if (!phoneOk(personal.mobile)) return setError("Enter a valid mobile number.");
+    if (requirePhone && !phoneVerified)
+      return setError("Please verify your mobile number with the SMS code before finishing.");
     if (emergency.name && !phoneOk(emergency.phone)) return setError("Enter a valid emergency contact phone.");
     if (isMinor && !phoneOk(guardian.phone)) return setError("Enter a valid guardian phone.");
     if (isEmployee && !tax.tfn.trim() && !tax.tfn_not_provided)
@@ -278,8 +283,12 @@ export function OnboardingPage() {
               onChange={(e) => { setDisplayEdited(true); setDisplayName(e.currentTarget.value); }} />
             <DateField label="Date of birth" required value={dob} onChange={setDob} maxDate={new Date()} />
             <PhoneField label="Mobile" value={personal.mobile} error={fieldErrors["mobile"]}
-              onChange={(v) => setPersonal({ ...personal, mobile: v })} />
+              onChange={(v) => { setPersonal({ ...personal, mobile: v }); setPhoneVerified(false); }} />
           </SimpleGrid>
+          <PhoneVerification token={token} phone={personal.mobile}
+            phoneValid={!!personal.mobile && isValidPhoneNumber(personal.mobile)}
+            verified={phoneVerified} onVerifiedChange={setPhoneVerified}
+            required={requirePhone} />
         </Paper>
 
         <Paper withBorder p="md">

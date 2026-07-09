@@ -361,6 +361,7 @@ export interface OnboardingContext {
   emergency_contacts: { name: string; relationship: string | null; phone: string | null }[];
   credentials: OnboardingCredential[];
   expires_at: string;
+  require_phone_verification: boolean;
 }
 
 export type SmtpSecurity = "none" | "starttls" | "ssl";
