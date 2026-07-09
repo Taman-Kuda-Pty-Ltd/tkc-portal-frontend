@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Anchor, Badge, Button, Card, Group, Loader, Modal, NumberInput, Stack, Table, Text, Textarea, Title,
+  ActionIcon, Anchor, Badge, Button, Card, Collapse, Group, Loader, Modal, NumberInput, Stack, Table, Text, Textarea, Title,
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight, IconCoin, IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -21,13 +21,25 @@ async function downloadPayrollCsv(key: string) {
   URL.revokeObjectURL(url);
 }
 
-interface PayrollLine { capacity_role_name: string; hours: number; pay: number; unrated_hours: number; pending: boolean }
+interface PayrollLine {
+  capacity_role_name: string;
+  confirmed_hours: number; confirmed_pay: number;
+  projected_hours: number; projected_pay: number;
+  unrated_hours: number; pending: boolean;
+  hours: number; pay: number; // back-compat aliases (= confirmed)
+}
+interface PayrollShift {
+  shift_id: number | null; title: string | null; starts_at: string | null;
+  capacity_role_name: string; hours: number; rate: number | null; amount: number | null;
+  projected: boolean; pending: boolean;
+}
 interface Adjustment { id: number; hours: number; pay: number | null; reason: string; capacity_role_name: string | null }
 interface PayrollPerson {
-  person_id: number; name: string; lines: PayrollLine[]; adjustments: Adjustment[];
+  person_id: number; name: string; lines: PayrollLine[]; shifts: PayrollShift[]; adjustments: Adjustment[];
   base_total: number; adjustment_total: number; total: number;
   base_pay: number; adjustment_pay: number; total_pay: number;
-  has_pending: boolean; has_unrated: boolean; age_warning: boolean;
+  projected_total: number; projected_pay: number;
+  has_pending: boolean; has_unrated: boolean; has_contractor_no_rate: boolean; age_warning: boolean;
   kind: string; // employee | contractor | other
   super_pct: number; super_amount: number;
 }
@@ -284,6 +296,7 @@ function PeriodReport({ start, org, onBack, onSetStart }: {
 function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; periodStart: string; closed: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [showShifts, setShowShifts] = useState(false);
   const [hours, setHours] = useState<number>(0);
   const [reason, setReason] = useState("");
   const refresh = () => qc.invalidateQueries({ queryKey: ["payroll"] });
@@ -309,20 +322,61 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
             <Anchor component={Link} to={`/people/${person.person_id}`} fw={600}>{person.name}</Anchor>
             {person.has_pending && <Badge color="yellow" variant="light">has pending</Badge>}
             {person.has_unrated && <Badge color="red" variant="light">unrated hours</Badge>}
+            {person.has_contractor_no_rate && <Badge color="red" variant="light">contractor: no rate</Badge>}
             {person.age_warning && <Badge color="orange" variant="light">age bracket?</Badge>}
           </Group>
           <Stack gap={2} mt={4}>
             {person.lines.map((l, i) => (
               <Text key={i} size="sm" c="dimmed">
-                {l.capacity_role_name}: <b>{l.hours}h</b>
-                {l.unrated_hours > 0 ? " · no rate set" : ` · $${l.pay.toFixed(2)}`}
+                {l.capacity_role_name}: <b>{l.confirmed_hours}h</b> confirmed
+                {l.unrated_hours > 0 ? " · no rate set" : ` · $${l.confirmed_pay.toFixed(2)}`}
                 {l.pending ? " (pending)" : ""}
+                {l.projected_hours > 0 && (
+                  <Text span c="grape"> · +{l.projected_hours}h projected (${l.projected_pay.toFixed(2)})</Text>
+                )}
               </Text>
             ))}
             {person.has_unrated && (
               <Anchor component={Link} to={`/people/${person.person_id}`} size="xs">
                 Assign a pay grade →
               </Anchor>
+            )}
+            {person.shifts.length > 0 && (
+              <>
+                <Anchor component="button" type="button" size="xs" onClick={() => setShowShifts((s) => !s)}>
+                  {showShifts ? "Hide" : "Show"} {person.shifts.length} shift{person.shifts.length === 1 ? "" : "s"}
+                </Anchor>
+                <Collapse in={showShifts}>
+                  <Table withRowBorders={false} verticalSpacing={2} fz="xs" mt={4}>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Date</Table.Th><Table.Th>Shift</Table.Th>
+                        <Table.Th>Work type</Table.Th><Table.Th ta="right">Hours</Table.Th>
+                        <Table.Th ta="right">Rate</Table.Th><Table.Th ta="right">Amount</Table.Th>
+                        <Table.Th>Status</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {person.shifts.map((s, i) => (
+                        <Table.Tr key={i}>
+                          <Table.Td>{s.starts_at ? dayjs(s.starts_at).format("D MMM HH:mm") : "—"}</Table.Td>
+                          <Table.Td>{s.title || s.capacity_role_name}</Table.Td>
+                          <Table.Td>{s.capacity_role_name}</Table.Td>
+                          <Table.Td ta="right">{s.hours}h</Table.Td>
+                          <Table.Td ta="right">{s.rate != null ? `$${s.rate.toFixed(2)}` : "—"}</Table.Td>
+                          <Table.Td ta="right">{s.amount != null ? `$${s.amount.toFixed(2)}` : "no rate"}</Table.Td>
+                          <Table.Td>
+                            {s.projected
+                              ? <Badge size="xs" color="grape" variant="light">Projected</Badge>
+                              : <Badge size="xs" color="teal" variant="light">Confirmed</Badge>}
+                            {s.pending && <Badge size="xs" color="yellow" variant="light" ml={4}>pending</Badge>}
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Collapse>
+              </>
             )}
             {person.adjustments.map((a) => (
               <Group key={a.id} gap={6}>
@@ -340,7 +394,10 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
         </div>
         <div style={{ textAlign: "right" }}>
           <Text fw={700} fz="xl">${person.total_pay.toFixed(2)}</Text>
-          <Text size="sm" c="dimmed">{person.total}h</Text>
+          <Text size="sm" c="dimmed">{person.total}h confirmed</Text>
+          {person.projected_total > 0 && (
+            <Text size="xs" c="grape">+ {person.projected_total}h projected (${person.projected_pay.toFixed(2)})</Text>
+          )}
           {person.super_amount > 0 && (
             <Text size="xs" c="dimmed">+ ${person.super_amount.toFixed(2)} super ({person.super_pct}%)</Text>
           )}
