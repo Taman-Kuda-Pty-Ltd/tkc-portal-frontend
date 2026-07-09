@@ -18,6 +18,9 @@ interface IntegrationSettings {
   has_clicksend_api_key: boolean;
   sms_sender_id: string | null;
   sms_configured: boolean;
+  address_service_url: string | null;
+  has_address_api_key: boolean;
+  address_configured: boolean;
 }
 
 export function IntegrationsSection() {
@@ -33,6 +36,8 @@ export function IntegrationsSection() {
   const [sms, setSms] = useState({ provider: "log", username: "", senderId: "" });
   const [smsApiKey, setSmsApiKey] = useState("");
   const [smsTestTo, setSmsTestTo] = useState("");
+  const [addressUrl, setAddressUrl] = useState("");
+  const [addressApiKey, setAddressApiKey] = useState("");
 
   // Seed the form from the server ONCE. Later refetches (window focus, or the
   // invalidate after a save) must not clobber in-progress edits.
@@ -52,12 +57,14 @@ export function IntegrationsSection() {
         username: q.data.clicksend_username ?? "",
         senderId: q.data.sms_sender_id ?? "",
       });
+      setAddressUrl(q.data.address_service_url ?? "");
     }
   }, [q.data]);
 
   const afterSave = () => {
     qc.invalidateQueries({ queryKey: ["integration-settings"] });
     qc.invalidateQueries({ queryKey: ["storage-status"] });
+    qc.invalidateQueries({ queryKey: ["address-status"] });
     notifications.show({ color: "teal", message: "Saved." });
   };
 
@@ -102,6 +109,19 @@ export function IntegrationsSection() {
       }),
     onSuccess: () => {
       setSmsApiKey("");
+      afterSave();
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const saveAddressM = useMutation({
+    mutationFn: () =>
+      api.put("/settings/integrations", {
+        address_service_url: addressUrl.trim(),
+        address_api_key: addressApiKey.trim() || null, // blank keeps the stored key
+      }),
+    onSuccess: () => {
+      setAddressApiKey("");
       afterSave();
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
@@ -162,9 +182,17 @@ export function IntegrationsSection() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  // Address service: server-side sample /suggest against the SAVED config.
+  const addressTestM = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; detail: string }>("/settings/integrations/address/test"),
+    onSuccess: showResult,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
   const weatherConfigured = !!q.data?.weatherflow_station_id && !!q.data?.has_weatherflow_token;
   const s3Configured = !!q.data?.s3_configured;
   const smsConfigured = !!q.data?.sms_configured;
+  const addressConfigured = !!q.data?.address_configured;
 
   return (
     <Stack gap="sm">
@@ -273,6 +301,33 @@ export function IntegrationsSection() {
       {!smsConfigured
         ? <Text size="xs" c="dimmed">Save the ClickSend username and API key first to enable the test send.</Text>
         : sms.provider === "log" && <Text size="xs" c="dimmed">Log provider: the test is written to the server log, not actually sent.</Text>}
+      <Divider my="sm" />
+
+      <Group gap="xs">
+        <Text fw={600}>Address autocomplete</Text>
+        {q.data && (
+          <Badge color={q.data.address_configured ? "teal" : "gray"} variant="light">
+            {q.data.address_configured ? "Configured" : "Not configured"}
+          </Badge>
+        )}
+      </Group>
+      <Text size="sm" c="dimmed">
+        Suggests Australian addresses in the people and onboarding forms via a self-hosted
+        G-NAF lookup service. Enter the service base URL (e.g. http://192.168.1.50:8000) and
+        its API key. The key is stored encrypted and never leaves the server — the browser
+        only ever talks to this app. When unset, address fields fall back to plain text.
+      </Text>
+      <TextInput label="Service URL" w={360} value={addressUrl} placeholder="http://192.168.1.50:8000"
+        onChange={(e) => setAddressUrl(e.currentTarget.value)} />
+      <PasswordInput label="API key" w={360} value={addressApiKey}
+        onChange={(e) => setAddressApiKey(e.currentTarget.value)}
+        placeholder={q.data?.has_address_api_key ? "•••••••• (saved — leave blank to keep)" : "Paste the X-API-Key"} />
+      <Group>
+        <Button loading={saveAddressM.isPending} onClick={() => saveAddressM.mutate()}>Save address service</Button>
+        <Button variant="light" loading={addressTestM.isPending} disabled={!addressConfigured}
+          onClick={() => addressTestM.mutate()}>Test connection</Button>
+        {!addressConfigured && <Text size="xs" c="dimmed">Save a service URL first.</Text>}
+      </Group>
     </Stack>
   );
 }

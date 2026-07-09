@@ -22,6 +22,7 @@ import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, ApiError, setToken } from "../api/client";
+import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import type { CredentialType, OnboardingContext } from "../api/types";
@@ -284,8 +285,9 @@ export function OnboardingPage() {
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Address</Title>
           <Stack>
-            <TextInput label="Address line 1" value={address.line1}
-              onChange={(e) => setAddress({ ...address, line1: e.currentTarget.value })} />
+            <AddressAutocomplete value={address.line1}
+              onChange={(line1) => setAddress({ ...address, line1 })}
+              onSelect={(p) => setAddress({ ...address, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
             <TextInput label="Address line 2" value={address.line2}
               onChange={(e) => setAddress({ ...address, line2: e.currentTarget.value })} />
             <SimpleGrid cols={{ base: 1, sm: 3 }}>

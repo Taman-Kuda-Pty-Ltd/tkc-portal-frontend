@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import type { PersonDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
@@ -139,8 +140,9 @@ export function MyProfilePage() {
 
         <Divider my="sm" label="Address" labelPosition="left" />
         <Stack gap="sm">
-          <TextInput label="Line 1" value={addr.line1} disabled={ro}
-            onChange={(e) => setAddr({ ...addr, line1: e.currentTarget.value })} />
+          <AddressAutocomplete label="Line 1" value={addr.line1} disabled={ro}
+            onChange={(line1) => setAddr({ ...addr, line1 })}
+            onSelect={(p) => setAddr({ ...addr, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
           <TextInput label="Line 2" value={addr.line2} disabled={ro}
             onChange={(e) => setAddr({ ...addr, line2: e.currentTarget.value })} />
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
