@@ -19,6 +19,7 @@ import {
   Group,
   Image,
   Modal,
+  Slider,
   Stack,
   Text,
 } from "@mantine/core";
@@ -26,6 +27,7 @@ import { IconCamera, IconFile, IconTrash, IconUpload } from "@tabler/icons-react
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import Cropper, { type Area } from "react-easy-crop";
 import { api } from "../api/client";
 
 export type UploadScope = "horse_photo" | "horse_document" | "person_photo" | "credential";
@@ -57,6 +59,12 @@ export interface FileUploadProps {
   /** Whether file storage is configured; when false the control is a hint only. */
   storageReady: boolean;
   variant?: "avatar" | "image" | "document";
+  /**
+   * When "circle", the picked/captured image opens a circular crop modal before
+   * upload; the confirmed crop is exported as a 512x512 JPEG square (the circle is
+   * display-only). Off by default. Only meaningful for image variants.
+   */
+  crop?: "circle";
   /** Only managers may edit; viewers still see the display. */
   canEdit?: boolean;
   label?: string;
@@ -75,15 +83,19 @@ export function FileUpload({
   invalidateKey,
   storageReady,
   variant = "image",
+  crop,
   canEdit = true,
   label,
   size = 120,
 }: FileUploadProps) {
   const qc = useQueryClient();
   const isImage = variant !== "document";
+  const cropMode = crop === "circle" && isImage;
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
+  // Data URL of the image awaiting circular crop (only in crop mode).
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   // The presigned display URL (short TTL). Only fetched when storage is ready.
   const urlQ = useQuery({
@@ -130,10 +142,22 @@ export function FileUpload({
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  // Route an incoming file (picked or captured) either into the crop modal or
+  // straight to upload, depending on mode.
+  function handleIncoming(f: File) {
+    if (cropMode) {
+      const reader = new FileReader();
+      reader.onload = () => setCropSrc(reader.result as string);
+      reader.readAsDataURL(f);
+    } else {
+      void uploadFile(f);
+    }
+  }
+
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.currentTarget.files?.[0];
     e.currentTarget.value = ""; // allow re-picking the same file
-    if (f) void uploadFile(f);
+    if (f) handleIncoming(f);
   }
 
   if (!storageReady) {
@@ -234,12 +258,136 @@ export function FileUpload({
           onClose={() => setCamOpen(false)}
           onCapture={(file) => {
             setCamOpen(false);
+            handleIncoming(file);
+          }}
+        />
+      )}
+      {cropSrc && (
+        <CircleCropModal
+          src={cropSrc}
+          onClose={() => setCropSrc(null)}
+          onConfirm={(file) => {
+            setCropSrc(null);
             void uploadFile(file);
           }}
         />
       )}
     </Stack>
   );
+}
+
+// Circular crop modal: displays the image behind a round mask with drag + zoom,
+// then exports the bounding-square region as a 512x512 JPEG (a real square image,
+// not a transparent circle — the round shape is display-only).
+const CROP_OUTPUT_PX = 512;
+
+function CircleCropModal({
+  src,
+  onClose,
+  onConfirm,
+}: {
+  src: string;
+  onClose: () => void;
+  onConfirm: (file: File) => void;
+}) {
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [areaPixels, setAreaPixels] = useState<Area | null>(null);
+  const [working, setWorking] = useState(false);
+
+  async function confirm() {
+    if (!areaPixels) return;
+    setWorking(true);
+    try {
+      const blob = await cropToSquareBlob(src, areaPixels);
+      onConfirm(new File([blob], `avatar-${Date.now()}.jpg`, { type: "image/jpeg" }));
+    } catch {
+      notifications.show({ color: "red", message: "Could not process the image." });
+      setWorking(false);
+    }
+  }
+
+  return (
+    <Modal opened onClose={onClose} title="Position your photo" centered size="lg">
+      <Stack>
+        <Box
+          style={{
+            position: "relative",
+            width: "100%",
+            height: 320,
+            background: "#000",
+            borderRadius: 8,
+            overflow: "hidden",
+          }}
+        >
+          <Cropper
+            image={src}
+            crop={crop}
+            zoom={zoom}
+            aspect={1}
+            cropShape="round"
+            showGrid={false}
+            minZoom={1}
+            maxZoom={4}
+            zoomWithScroll
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={(_area, pixels) => setAreaPixels(pixels)}
+          />
+        </Box>
+        <Group gap="sm" align="center" wrap="nowrap">
+          <Text size="sm" c="dimmed">Zoom</Text>
+          <Slider
+            flex={1}
+            min={1}
+            max={4}
+            step={0.01}
+            value={zoom}
+            onChange={setZoom}
+            label={null}
+          />
+        </Group>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose} disabled={working}>Cancel</Button>
+          <Button loading={working} disabled={!areaPixels} onClick={() => void confirm()}>
+            Use photo
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+// Draw the cropped source rect onto a fixed 512x512 canvas -> JPEG blob (~0.9).
+function cropToSquareBlob(src: string, area: Area): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = CROP_OUTPUT_PX;
+      canvas.height = CROP_OUTPUT_PX;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("no 2d context"));
+      ctx.drawImage(
+        img,
+        area.x,
+        area.y,
+        area.width,
+        area.height,
+        0,
+        0,
+        CROP_OUTPUT_PX,
+        CROP_OUTPUT_PX,
+      );
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
+        "image/jpeg",
+        0.9,
+      );
+    };
+    img.onerror = () => reject(new Error("image load failed"));
+    img.src = src;
+  });
 }
 
 // Desktop webcam capture via getUserMedia -> canvas -> JPEG File.

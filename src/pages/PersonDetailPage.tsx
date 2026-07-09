@@ -356,6 +356,7 @@ export function PersonDetailPage() {
           invalidateKey={["person", id]}
           storageReady={storageReady}
           variant="avatar"
+          crop="circle"
           canEdit={canManage}
           label="Profile photo"
           size={96}

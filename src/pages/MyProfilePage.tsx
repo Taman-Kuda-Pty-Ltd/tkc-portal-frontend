@@ -112,6 +112,7 @@ export function MyProfilePage() {
           invalidateKey={["my-profile"]}
           storageReady={storageReady}
           variant="avatar"
+          crop="circle"
           label="Profile photo"
           size={96}
         />
