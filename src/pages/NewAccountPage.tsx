@@ -10,10 +10,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { AccountCreated, PersonMatch } from "../api/types";
+import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { DateField } from "../components/DateField";
 import { PhoneField } from "../components/PhoneField";
 import { GENDERS, PersonSearchSelect, RiderFields, emptyRider, riderPayload, validateRider } from "../components/riderForm";
 import type { RiderDraft } from "../components/riderForm";
+
+interface Address {
+  line1: string;
+  line2: string;
+  suburb: string;
+  state: string;
+  postcode: string;
+}
+const emptyAddress = (): Address => ({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
 
 interface HolderDraft {
   mode: "new" | "existing";
@@ -24,6 +34,7 @@ interface HolderDraft {
   mobile: string;
   date_of_birth: Date | null;
   gender: string | null;
+  address: Address;
 }
 
 export function NewAccountPage() {
@@ -31,7 +42,7 @@ export function NewAccountPage() {
   const qc = useQueryClient();
   const [holder, setHolder] = useState<HolderDraft>({
     mode: "new", person: null, given_name: "", family_name: "", email: "", mobile: "",
-    date_of_birth: null, gender: null,
+    date_of_birth: null, gender: null, address: emptyAddress(),
   });
   const [ec, setEc] = useState({ name: "", relationship: "", phone: "" });
   const [alsoRides, setAlsoRides] = useState(false);
@@ -58,6 +69,8 @@ export function NewAccountPage() {
           mobile: holder.mobile || null,
           date_of_birth: holder.date_of_birth ? dayjs(holder.date_of_birth).format("YYYY-MM-DD") : null,
           gender: holder.gender,
+          address:
+            holder.mode === "new" && (holder.address.line1 || holder.address.suburb) ? holder.address : null,
           emergency_contact: { name: ec.name.trim(), relationship: ec.relationship.trim() || null, phone: ec.phone || null },
         },
         students,
@@ -131,6 +144,27 @@ export function NewAccountPage() {
             <Select label="Gender" data={GENDERS} value={holder.gender}
               onChange={(v) => setHolderP({ gender: v })} clearable comboboxProps={{ withinPortal: true }} />
           </SimpleGrid>
+        )}
+
+        {holder.mode === "new" && (
+          <>
+            <Divider my="md" label="Address (optional)" labelPosition="left" />
+            <Stack gap="sm">
+              <AddressAutocomplete value={holder.address.line1}
+                onChange={(line1) => setHolderP({ address: { ...holder.address, line1 } })}
+                onSelect={(p) => setHolderP({ address: { ...holder.address, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode } })} />
+              <TextInput label="Address line 2" value={holder.address.line2}
+                onChange={(e) => setHolderP({ address: { ...holder.address, line2: e.currentTarget.value } })} />
+              <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                <TextInput label="Suburb" value={holder.address.suburb}
+                  onChange={(e) => setHolderP({ address: { ...holder.address, suburb: e.currentTarget.value } })} />
+                <TextInput label="State" value={holder.address.state}
+                  onChange={(e) => setHolderP({ address: { ...holder.address, state: e.currentTarget.value } })} />
+                <TextInput label="Postcode" value={holder.address.postcode}
+                  onChange={(e) => setHolderP({ address: { ...holder.address, postcode: e.currentTarget.value } })} />
+              </SimpleGrid>
+            </Stack>
+          </>
         )}
 
         <Divider my="md" label="Emergency contact (required)" labelPosition="left" />

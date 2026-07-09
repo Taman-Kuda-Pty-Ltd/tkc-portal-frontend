@@ -9,6 +9,7 @@ import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { OnboardingContext } from "../api/types";
+import { AddressAutocomplete } from "../components/AddressAutocomplete";
 
 const EXPERIENCE = [
   { value: "never_ridden", label: "Never ridden" },
@@ -62,6 +63,7 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
   const [given, setGiven] = useState(ctx.given_name);
   const [family, setFamily] = useState(ctx.family_name);
   const [mobile, setMobile] = useState(ctx.mobile ?? "");
+  const [address, setAddress] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
   const [ec, setEc] = useState({ name: "", relationship: "", phone: "" });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -76,6 +78,7 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
     mutationFn: () =>
       api.post<{ access_token: string }>(`/onboarding/${token}`, {
         given_name: given.trim(), family_name: family.trim(), mobile: mobile || null,
+        address: address.line1 || address.suburb ? address : null,
         emergency_contacts: ec.name.trim() ? [ec] : [],
         password,
         students: riders.map((r) => ({
@@ -155,6 +158,22 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
             <TextInput label="Email" value={ctx.email ?? ""} disabled />
             <TextInput label="Mobile" value={mobile} onChange={(e) => setMobile(e.currentTarget.value)} />
           </SimpleGrid>
+          <Divider my="sm" label="Address" labelPosition="left" />
+          <Stack gap="sm">
+            <AddressAutocomplete value={address.line1}
+              onChange={(line1) => setAddress({ ...address, line1 })}
+              onSelect={(p) => setAddress({ ...address, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
+            <TextInput label="Address line 2" value={address.line2}
+              onChange={(e) => setAddress({ ...address, line2: e.currentTarget.value })} />
+            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+              <TextInput label="Suburb" value={address.suburb}
+                onChange={(e) => setAddress({ ...address, suburb: e.currentTarget.value })} />
+              <TextInput label="State" value={address.state}
+                onChange={(e) => setAddress({ ...address, state: e.currentTarget.value })} />
+              <TextInput label="Postcode" value={address.postcode}
+                onChange={(e) => setAddress({ ...address, postcode: e.currentTarget.value })} />
+            </SimpleGrid>
+          </Stack>
           <Divider my="sm" label="Emergency contact" labelPosition="left" />
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <TextInput label="Name" value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
