@@ -75,6 +75,18 @@ interface LessonTypeChange {
   reason: string | null;
 }
 
+interface ShiftClash {
+  shift_id: number;
+  kind: "horse" | "coach";
+  resource_name: string;
+  starts_at: string;
+  ends_at: string;
+  other_shift_id: number;
+  other_shift_label: string;
+  other_starts_at: string;
+  other_ends_at: string;
+}
+
 export function ApprovalsPage() {
   const q = useQuery({
     queryKey: ["pending-approval"],
@@ -110,6 +122,16 @@ export function ApprovalsPage() {
     queryKey: ["unonboarded-assignees"],
     queryFn: () => api.get<NoShow[]>("/shifts/unonboarded-assignees"),
   });
+  const clashesQ = useQuery({
+    queryKey: ["shift-clashes"],
+    queryFn: () => api.get<ShiftClash[]>("/shifts/clashes"),
+  });
+  const contractorNoRateQ = useQuery({
+    queryKey: ["contractors-no-rate"],
+    queryFn: () => api.get<{ person_id: number; name: string }[]>("/reports/contractors-no-rate"),
+  });
+  // Each clash is reported twice (once per direction) — keep one row per pair.
+  const clashPairs = (clashesQ.data ?? []).filter((c) => c.shift_id < c.other_shift_id);
 
   return (
     <Stack maw={780} w="100%" mx="auto">
@@ -171,6 +193,32 @@ export function ApprovalsPage() {
         (ltQ.data ?? []).map((lt) => <LessonTypeChangeRow key={lt.id} item={lt} />)
       )}
 
+      {clashPairs.length > 0 && (
+        <>
+          <Title order={4} mt="lg" c="red">Double booking</Title>
+          <Text size="sm" c="dimmed">
+            A horse or coach is booked on two overlapping shifts. Move or reassign one of them.
+          </Text>
+          {clashPairs.map((c) => (
+            <Card key={`${c.shift_id}-${c.other_shift_id}-${c.resource_name}`} withBorder>
+              <Group justify="space-between" wrap="wrap">
+                <div>
+                  <Group gap="xs">
+                    <Text fw={600}>{c.resource_name}</Text>
+                    <Badge color="red" variant="light">{c.kind === "horse" ? "Horse" : "Coach"}</Badge>
+                  </Group>
+                  <Text size="sm" c="dimmed">
+                    {dayjs(c.starts_at).format("ddd D MMM, HH:mm")}–{dayjs(c.ends_at).format("HH:mm")}
+                    {" overlaps "}
+                    <b>{c.other_shift_label}</b> ({dayjs(c.other_starts_at).format("HH:mm")}–{dayjs(c.other_ends_at).format("HH:mm")})
+                  </Text>
+                </div>
+              </Group>
+            </Card>
+          ))}
+        </>
+      )}
+
       <Text tt="uppercase" fw={700} size="sm" c="dimmed" mt="xl" style={{ letterSpacing: 0.6 }}>
         Heads up
       </Text>
@@ -207,6 +255,27 @@ export function ApprovalsPage() {
                   {" — "}{u.work_role_name ?? "engagement"}, no pay grade
                 </Text>
                 <Anchor component={Link} to={`/people/${u.person_id}`} size="sm">Assign grade →</Anchor>
+              </Group>
+            </Card>
+          ))}
+        </>
+      )}
+
+      {(contractorNoRateQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg" c="red">Contractor with no rate</Title>
+          <Text size="sm" c="dimmed">
+            These contractors have worked recently but have no contractor rate for the
+            activity — their pay reads as $0 until you set one.
+          </Text>
+          {(contractorNoRateQ.data ?? []).map((u) => (
+            <Card key={u.person_id} withBorder>
+              <Group justify="space-between">
+                <Text size="sm">
+                  <Anchor component={Link} to={`/people/${u.person_id}`} fw={600}>{u.name}</Anchor>
+                  {" — contractor, no rate set"}
+                </Text>
+                <Anchor component={Link} to={`/people/${u.person_id}`} size="sm">Set rate →</Anchor>
               </Group>
             </Card>
           ))}
