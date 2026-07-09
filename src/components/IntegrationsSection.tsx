@@ -1,4 +1,4 @@
-import { Badge, Button, Divider, Group, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
+import { Badge, Button, Divider, Group, PasswordInput, Select, Stack, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +13,11 @@ interface IntegrationSettings {
   s3_region: string | null;
   has_s3_secret: boolean;
   s3_configured: boolean;
+  sms_provider: string;
+  clicksend_username: string | null;
+  has_clicksend_api_key: boolean;
+  sms_sender_id: string | null;
+  sms_configured: boolean;
 }
 
 export function IntegrationsSection() {
@@ -25,6 +30,9 @@ export function IntegrationsSection() {
   const [token, setToken] = useState("");
   const [s3, setS3] = useState({ endpoint: "", accessKey: "", bucket: "", region: "" });
   const [s3Secret, setS3Secret] = useState("");
+  const [sms, setSms] = useState({ provider: "log", username: "", senderId: "" });
+  const [smsApiKey, setSmsApiKey] = useState("");
+  const [smsTestTo, setSmsTestTo] = useState("");
 
   // Seed the form from the server ONCE. Later refetches (window focus, or the
   // invalidate after a save) must not clobber in-progress edits.
@@ -38,6 +46,11 @@ export function IntegrationsSection() {
         accessKey: q.data.s3_access_key ?? "",
         bucket: q.data.s3_bucket ?? "",
         region: q.data.s3_region ?? "",
+      });
+      setSms({
+        provider: q.data.sms_provider || "log",
+        username: q.data.clicksend_username ?? "",
+        senderId: q.data.sms_sender_id ?? "",
       });
     }
   }, [q.data]);
@@ -74,6 +87,21 @@ export function IntegrationsSection() {
       }),
     onSuccess: () => {
       setS3Secret("");
+      afterSave();
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const saveSmsM = useMutation({
+    mutationFn: () =>
+      api.put("/settings/integrations", {
+        sms_provider: sms.provider,
+        clicksend_username: sms.username.trim(),
+        sms_sender_id: sms.senderId.trim(),
+        clicksend_api_key: smsApiKey.trim() || null, // blank keeps the stored key
+      }),
+    onSuccess: () => {
+      setSmsApiKey("");
       afterSave();
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
@@ -124,8 +152,19 @@ export function IntegrationsSection() {
       }),
   });
 
+  // SMS: send a test via the SAVED active provider (Log logs it; ClickSend sends).
+  const smsTestM = useMutation({
+    mutationFn: () =>
+      api.post<{ ok: boolean; detail: string }>("/settings/integrations/sms/test", {
+        to: smsTestTo.trim(),
+      }),
+    onSuccess: showResult,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
   const weatherConfigured = !!q.data?.weatherflow_station_id && !!q.data?.has_weatherflow_token;
   const s3Configured = !!q.data?.s3_configured;
+  const smsConfigured = !!q.data?.sms_configured;
 
   return (
     <Stack gap="sm">
@@ -191,6 +230,49 @@ export function IntegrationsSection() {
         “Test connection” checks the server can reach the bucket; “Test browser upload” does a real
         upload + read-back from this browser to catch a CORS misconfiguration.
       </Text>
+      <Divider my="sm" />
+
+      <Group gap="xs">
+        <Text fw={600}>SMS</Text>
+        {q.data && (
+          <Badge color={sms.provider === "clicksend" ? (q.data.sms_configured ? "teal" : "gray") : "blue"} variant="light">
+            {sms.provider === "clicksend" ? (q.data.sms_configured ? "Configured" : "Not configured") : "Log (dev)"}
+          </Badge>
+        )}
+      </Group>
+      <Text size="sm" c="dimmed">
+        Sends text messages (e.g. sign-in codes, reminders). The <b>Log</b> provider records
+        each message to the server log without sending — handy for development. <b>ClickSend</b>
+        sends live via the ClickSend API. The API key is stored encrypted and never leaves the server.
+      </Text>
+      <Select label="Provider" w={280} data={[
+        { value: "log", label: "Log (development — records, doesn't send)" },
+        { value: "clicksend", label: "ClickSend (live)" },
+      ]} value={sms.provider} onChange={(v) => setSms({ ...sms, provider: v || "log" })} allowDeselect={false} />
+      {sms.provider === "clicksend" && (
+        <>
+          <Group grow>
+            <TextInput label="ClickSend username" value={sms.username} placeholder="your ClickSend login"
+              onChange={(e) => setSms({ ...sms, username: e.currentTarget.value })} />
+            <TextInput label="Sender ID" value={sms.senderId} maxLength={11} placeholder="e.g. TamanKuda"
+              onChange={(e) => setSms({ ...sms, senderId: e.currentTarget.value })}
+              description="Max 11 chars. Must be registered with ACMA, or messages show an “Unverified” sender." />
+          </Group>
+          <PasswordInput label="API key" w={360} value={smsApiKey}
+            onChange={(e) => setSmsApiKey(e.currentTarget.value)}
+            placeholder={q.data?.has_clicksend_api_key ? "•••••••• (saved — leave blank to keep)" : "Paste the ClickSend API key"} />
+        </>
+      )}
+      <Group align="flex-end">
+        <Button loading={saveSmsM.isPending} onClick={() => saveSmsM.mutate()}>Save SMS</Button>
+        <TextInput label="Send test to" w={220} value={smsTestTo} placeholder="0412 345 678"
+          onChange={(e) => setSmsTestTo(e.currentTarget.value)} />
+        <Button variant="light" loading={smsTestM.isPending} disabled={!smsConfigured || !smsTestTo.trim()}
+          onClick={() => smsTestM.mutate()}>Send test SMS</Button>
+      </Group>
+      {!smsConfigured
+        ? <Text size="xs" c="dimmed">Save the ClickSend username and API key first to enable the test send.</Text>
+        : sms.provider === "log" && <Text size="xs" c="dimmed">Log provider: the test is written to the server log, not actually sent.</Text>}
     </Stack>
   );
 }
