@@ -13,7 +13,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconSettings } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconDeviceMobile, IconSettings } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -54,6 +54,7 @@ export function TerminalsSection() {
   const [name, setName] = useState("");
   const [type, setType] = useState<string>("checkin");
   const [settingsFor, setSettingsFor] = useState<Terminal | null>(null);
+  const [setupFor, setSetupFor] = useState<Terminal | null>(null);
 
   const q = useQuery({
     queryKey: ["terminals"],
@@ -81,8 +82,10 @@ export function TerminalsSection() {
   return (
     <Stack>
       <Text size="sm" c="dimmed">
-        Register a kiosk device, then open its <b>Setup link</b> once on that device.
-        The device is locked to its terminal type; staff use their PIN to check in.
+        Register a kiosk device, then provision it: open <b>/terminal</b> on the device
+        and enter a one-time <b>setup code</b> from “Set up device”. The device then
+        remembers itself. The old <b>Setup link</b> still works as a fallback. Each
+        device is locked to its terminal type; staff use their PIN to check in.
       </Text>
 
       <Group align="flex-end">
@@ -121,9 +124,13 @@ export function TerminalsSection() {
                 </Text>
               </div>
               <Group gap="xs">
+                <Button size="xs" variant="light" leftSection={<IconDeviceMobile size={14} />}
+                  onClick={() => setSetupFor(t)}>
+                  Set up device
+                </Button>
                 <CopyButton value={setupUrl(t)}>
                   {({ copied, copy }) => (
-                    <Button size="xs" variant="light" leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                    <Button size="xs" variant="subtle" leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
                       onClick={copy}>
                       {copied ? "Copied" : "Copy setup link"}
                     </Button>
@@ -144,7 +151,67 @@ export function TerminalsSection() {
       {settingsFor && (
         <TerminalSettingsModal terminal={settingsFor} onClose={() => setSettingsFor(null)} />
       )}
+      {setupFor && (
+        <SetupCodeModal terminal={setupFor} onClose={() => setSetupFor(null)} />
+      )}
     </Stack>
+  );
+}
+
+function SetupCodeModal({ terminal, onClose }: { terminal: Terminal; onClose: () => void }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const gen = useMutation({
+    mutationFn: () => api.post<{ code: string; expires_at: string; terminal_id: number }>(
+      `/terminals/${terminal.id}/setup-code`,
+    ),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  // Mint a code on open.
+  useEffect(() => {
+    gen.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const code = gen.data?.code;
+  const expiresMs = gen.data ? Date.parse(gen.data.expires_at) : null;
+  const secsLeft = expiresMs ? Math.max(0, Math.floor((expiresMs - now) / 1000)) : null;
+  const expired = secsLeft === 0;
+
+  return (
+    <Modal opened onClose={onClose} title={`Set up ${terminal.name}`} centered>
+      <Stack align="center">
+        <Text size="sm" c="dimmed" ta="center">
+          On the device, open <b>/terminal</b> and enter this code to link it. The code
+          is single-use and expires shortly.
+        </Text>
+        {gen.isPending && !code ? (
+          <Text c="dimmed">Generating…</Text>
+        ) : code ? (
+          <>
+            <Text fz={48} fw={800} style={{ letterSpacing: 8, opacity: expired ? 0.4 : 1 }}>
+              {code}
+            </Text>
+            <Text size="sm" c={expired ? "red" : "dimmed"}>
+              {expired
+                ? "Expired — generate a new one."
+                : `Expires in ${Math.floor((secsLeft ?? 0) / 60)}:${String((secsLeft ?? 0) % 60).padStart(2, "0")}`}
+            </Text>
+          </>
+        ) : (
+          <Text c="red">Couldn't generate a code.</Text>
+        )}
+        <Group justify="space-between" w="100%">
+          <Button variant="light" loading={gen.isPending} onClick={() => gen.mutate()}>
+            {expired ? "Generate new code" : "Regenerate"}
+          </Button>
+          <Button variant="default" onClick={onClose}>Done</Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 

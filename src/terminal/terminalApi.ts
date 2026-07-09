@@ -156,8 +156,16 @@ async function treq<T>(method: string, path: string, body?: unknown): Promise<T>
   return (await res.json()) as T;
 }
 
+export interface RedeemResult {
+  token: string;
+  name: string;
+  terminal_type: TerminalType;
+}
+
 export const terminalApi = {
   config: () => treq<TerminalConfig>("GET", "/config"),
+  redeemSetupCode: (code: string) =>
+    treq<RedeemResult>("POST", "/redeem-setup-code", { code }),
   scheduleDisplay: () => treq<ScheduleDisplay>("GET", "/schedule"),
   roster: () => treq<RosterPerson[]>("GET", "/roster"),
   session: (person_id: number, pin: string) =>
