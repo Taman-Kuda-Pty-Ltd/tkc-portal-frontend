@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   Center,
-  Checkbox,
   Group,
   Loader,
   NumberInput,
@@ -15,6 +14,7 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
   Textarea,
   TextInput,
@@ -624,6 +624,25 @@ function AdhocTaskCard({
   );
 }
 
+type NoteRow = {
+  id: string;
+  kind: "student" | "horse";
+  ref_id: number | null;
+  subject: string | null;
+  body: string;
+  flagged: boolean;
+  fixed: boolean; // a default row (subject not editable) vs. one the coach added
+};
+type LessonState = {
+  ran: "yes" | "no" | null; // Did you run this lesson?
+  notRunReason: string;
+  absent: number[];
+  type: string;
+  earlyReason: string;
+  lessonNote: string;
+  notes: NoteRow[];
+};
+
 function LessonStatusPill({ starts, ends, now }: { starts: string; ends: string; now: number }) {
   const n = dayjs(now);
   if (n.isAfter(dayjs(ends))) return null;
@@ -648,10 +667,30 @@ function CoachingSection({
 }) {
   const now = useNow();
   const coaching = session.coaching_attendance;
-  const [state, setState] = useState<Record<number, { delivered: boolean; absent: number[]; notes: string; type: string; earlyReason: string }>>(
-    Object.fromEntries(
-      session.lessons.map((l) => [l.shift_id, { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id), earlyReason: "" }]),
-    ),
+
+  const initLesson = (l: ShiftBrief): LessonState => {
+    const rows: NoteRow[] = [];
+    // Single rider → offer one student + one horse note row by default; a multi-
+    // student lesson starts empty and uses "＋ Add note".
+    if (l.rider_details.length === 1) {
+      const rd = l.rider_details[0];
+      const [studentName, horseName] = rd.label.split(/ on /);
+      rows.push({ id: `s${rd.student_id}`, kind: "student", ref_id: rd.student_id, subject: studentName, body: "", flagged: false, fixed: true });
+      if (horseName) rows.push({ id: `h${rd.student_id}`, kind: "horse", ref_id: null, subject: horseName, body: "", flagged: false, fixed: true });
+    }
+    return {
+      ran: l.completed ? "yes" : null,
+      notRunReason: "",
+      absent: [],
+      type: String(l.activity_id),
+      earlyReason: "",
+      lessonNote: "",
+      notes: rows,
+    };
+  };
+
+  const [state, setState] = useState<Record<number, LessonState>>(
+    Object.fromEntries(session.lessons.map((l) => [l.shift_id, initLesson(l)])),
   );
   // Keep a state entry for every current lesson (session can refresh after check-in).
   useEffect(() => {
@@ -660,13 +699,14 @@ function CoachingSection({
       let changed = false;
       for (const l of session.lessons) {
         if (!next[l.shift_id]) {
-          next[l.shift_id] = { delivered: l.completed, absent: [], notes: "", type: String(l.activity_id), earlyReason: "" };
+          next[l.shift_id] = initLesson(l);
           changed = true;
         }
       }
       return changed ? next : s;
     });
   }, [session.lessons]);
+
   const lessonTypesQ = useQuery({
     queryKey: ["terminal-activities"],
     queryFn: () => terminalApi.activities(),
@@ -693,6 +733,8 @@ function CoachingSection({
 
   const checkedIn = coaching?.status === "checked_in";
   const done = coaching?.status === "checked_out";
+  const patch = (shiftId: number, p: Partial<LessonState>) =>
+    setState((s) => ({ ...s, [shiftId]: { ...s[shiftId], ...p } }));
   const toggleAbsent = (shiftId: number, studentId: number, absent: boolean) =>
     setState((s) => {
       const cur = s[shiftId];
@@ -700,6 +742,15 @@ function CoachingSection({
       absent ? set.add(studentId) : set.delete(studentId);
       return { ...s, [shiftId]: { ...cur, absent: [...set] } };
     });
+  const setRows = (shiftId: number, rows: NoteRow[]) => patch(shiftId, { notes: rows });
+
+  const checkoutDisabled = session.lessons.some((l) => {
+    const st = state[l.shift_id];
+    if (!st || st.ran === null) return true; // must answer Did you run this?
+    if (st.ran === "no" && !st.notRunReason.trim()) return true; // reason required
+    if (st.ran === "yes" && dayjs(now).isBefore(dayjs(l.starts_at)) && !st.earlyReason.trim()) return true;
+    return false;
+  });
 
   return (
     <Card withBorder padding="lg">
@@ -710,87 +761,183 @@ function CoachingSection({
       </Group>
 
       <Stack gap="sm">
-        {session.lessons.map((l) => (
-          <Card key={l.shift_id} withBorder radius="md" p="md" bg="var(--mantine-color-default)">
-            <Group justify="space-between" align="flex-start" wrap="nowrap">
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Rider + horse are the loud element */}
-                {l.riders.length > 0 ? (
-                  <Group gap={8} mb={6}>
-                    {l.riders.map((r, i) => (
-                      <Badge key={i} size="lg" variant="light" color="teal"
-                        styles={{ label: { textTransform: "none", fontSize: 15 } }}>
-                        {r.replace(/ on /, " · ")}
-                      </Badge>
-                    ))}
-                  </Group>
-                ) : (
-                  <Text fw={700} size="lg" mb={6}>{l.title || "Lesson"}</Text>
-                )}
-                {/* Time is the anchor */}
-                <Text fw={700} size="lg">{fmtTime(l.starts_at, timeFormat)}</Text>
-                {/* Facility drops to a caption */}
-                {l.facility_name && (
-                  <Text size="sm" c="dimmed">{l.facility_name}</Text>
-                )}
-              </div>
-              <Stack gap={6} align="flex-end">
-                <LessonStatusPill starts={l.starts_at} ends={l.ends_at} now={now} />
-                {done && l.completed && <Badge color="teal">Delivered</Badge>}
-              </Stack>
-            </Group>
-            {checkedIn && (
-              <Stack gap="xs" mt="sm">
-                <Checkbox
-                  size="md"
-                  label="I coached this lesson"
-                  checked={state[l.shift_id]?.delivered ?? false}
-                  onChange={(e) =>
-                    setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], delivered: e.currentTarget.checked } }))
-                  }
-                />
-                {(state[l.shift_id]?.delivered ?? false) && l.rider_details.length > 0 && (
+        {session.lessons.map((l) => {
+          const st = state[l.shift_id];
+          const studentOptions = l.rider_details.map((r) => ({
+            value: String(r.student_id),
+            label: r.label.split(/ on /)[0],
+          }));
+          return (
+            <Card key={l.shift_id} withBorder radius="md" p="md" bg="var(--mantine-color-default)">
+              <Group justify="space-between" align="flex-start" wrap="nowrap">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {l.riders.length > 0 ? (
+                    <Group gap={8} mb={6}>
+                      {l.riders.map((r, i) => (
+                        <Badge key={i} size="lg" variant="light" color="teal"
+                          styles={{ label: { textTransform: "none", fontSize: 15 } }}>
+                          {r.replace(/ on /, " · ")}
+                        </Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text fw={700} size="lg" mb={6}>{l.title || "Lesson"}</Text>
+                  )}
+                  <Text fw={700} size="lg">{fmtTime(l.starts_at, timeFormat)}</Text>
+                  {l.facility_name && <Text size="sm" c="dimmed">{l.facility_name}</Text>}
+                </div>
+                <Stack gap={6} align="flex-end">
+                  <LessonStatusPill starts={l.starts_at} ends={l.ends_at} now={now} />
+                  {done && l.completed && <Badge color="teal">Delivered</Badge>}
+                </Stack>
+              </Group>
+
+              {checkedIn && st && (
+                <Stack gap="sm" mt="md">
                   <div>
-                    <Text size="sm" c="dimmed">Tick any student who didn't show:</Text>
-                    {l.rider_details.map((r) => (
-                      <Checkbox key={r.student_id} size="sm" mt={4}
-                        label={`${r.label} — absent`}
-                        checked={state[l.shift_id]?.absent.includes(r.student_id) ?? false}
-                        onChange={(e) => toggleAbsent(l.shift_id, r.student_id, e.currentTarget.checked)} />
-                    ))}
+                    <Text size="sm" fw={600} mb={4}>Did you run this lesson?</Text>
+                    <SegmentedControl
+                      value={st.ran ?? ""}
+                      onChange={(v) => patch(l.shift_id, { ran: v as "yes" | "no" })}
+                      data={[
+                        { label: "Yes", value: "yes" },
+                        { label: "No / didn't happen", value: "no" },
+                      ]}
+                    />
                   </div>
-                )}
-                {(state[l.shift_id]?.delivered ?? false) && lessonTypeOptions.length > 0 && (
-                  <Select label="Lesson type" description="Change only if it wasn't the booked type — a manager reviews it."
-                    data={lessonTypeOptions}
-                    value={lessonTypeOptions.some((o) => o.value === state[l.shift_id]?.type) ? state[l.shift_id]?.type : null}
-                    onChange={(v) => v && setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], type: v } }))}
-                    comboboxProps={{ withinPortal: true }} allowDeselect={false} />
-                )}
-                {(state[l.shift_id]?.delivered ?? false) && dayjs(now).isBefore(dayjs(l.starts_at)) && (
-                  <Textarea
-                    label="Reason for finishing early (required)"
-                    description={`This lesson isn't due to start until ${fmtTime(l.starts_at, timeFormat)}.`}
-                    value={state[l.shift_id]?.earlyReason ?? ""}
-                    autosize minRows={2} size="md"
-                    onChange={(e) =>
-                      setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], earlyReason: e.currentTarget.value } }))
-                    }
-                  />
-                )}
-                <Textarea
-                  placeholder="Horse / training notes (optional)"
-                  value={state[l.shift_id]?.notes ?? ""}
-                  autosize
-                  minRows={1}
-                  onChange={(e) =>
-                    setState((s) => ({ ...s, [l.shift_id]: { ...s[l.shift_id], notes: e.currentTarget.value } }))
-                  }
-                />
-              </Stack>
-            )}
-          </Card>
-        ))}
+
+                  {st.ran === "no" && (
+                    <Textarea
+                      label="What happened? (required)"
+                      description="A manager will see this."
+                      value={st.notRunReason} autosize minRows={2} size="md"
+                      onChange={(e) => patch(l.shift_id, { notRunReason: e.currentTarget.value })}
+                    />
+                  )}
+
+                  {st.ran === "yes" && (
+                    <>
+                      {dayjs(now).isBefore(dayjs(l.starts_at)) && (
+                        <Textarea
+                          label="Reason for finishing early (required)"
+                          description={`This lesson isn't due to start until ${fmtTime(l.starts_at, timeFormat)}.`}
+                          value={st.earlyReason} autosize minRows={2} size="md"
+                          onChange={(e) => patch(l.shift_id, { earlyReason: e.currentTarget.value })}
+                        />
+                      )}
+                      {l.rider_details.length > 0 && (
+                        <div>
+                          <Text size="sm" fw={600} mb={4}>Attendance</Text>
+                          {l.rider_details.map((r) => {
+                            const absent = st.absent.includes(r.student_id);
+                            return (
+                              <Group key={r.student_id} justify="space-between" wrap="nowrap" mt={4}>
+                                <Text size="sm">{r.label.split(/ on /)[0]}</Text>
+                                <SegmentedControl size="xs"
+                                  value={absent ? "absent" : "attended"}
+                                  onChange={(v) => toggleAbsent(l.shift_id, r.student_id, v === "absent")}
+                                  data={[
+                                    { label: "Attended", value: "attended" },
+                                    { label: "Absent", value: "absent" },
+                                  ]}
+                                />
+                              </Group>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <Textarea
+                        label="Lesson note"
+                        placeholder="Overall note on the lesson (optional)"
+                        value={st.lessonNote} autosize minRows={1}
+                        onChange={(e) => patch(l.shift_id, { lessonNote: e.currentTarget.value })}
+                      />
+
+                      {st.notes.map((row, idx) => (
+                        <Card key={row.id} withBorder radius="sm" p="sm">
+                          <Group justify="space-between" wrap="nowrap" mb={4}>
+                            <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                              <Badge variant="light" color={row.kind === "horse" ? "orange" : "teal"}>
+                                {row.kind === "horse" ? "Horse" : "Student"}
+                              </Badge>
+                              {row.fixed ? (
+                                <Text size="sm" fw={600}>{row.subject}</Text>
+                              ) : row.kind === "student" ? (
+                                <Select size="xs" placeholder="Student" data={studentOptions}
+                                  value={row.ref_id ? String(row.ref_id) : null}
+                                  onChange={(v) => {
+                                    const opt = studentOptions.find((o) => o.value === v);
+                                    const rows = [...st.notes];
+                                    rows[idx] = { ...row, ref_id: v ? Number(v) : null, subject: opt?.label ?? null };
+                                    setRows(l.shift_id, rows);
+                                  }}
+                                  comboboxProps={{ withinPortal: true }} style={{ flex: 1 }} />
+                              ) : (
+                                <TextInput size="xs" placeholder="Horse name"
+                                  value={row.subject ?? ""}
+                                  onChange={(e) => {
+                                    const rows = [...st.notes];
+                                    rows[idx] = { ...row, subject: e.currentTarget.value };
+                                    setRows(l.shift_id, rows);
+                                  }}
+                                  style={{ flex: 1 }} />
+                              )}
+                            </Group>
+                            {!row.fixed && (
+                              <ActionIcon color="red" variant="subtle" aria-label="Remove note"
+                                onClick={() => setRows(l.shift_id, st.notes.filter((_, i) => i !== idx))}>
+                                <IconX size={16} />
+                              </ActionIcon>
+                            )}
+                          </Group>
+                          <Textarea placeholder="Note" value={row.body} autosize minRows={1}
+                            onChange={(e) => {
+                              const rows = [...st.notes];
+                              rows[idx] = { ...row, body: e.currentTarget.value };
+                              setRows(l.shift_id, rows);
+                            }} />
+                          <Switch mt="xs" size="sm" label="Flag for management"
+                            checked={row.flagged}
+                            onChange={(e) => {
+                              const rows = [...st.notes];
+                              rows[idx] = { ...row, flagged: e.currentTarget.checked };
+                              setRows(l.shift_id, rows);
+                            }} />
+                        </Card>
+                      ))}
+
+                      <Group gap="xs">
+                        <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
+                          onClick={() => setRows(l.shift_id, [
+                            ...st.notes,
+                            { id: `st${Date.now()}`, kind: "student", ref_id: null, subject: null, body: "", flagged: false, fixed: false },
+                          ])}>
+                          Student note
+                        </Button>
+                        <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
+                          onClick={() => setRows(l.shift_id, [
+                            ...st.notes,
+                            { id: `ho${Date.now()}`, kind: "horse", ref_id: null, subject: null, body: "", flagged: false, fixed: false },
+                          ])}>
+                          Horse note
+                        </Button>
+                      </Group>
+
+                      {lessonTypeOptions.length > 0 && (
+                        <Select label="Lesson type" description="Change only if it wasn't the booked type — a manager reviews it."
+                          data={lessonTypeOptions}
+                          value={lessonTypeOptions.some((o) => o.value === st.type) ? st.type : null}
+                          onChange={(v) => v && patch(l.shift_id, { type: v })}
+                          comboboxProps={{ withinPortal: true }} allowDeselect={false} />
+                      )}
+                    </>
+                  )}
+                </Stack>
+              )}
+            </Card>
+          );
+        })}
       </Stack>
 
       {error && <Text c="red" mt="sm">{error}</Text>}
@@ -802,29 +949,38 @@ function CoachingSection({
         </Button>
       )}
       {checkedIn && (
-        <Button mt="md" size="xl" fullWidth color="orange" loading={busy}
-          disabled={session.lessons.some(
-            (l) =>
-              (state[l.shift_id]?.delivered ?? false) &&
-              dayjs(now).isBefore(dayjs(l.starts_at)) &&
-              !(state[l.shift_id]?.earlyReason ?? "").trim(),
-          )}
+        <Button mt="md" size="xl" fullWidth color="orange" loading={busy} disabled={checkoutDisabled}
           onClick={() =>
             run(() =>
               terminalApi.coachCheckOut(
                 session.person_id,
                 pin,
-                session.lessons.map((l) => ({
-                  shift_id: l.shift_id,
-                  delivered: state[l.shift_id]?.delivered ?? false,
-                  absent_student_ids: state[l.shift_id]?.absent ?? [],
-                  proposed_activity_id:
-                    state[l.shift_id]?.type && Number(state[l.shift_id].type) !== l.activity_id
-                      ? Number(state[l.shift_id].type)
-                      : null,
-                  notes: state[l.shift_id]?.notes?.trim() || null,
-                  early_reason: state[l.shift_id]?.earlyReason?.trim() || null,
-                })),
+                session.lessons.map((l) => {
+                  const st = state[l.shift_id];
+                  const yes = st?.ran === "yes";
+                  return {
+                    shift_id: l.shift_id,
+                    delivered: yes,
+                    not_run_reason: st?.ran === "no" ? st.notRunReason.trim() : null,
+                    absent_student_ids: yes ? st?.absent ?? [] : [],
+                    proposed_activity_id:
+                      yes && st?.type && Number(st.type) !== l.activity_id ? Number(st.type) : null,
+                    lesson_note: yes ? st?.lessonNote.trim() || null : null,
+                    note_items: yes
+                      ? (st?.notes ?? [])
+                          .filter((n) => n.body.trim())
+                          .map((n) => ({
+                            kind: n.kind,
+                            ref_id: n.ref_id,
+                            subject: n.subject,
+                            body: n.body.trim(),
+                            flagged: n.flagged,
+                          }))
+                      : [],
+                    notes: null,
+                    early_reason: yes ? st?.earlyReason.trim() || null : null,
+                  };
+                }),
               ),
             )
           }>

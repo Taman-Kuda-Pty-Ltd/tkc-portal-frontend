@@ -72,9 +72,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const openQ = useQuery({ queryKey: ["open-att-count"], queryFn: () => api.get<number>("/attendance/open/count"), ...attn });
   const unratedQ = useQuery({ queryKey: ["unrated-count"], queryFn: () => api.get<number>("/reports/unrated-staff/count"), ...attn });
   const unonbQ = useQuery({ queryKey: ["unonboarded-count"], queryFn: () => api.get<number>("/shifts/unonboarded-assignees/count"), ...attn });
+  const flaggedQ = useQuery({ queryKey: ["flagged-notes-count"], queryFn: () => api.get<number>("/coach-notes/flagged/count"), ...attn });
   const pendingTotal =
     (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) + (lessonTypeQ.data ?? 0) +
-    (noShowQ.data ?? 0) + (openQ.data ?? 0) + (unratedQ.data ?? 0) + (unonbQ.data ?? 0);
+    (noShowQ.data ?? 0) + (openQ.data ?? 0) + (unratedQ.data ?? 0) + (unonbQ.data ?? 0) + (flaggedQ.data ?? 0);
 
   // FH-3: badge the Terminals nav with devices that opted into offline alerts and
   // haven't checked in recently.

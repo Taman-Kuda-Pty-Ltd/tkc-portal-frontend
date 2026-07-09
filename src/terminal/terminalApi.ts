@@ -86,11 +86,21 @@ export interface TerminalSession {
   lessons: ShiftBrief[];
   coaching_attendance: TerminalAttendance | null;
 }
+export interface CoachNoteItem {
+  kind: "student" | "horse";
+  ref_id: number | null;
+  subject: string | null;
+  body: string;
+  flagged: boolean;
+}
 export interface CoachLessonUpdate {
   shift_id: number;
   delivered: boolean;
+  not_run_reason?: string | null;
   absent_student_ids: number[];
   proposed_activity_id: number | null;
+  lesson_note?: string | null;
+  note_items?: CoachNoteItem[];
   notes: string | null;
   early_reason: string | null;
 }

@@ -75,6 +75,18 @@ interface LessonTypeChange {
   reason: string | null;
 }
 
+interface FlaggedNote {
+  id: number;
+  shift_id: number;
+  lesson_title: string | null;
+  activity_name: string | null;
+  starts_at: string | null;
+  category: string | null;
+  subject: string | null;
+  body: string;
+  author_name: string | null;
+}
+
 interface ShiftClash {
   shift_id: number;
   kind: "horse" | "coach";
@@ -125,6 +137,10 @@ export function ApprovalsPage() {
   const clashesQ = useQuery({
     queryKey: ["shift-clashes"],
     queryFn: () => api.get<ShiftClash[]>("/shifts/clashes"),
+  });
+  const flaggedQ = useQuery({
+    queryKey: ["flagged-notes"],
+    queryFn: () => api.get<FlaggedNote[]>("/coach-notes/flagged"),
   });
   const contractorNoRateQ = useQuery({
     queryKey: ["contractors-no-rate"],
@@ -191,6 +207,19 @@ export function ApprovalsPage() {
         <Text c="dimmed">Nothing to review.</Text>
       ) : (
         (ltQ.data ?? []).map((lt) => <LessonTypeChangeRow key={lt.id} item={lt} />)
+      )}
+
+      <Title order={4} mt="lg">Flagged lesson notes</Title>
+      <Text size="sm" c="dimmed">
+        Notes a coach flagged for you at check-out (a student, a horse, or a lesson that
+        didn't run). Acknowledge to clear.
+      </Text>
+      {flaggedQ.isLoading ? (
+        <Loader />
+      ) : (flaggedQ.data ?? []).length === 0 ? (
+        <Text c="dimmed">Nothing to review.</Text>
+      ) : (
+        (flaggedQ.data ?? []).map((n) => <FlaggedNoteRow key={n.id} item={n} />)
       )}
 
       {clashPairs.length > 0 && (
@@ -354,6 +383,43 @@ function LessonTypeChangeRow({ item }: { item: LessonTypeChange }) {
           </Group>
         </Stack>
       </Modal>
+    </Card>
+  );
+}
+
+function FlaggedNoteRow({ item }: { item: FlaggedNote }) {
+  const qc = useQueryClient();
+  const CAT_LABEL: Record<string, string> = {
+    student: "Student", horse: "Horse", not_run: "Didn't run", lesson: "Lesson", early_finish: "Early finish",
+  };
+  const ackM = useMutation({
+    mutationFn: () => api.post(`/coach-notes/${item.id}/acknowledge`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["flagged-notes"] });
+      qc.invalidateQueries({ queryKey: ["flagged-notes-count"] });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="wrap">
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <Group gap="xs">
+            <Badge color={item.category === "not_run" ? "red" : item.category === "horse" ? "orange" : "teal"} variant="light">
+              {CAT_LABEL[item.category ?? ""] ?? item.category ?? "Note"}
+            </Badge>
+            <Text fw={600}>{item.subject || item.lesson_title || item.activity_name || "Lesson"}</Text>
+          </Group>
+          <Text size="sm" c="dimmed">
+            {item.author_name ?? "—"} ·{" "}
+            {item.starts_at ? dayjs(item.starts_at).format("D MMM HH:mm") : "—"}
+          </Text>
+          <Text size="sm" mt={4} style={{ whiteSpace: "pre-wrap" }}>{item.body}</Text>
+        </div>
+        <Button variant="light" loading={ackM.isPending} onClick={() => ackM.mutate()}>
+          Acknowledge
+        </Button>
+      </Group>
     </Card>
   );
 }
