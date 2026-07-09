@@ -79,6 +79,16 @@ export interface TerminalActivity {
   name: string;
   is_lesson?: boolean;
 }
+export interface CoverableShift {
+  shift_id: number;
+  original_person_id: number;
+  original_name: string | null;
+  title: string | null;
+  activity_name: string | null;
+  starts_at: string;
+  ends_at: string;
+  already_covered: boolean;
+}
 export interface TerminalSession {
   person_id: number;
   display_name: string;
@@ -222,6 +232,18 @@ export const terminalApi = {
   ) =>
     treq<TerminalAttendance>("POST", "/adhoc-lesson-check-in", {
       person_id, pin, activity_id, title, facility_id, riders, replace_student_ids, reason,
+    }),
+  coverableShifts: (person_id: number, pin: string) =>
+    treq<CoverableShift[]>("POST", "/coverable-shifts", { person_id, pin }),
+  coverCheckIn: (
+    person_id: number,
+    pin: string,
+    shift_id: number,
+    original_person_id: number,
+    reason: string,
+  ) =>
+    treq<TerminalAttendance>("POST", "/cover-check-in", {
+      person_id, pin, shift_id, original_person_id, reason,
     }),
   coachCheckIn: (person_id: number, pin: string) =>
     treq<TerminalAttendance>("POST", "/coach-check-in", { person_id, pin }),

@@ -30,6 +30,7 @@ import { dateInBusinessTz, fmtTime, nowInBusinessTz, type TimeFormat } from "./t
 import {
   terminalApi,
   TerminalError,
+  type CoverableShift,
   type LessonClash,
   type RosterPerson,
   type ShiftBrief,
@@ -373,6 +374,12 @@ function PersonView({
         />
       )}
       <AdhocTaskCard personId={session.person_id} pin={pin} onRefresh={onRefresh} />
+      <CoverShiftCard
+        personId={session.person_id}
+        pin={pin}
+        timeFormat={timeFormat}
+        onRefresh={onRefresh}
+      />
       <ChangePinControl personId={session.person_id} pin={pin} />
     </Stack>
   );
@@ -622,6 +629,140 @@ function AdhocTaskCard({
               Log &amp; check in
             </Button>
           )}
+        </Group>
+      </Stack>
+    </Card>
+  );
+}
+
+function CoverShiftCard({
+  personId,
+  pin,
+  timeFormat,
+  onRefresh,
+}: {
+  personId: number;
+  pin: string;
+  timeFormat: TimeFormat;
+  onRefresh: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<CoverableShift | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [doneFor, setDoneFor] = useState<CoverableShift | null>(null);
+
+  const coverQ = useQuery({
+    queryKey: ["terminal-coverable", personId],
+    queryFn: () => terminalApi.coverableShifts(personId, pin),
+    enabled: open,
+  });
+
+  function resetAll() {
+    setOpen(false);
+    setPicked(null);
+    setReason("");
+    setError(null);
+  }
+
+  async function submit() {
+    if (!picked || !reason.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await terminalApi.coverCheckIn(personId, pin, picked.shift_id, picked.original_person_id, reason.trim());
+      setDoneFor(picked);
+      resetAll();
+      await onRefresh();
+    } catch (e) {
+      setError(e instanceof TerminalError ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Stack gap="xs">
+        {doneFor && (
+          <Text c="teal" ta="center">
+            You're now covering {doneFor.title || doneFor.activity_name || "the shift"}
+            {doneFor.original_name ? ` for ${doneFor.original_name}` : ""} — you're checked in.
+          </Text>
+        )}
+        <Button variant="light" size="lg" leftSection={<IconUsers size={18} />}
+          onClick={() => { setDoneFor(null); setOpen(true); }}>
+          Cover a colleague's shift
+        </Button>
+      </Stack>
+    );
+  }
+
+  const shifts = coverQ.data ?? [];
+  return (
+    <Card withBorder padding="lg">
+      <Stack>
+        <Text fw={700} size="lg">Cover a colleague's shift</Text>
+        <Text size="sm" c="dimmed">
+          Pick the shift you're covering and say why. You'll be checked in straight away;
+          a manager reviews it afterwards.
+        </Text>
+
+        {coverQ.isLoading ? (
+          <Center py="md"><Loader /></Center>
+        ) : shifts.length === 0 ? (
+          <Text c="dimmed">No other shifts to cover today.</Text>
+        ) : (
+          <Stack gap="xs">
+            {shifts.map((s) => {
+              const selected = picked?.shift_id === s.shift_id && picked?.original_person_id === s.original_person_id;
+              return (
+                <Card
+                  key={`${s.shift_id}-${s.original_person_id}`}
+                  withBorder
+                  radius="md"
+                  p="md"
+                  onClick={() => !s.already_covered && setPicked(s)}
+                  style={{
+                    cursor: s.already_covered ? "not-allowed" : "pointer",
+                    opacity: s.already_covered ? 0.55 : 1,
+                    borderColor: selected ? "var(--mantine-color-teal-6)" : undefined,
+                    borderWidth: selected ? 2 : undefined,
+                  }}
+                >
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ minWidth: 0 }}>
+                      <Text fw={700}>{s.title || s.activity_name || "Shift"}</Text>
+                      <Text size="sm" c="dimmed">
+                        {fmtTime(s.starts_at, timeFormat)}–{fmtTime(s.ends_at, timeFormat)}
+                        {s.original_name ? ` · ${s.original_name}` : ""}
+                      </Text>
+                    </div>
+                    {s.already_covered && <Badge color="gray" variant="light">Already covered</Badge>}
+                    {selected && <Badge color="teal">Selected</Badge>}
+                  </Group>
+                </Card>
+              );
+            })}
+          </Stack>
+        )}
+
+        {picked && (
+          <Textarea
+            label={`Why isn't ${picked.original_name || "the colleague"} doing this shift? (required)`}
+            description="Sent to a manager and to the colleague."
+            value={reason} autosize minRows={2} size="md"
+            onChange={(e) => setReason(e.currentTarget.value)}
+          />
+        )}
+
+        {error && <Text c="red">{error}</Text>}
+        <Group justify="space-between">
+          <Button variant="default" size="lg" onClick={resetAll}>Cancel</Button>
+          <Button size="lg" loading={busy} disabled={!picked || !reason.trim()} onClick={submit}>
+            Check in as cover
+          </Button>
         </Group>
       </Stack>
     </Card>
