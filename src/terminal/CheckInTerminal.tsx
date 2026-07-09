@@ -688,7 +688,10 @@ function CoverShiftCard({
         {doneFor && (
           <Text c="teal" ta="center">
             You're now covering {doneFor.title || doneFor.activity_name || "the shift"}
-            {doneFor.original_name ? ` for ${doneFor.original_name}` : ""} — you're checked in.
+            {doneFor.original_name ? ` for ${doneFor.original_name}` : ""} —{" "}
+            {doneFor.is_lesson
+              ? "you're checked in for coaching. Record it at check-out to be paid for the lesson."
+              : "you're checked in."}
           </Text>
         )}
         <Button variant="light" size="lg" leftSection={<IconUsers size={18} />}
@@ -706,7 +709,8 @@ function CoverShiftCard({
         <Text fw={700} size="lg">Cover a colleague's shift</Text>
         <Text size="sm" c="dimmed">
           Pick the shift you're covering and say why. You'll be checked in straight away;
-          a manager reviews it afterwards.
+          a manager reviews it afterwards. Covering a lesson takes over that coach's slot —
+          record it at check-out to be paid for the lesson.
         </Text>
 
         {coverQ.isLoading ? (
@@ -733,7 +737,12 @@ function CoverShiftCard({
                 >
                   <Group justify="space-between" wrap="nowrap">
                     <div style={{ minWidth: 0 }}>
-                      <Text fw={700}>{s.title || s.activity_name || "Shift"}</Text>
+                      <Group gap="xs" wrap="nowrap">
+                        <Text fw={700}>{s.title || s.activity_name || "Shift"}</Text>
+                        {s.is_lesson && (
+                          <Badge color="violet" variant="light">Lesson · coach cover</Badge>
+                        )}
+                      </Group>
                       <Text size="sm" c="dimmed">
                         {fmtTime(s.starts_at, timeFormat)}–{fmtTime(s.ends_at, timeFormat)}
                         {s.original_name ? ` · ${s.original_name}` : ""}

@@ -88,6 +88,7 @@ export interface CoverableShift {
   starts_at: string;
   ends_at: string;
   already_covered: boolean;
+  is_lesson: boolean;
 }
 export interface TerminalSession {
   person_id: number;
