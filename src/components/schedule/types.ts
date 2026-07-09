@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import type { Activity, ActivityHeading, Person, Shift, ShiftClash } from "../../api/types";
 import type { TimeFormat } from "../../settings/SettingsContext";
@@ -70,6 +71,47 @@ export interface ShiftVisual {
   fillColor: "red" | "yellow" | "teal";
 }
 
+/** Two-letter initials for a person, preferring given+family, else parsing the
+ *  display name. Used by the dynamic groom/coach abbreviations (ABBR-1). */
+function personInitials(p: Person | undefined, fallbackName: string | null): string {
+  if (p) {
+    const init = ((p.given_name?.trim()[0] ?? "") + (p.family_name?.trim()[0] ?? "")).toUpperCase();
+    if (init) return init;
+  }
+  const name = (p?.full_name ?? fallbackName ?? "").trim();
+  if (!name) return "";
+  const parts = name.split(/\s+/);
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+/** ABBR-1: derive a compact abbreviation live from the activity + current state
+ *  (assignment / start time), used when the shift has no manual abbreviation.
+ *   - Groom      → initials of the assigned groom, else "GROOM"
+ *   - Stablehand → "AM"/"PM" by start time
+ *   - Lesson     → initials of the (lead) coach, else "L"
+ *   - Other      → the activity's configured abbreviation, else "OTR"
+ *  Never persisted — recomputed at render so it tracks assignment changes. */
+export function autoAbbr(shift: Shift, activity: Activity | undefined, ctx: ScheduleCtx): string {
+  const slug = activity?.slug;
+  if (slug === "stablehand") {
+    return dayjs(shift.starts_at).hour() < 12 ? "AM" : "PM";
+  }
+  if (slug === "groom") {
+    const a = shift.assignments[0];
+    const init = a ? personInitials(ctx.personById.get(a.person_id), a.person_name) : "";
+    return init || "GROOM";
+  }
+  if (activity?.is_lesson || slug === "lesson") {
+    const coach =
+      shift.assignments.find((a) => a.coach_kind === "primary") ?? shift.assignments[0];
+    const init = coach ? personInitials(ctx.personById.get(coach.person_id), coach.person_name) : "";
+    return init || "L";
+  }
+  return activity?.abbreviation || "OTR";
+}
+
 export function shiftVisual(shift: Shift, ctx: ScheduleCtx): ShiftVisual {
   const activity = ctx.activityById.get(shift.activity_id);
   const headings = (activity?.headings ?? []).filter((h) => h.is_active);
@@ -81,7 +123,8 @@ export function shiftVisual(shift: Shift, ctx: ScheduleCtx): ShiftVisual {
   return {
     color: activity?.color ?? "#2f855a",
     label,
-    abbr: shift.abbreviation || activity?.abbreviation || label,
+    // Manual abbreviation overrides; otherwise derive it live (ABBR-1).
+    abbr: shift.abbreviation || autoAbbr(shift, activity, ctx),
     assigned,
     needed,
     fillColor: assigned === 0 ? "red" : assigned < needed ? "yellow" : "teal",
