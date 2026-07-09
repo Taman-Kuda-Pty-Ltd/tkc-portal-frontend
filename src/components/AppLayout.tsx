@@ -73,9 +73,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const unratedQ = useQuery({ queryKey: ["unrated-count"], queryFn: () => api.get<number>("/reports/unrated-staff/count"), ...attn });
   const unonbQ = useQuery({ queryKey: ["unonboarded-count"], queryFn: () => api.get<number>("/shifts/unonboarded-assignees/count"), ...attn });
   const flaggedQ = useQuery({ queryKey: ["flagged-notes-count"], queryFn: () => api.get<number>("/coach-notes/flagged/count"), ...attn });
-  const pendingTotal =
-    (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) + (lessonTypeQ.data ?? 0) +
-    (noShowQ.data ?? 0) + (openQ.data ?? 0) + (unratedQ.data ?? 0) + (unonbQ.data ?? 0) + (flaggedQ.data ?? 0);
+  // APPR-1: split the single nav count into two badges matching the Approvals &
+  // attention bands — red = approvals (needs a decision/action), amber = attention
+  // (heads-up). Flagged notes sit in the "Needs action" band, so count as approvals.
+  const approvalsCount =
+    (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) +
+    (lessonTypeQ.data ?? 0) + (flaggedQ.data ?? 0);
+  const attentionCount =
+    (noShowQ.data ?? 0) + (openQ.data ?? 0) + (unratedQ.data ?? 0) + (unonbQ.data ?? 0);
 
   // FH-3: badge the Terminals nav with devices that opted into offline alerts and
   // haven't checked in recently.
@@ -88,8 +93,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const terminalsOffline = (terminalsQ.data ?? []).filter(
     (t) => t.is_active && t.alert_when_offline && !terminalOnline(t),
   ).length;
-  const badgeFor = (to: string): number =>
-    to === "/approvals" ? pendingTotal : to === "/terminals" ? terminalsOffline : 0;
+  // Badges per nav item: Approvals shows two (approvals + attention), Terminals one.
+  const navBadges = (to: string): { count: number; color: string }[] => {
+    if (to === "/approvals")
+      return [
+        { count: approvalsCount, color: "red" },
+        { count: attentionCount, color: "yellow" },
+      ].filter((b) => b.count > 0);
+    if (to === "/terminals" && terminalsOffline > 0)
+      return [{ count: terminalsOffline, color: "orange" }];
+    return [];
+  };
 
   // Someone with no staff capabilities (e.g. a school client) has nowhere to go in
   // the staff app yet — show a friendly screen instead of empty/broken pages.
@@ -153,10 +167,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
               label={n.label}
               leftSection={<n.icon size={18} />}
               rightSection={
-                badgeFor(n.to) > 0 ? (
-                  <Badge size="sm" color={n.to === "/terminals" ? "orange" : "red"} variant="filled">
-                    {badgeFor(n.to)}
-                  </Badge>
+                navBadges(n.to).length > 0 ? (
+                  <Group gap={4} wrap="nowrap">
+                    {navBadges(n.to).map((b) => (
+                      <Badge key={b.color} size="sm" color={b.color} variant="filled">
+                        {b.count}
+                      </Badge>
+                    ))}
+                  </Group>
                 ) : undefined
               }
               active={location.pathname.startsWith(n.to)}
