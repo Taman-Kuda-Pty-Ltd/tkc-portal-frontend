@@ -87,6 +87,15 @@ interface FlaggedNote {
   author_name: string | null;
 }
 
+interface HorseCareDue {
+  horse_id: number;
+  horse_name: string;
+  care_type: string;
+  last_done: string | null;
+  next_due: string | null;
+  is_overdue: boolean;
+}
+
 interface ShiftClash {
   shift_id: number;
   kind: "horse" | "coach";
@@ -145,6 +154,10 @@ export function ApprovalsPage() {
   const contractorNoRateQ = useQuery({
     queryKey: ["contractors-no-rate"],
     queryFn: () => api.get<{ person_id: number; name: string }[]>("/reports/contractors-no-rate"),
+  });
+  const careDueQ = useQuery({
+    queryKey: ["horse-care-due"],
+    queryFn: () => api.get<HorseCareDue[]>("/horses/care-due"),
   });
   // Each clash is reported twice (once per direction) — keep one row per pair.
   const clashPairs = (clashesQ.data ?? []).filter((c) => c.shift_id < c.other_shift_id);
@@ -325,6 +338,34 @@ export function ApprovalsPage() {
                   {" — "}{n.title || n.activity_name} · {dayjs(n.starts_at).format("ddd D MMM, HH:mm")}
                 </Text>
                 <Badge color="yellow" variant="light">Invited</Badge>
+              </Group>
+            </Card>
+          ))}
+        </>
+      )}
+
+      {(careDueQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg" c="orange">Horse care due</Title>
+          <Text size="sm" c="dimmed">
+            Worming is due soon or overdue for these horses. Record the treatment on the horse's record.
+          </Text>
+          {(careDueQ.data ?? []).map((c) => (
+            <Card key={`${c.horse_id}-${c.care_type}`} withBorder>
+              <Group justify="space-between" wrap="wrap">
+                <div>
+                  <Group gap="xs">
+                    <Anchor component={Link} to={`/horses/${c.horse_id}`} fw={600}>{c.horse_name}</Anchor>
+                    <Badge color={c.is_overdue ? "red" : "orange"} variant="light">
+                      {c.is_overdue ? "Overdue" : "Due soon"}
+                    </Badge>
+                  </Group>
+                  <Text size="sm" c="dimmed">
+                    Worming{c.next_due ? ` · due ${dayjs(c.next_due).format("D MMM YYYY")}` : ""}
+                    {c.last_done ? ` · last done ${dayjs(c.last_done).format("D MMM YYYY")}` : ""}
+                  </Text>
+                </div>
+                <Anchor component={Link} to={`/horses/${c.horse_id}`} size="sm">Record →</Anchor>
               </Group>
             </Card>
           ))}
