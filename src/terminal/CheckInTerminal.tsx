@@ -25,6 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { RichTextView } from "../components/RichText";
+import { WeatherStrip } from "./WeatherStrip";
 import { dateInBusinessTz, fmtTime, nowInBusinessTz, type TimeFormat } from "./timeFormat";
 import {
   terminalApi,
@@ -172,7 +173,8 @@ export function CheckInTerminal({
   const others = roster.filter((p) => !p.has_shift && p.status === "off");
 
   return (
-    <Stack p="xl" gap="lg" mih="100vh">
+    <Box style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <Stack p="xl" gap="lg" style={{ flex: 1 }}>
       <Group justify="space-between" align="flex-start">
         <div>
           <Title order={2}>{name}</Title>
@@ -236,7 +238,9 @@ export function CheckInTerminal({
           )}
         </Stack>
       )}
-    </Stack>
+      </Stack>
+      <WeatherStrip timeFormat={timeFormat} />
+    </Box>
   );
 }
 

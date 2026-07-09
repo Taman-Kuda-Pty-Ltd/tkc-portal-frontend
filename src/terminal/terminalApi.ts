@@ -126,6 +126,27 @@ export interface ScheduleDisplay {
   entries: ScheduleEntry[];
 }
 
+export interface WeatherHour {
+  time: number | null;
+  conditions: string | null;
+  air_temperature: number | null;
+  wind_avg: number | null;
+  wind_direction: number | null;
+  precip_probability: number | null;
+  icon: string | null;
+}
+export interface Weather {
+  conditions: string | null;
+  air_temperature: number | null;
+  feels_like: number | null;
+  wind_avg: number | null;
+  wind_gust: number | null;
+  wind_direction: number | null;
+  wind_direction_cardinal: string | null;
+  icon: string | null;
+  hourly: WeatherHour[];
+}
+
 export class TerminalError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -168,6 +189,7 @@ export const terminalApi = {
     treq<RedeemResult>("POST", "/redeem-setup-code", { code }),
   scheduleDisplay: () => treq<ScheduleDisplay>("GET", "/schedule"),
   roster: () => treq<RosterPerson[]>("GET", "/roster"),
+  weather: () => treq<Weather | null>("GET", "/weather"),
   session: (person_id: number, pin: string) =>
     treq<TerminalSession>("POST", "/session", { person_id, pin }),
   changePin: (person_id: number, pin: string, new_pin: string) =>
