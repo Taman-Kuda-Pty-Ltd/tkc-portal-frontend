@@ -87,6 +87,18 @@ interface FlaggedNote {
   author_name: string | null;
 }
 
+interface ShiftCover {
+  id: number;
+  shift_id: number;
+  title: string | null;
+  activity_name: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  original_name: string | null;
+  cover_name: string | null;
+  reason: string;
+}
+
 interface HorseCareDue {
   horse_id: number;
   horse_name: string;
@@ -158,6 +170,10 @@ export function ApprovalsPage() {
   const careDueQ = useQuery({
     queryKey: ["horse-care-due"],
     queryFn: () => api.get<HorseCareDue[]>("/horses/care-due"),
+  });
+  const coversQ = useQuery({
+    queryKey: ["shift-covers"],
+    queryFn: () => api.get<ShiftCover[]>("/shift-covers/pending"),
   });
   // Each clash is reported twice (once per direction) — keep one row per pair.
   const clashPairs = (clashesQ.data ?? []).filter((c) => c.shift_id < c.other_shift_id);
@@ -264,6 +280,17 @@ export function ApprovalsPage() {
       <Text tt="uppercase" fw={700} size="sm" c="dimmed" mt="xl" style={{ letterSpacing: 0.6 }}>
         Heads up
       </Text>
+
+      {(coversQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="xs" c="orange">Shift covers to approve</Title>
+          <Text size="sm" c="dimmed">
+            A staff member covered a colleague's shift at the terminal. Their hours already
+            count and the colleague is excused — acknowledge to clear.
+          </Text>
+          {(coversQ.data ?? []).map((c) => <ShiftCoverRow key={c.id} item={c} />)}
+        </>
+      )}
 
       {(nsQ.data ?? []).length > 0 && (
         <>
@@ -707,6 +734,38 @@ function VarianceRow({ item }: { item: Variance }) {
           </Group>
         </Stack>
       </Modal>
+    </Card>
+  );
+}
+
+function ShiftCoverRow({ item }: { item: ShiftCover }) {
+  const qc = useQueryClient();
+  const ackM = useMutation({
+    mutationFn: () => api.post(`/shift-covers/${item.id}/approve`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shift-covers"] });
+      qc.invalidateQueries({ queryKey: ["shift-covers-count"] });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="wrap">
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <Group gap="xs">
+            <Text fw={600}>{item.title || item.activity_name || "Shift"}</Text>
+            {item.activity_name && <Badge variant="light">{item.activity_name}</Badge>}
+          </Group>
+          <Text size="sm" c="dimmed">
+            {item.starts_at ? dayjs(item.starts_at).format("D MMM HH:mm") : "—"} ·{" "}
+            {item.original_name ?? "—"} → <b>{item.cover_name ?? "—"}</b>
+          </Text>
+          <Text size="sm" mt={4} style={{ whiteSpace: "pre-wrap" }}>{item.reason}</Text>
+        </div>
+        <Button variant="light" color="teal" loading={ackM.isPending} onClick={() => ackM.mutate()}>
+          Approve
+        </Button>
+      </Group>
     </Card>
   );
 }
