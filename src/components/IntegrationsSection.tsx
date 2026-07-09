@@ -1,7 +1,7 @@
 import { Badge, Button, Divider, Group, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 
 interface IntegrationSettings {
@@ -25,8 +25,13 @@ export function IntegrationsSection() {
   const [token, setToken] = useState("");
   const [s3, setS3] = useState({ endpoint: "", accessKey: "", bucket: "", region: "" });
   const [s3Secret, setS3Secret] = useState("");
+
+  // Seed the form from the server ONCE. Later refetches (window focus, or the
+  // invalidate after a save) must not clobber in-progress edits.
+  const hydrated = useRef(false);
   useEffect(() => {
-    if (q.data) {
+    if (q.data && !hydrated.current) {
+      hydrated.current = true;
       setStationId(q.data.weatherflow_station_id ?? "");
       setS3({
         endpoint: q.data.s3_endpoint_url ?? "",
@@ -37,25 +42,39 @@ export function IntegrationsSection() {
     }
   }, [q.data]);
 
-  const saveM = useMutation({
+  const afterSave = () => {
+    qc.invalidateQueries({ queryKey: ["integration-settings"] });
+    qc.invalidateQueries({ queryKey: ["storage-status"] });
+    notifications.show({ color: "teal", message: "Saved." });
+  };
+
+  // Per-section save: each sends ONLY its own fields. The backend patches
+  // (omitted fields are left untouched), so saving one section never wipes the other.
+  const saveWeatherM = useMutation({
     mutationFn: () =>
       api.put("/settings/integrations", {
-        weatherflow_station_id: stationId.trim() || null,
-        // Only send a token when one was entered — blank keeps the stored value.
-        weatherflow_token: token.trim() || null,
-        s3_endpoint_url: s3.endpoint.trim() || null,
-        s3_access_key: s3.accessKey.trim() || null,
-        s3_bucket: s3.bucket.trim() || null,
-        s3_region: s3.region.trim() || null,
-        // Only send the secret when one was entered — blank keeps the stored value.
-        s3_secret_key: s3Secret.trim() || null,
+        weatherflow_station_id: stationId.trim(),
+        weatherflow_token: token.trim() || null, // blank keeps the stored token
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["integration-settings"] });
-      qc.invalidateQueries({ queryKey: ["storage-status"] });
       setToken("");
+      afterSave();
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const saveS3M = useMutation({
+    mutationFn: () =>
+      api.put("/settings/integrations", {
+        s3_endpoint_url: s3.endpoint.trim(),
+        s3_access_key: s3.accessKey.trim(),
+        s3_bucket: s3.bucket.trim(),
+        s3_region: s3.region.trim(),
+        s3_secret_key: s3Secret.trim() || null, // blank keeps the stored secret
+      }),
+    onSuccess: () => {
       setS3Secret("");
-      notifications.show({ color: "teal", message: "Saved." });
+      afterSave();
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
@@ -116,12 +135,14 @@ export function IntegrationsSection() {
         id and a personal access token. The token is stored encrypted and never leaves
         the server.
       </Text>
-      <TextInput label="Station id" w={220} value={stationId}
-        onChange={(e) => setStationId(e.currentTarget.value)} placeholder="e.g. 211719" />
+      <TextInput label="Station id" w={280} value={stationId}
+        onChange={(e) => setStationId(e.currentTarget.value)} placeholder="e.g. 211719"
+        description="Numeric station id (e.g. 211719) — not the device serial (ST-… / HB-…)." />
       <PasswordInput label="API token" w={360} value={token}
         onChange={(e) => setToken(e.currentTarget.value)}
         placeholder={q.data?.has_weatherflow_token ? "•••••••• (saved — leave blank to keep)" : "Paste your token"} />
       <Group>
+        <Button loading={saveWeatherM.isPending} onClick={() => saveWeatherM.mutate()}>Save WeatherFlow</Button>
         <Button variant="light" loading={weatherTestM.isPending} disabled={!weatherConfigured}
           onClick={() => weatherTestM.mutate()}>Test connection</Button>
         {!weatherConfigured && <Text size="xs" c="dimmed">Save a station id and token first.</Text>}
@@ -138,12 +159,12 @@ export function IntegrationsSection() {
       </Group>
       <Text size="sm" c="dimmed">
         Stores photos and documents (horse photos, profile pictures, credential copies).
-        Works with MinIO, AWS S3, or Backblaze B2. The secret key is stored encrypted and
+        Works with Garage, MinIO, AWS S3, or Backblaze B2. The secret key is stored encrypted and
         never leaves the server. Note: the bucket must have CORS configured to allow this
         app's origin (PUT/GET) so browsers can upload and display files directly.
       </Text>
       <Group grow>
-        <TextInput label="Endpoint URL" value={s3.endpoint} placeholder="https://minio.example.com"
+        <TextInput label="Endpoint URL" value={s3.endpoint} placeholder="http://nas.local:3900"
           onChange={(e) => setS3({ ...s3, endpoint: e.currentTarget.value })} />
         <TextInput label="Bucket" value={s3.bucket} placeholder="tamankuda"
           onChange={(e) => setS3({ ...s3, bucket: e.currentTarget.value })} />
@@ -151,7 +172,7 @@ export function IntegrationsSection() {
       <Group grow>
         <TextInput label="Access key" value={s3.accessKey}
           onChange={(e) => setS3({ ...s3, accessKey: e.currentTarget.value })} />
-        <TextInput label="Region" value={s3.region} placeholder="us-east-1"
+        <TextInput label="Region" value={s3.region} placeholder="garage"
           onChange={(e) => setS3({ ...s3, region: e.currentTarget.value })} />
       </Group>
       <PasswordInput label="Secret key" w={360} value={s3Secret}
@@ -159,7 +180,7 @@ export function IntegrationsSection() {
         placeholder={q.data?.has_s3_secret ? "•••••••• (saved — leave blank to keep)" : "Paste the secret key"} />
 
       <Group>
-        <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>Save</Button>
+        <Button loading={saveS3M.isPending} onClick={() => saveS3M.mutate()}>Save file storage</Button>
         <Button variant="light" loading={s3TestM.isPending} disabled={!s3Configured}
           onClick={() => s3TestM.mutate()}>Test connection</Button>
         <Button variant="light" loading={s3CorsM.isPending} disabled={!s3Configured}
