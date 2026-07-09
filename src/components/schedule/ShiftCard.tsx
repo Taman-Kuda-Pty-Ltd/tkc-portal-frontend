@@ -97,6 +97,11 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         {formatISOTime(shift.ends_at, ctx.timeFormat)}
         {shift.title ? ` · ${activity?.name ?? ""}` : ""}
       </Text>
+      {shift.facility_name && (
+        <Text size="xs" c="dimmed" lineClamp={1}>
+          📍 {shift.facility_name}
+        </Text>
+      )}
       {shift.description && (
         <Text size="xs" c="dimmed" mt={4} component="div">
           <RichTextView html={shift.description} />

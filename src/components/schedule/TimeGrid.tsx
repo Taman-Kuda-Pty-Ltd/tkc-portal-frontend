@@ -285,6 +285,19 @@ export function TimeGrid({
                           </Text>
                         ))
                       )}
+                      {/* GRID-1: location + riders, read-only, gracefully truncated. */}
+                      {p.shift.facility_name && (
+                        <Text fz={detailed ? 11 : 9} c="dimmed" lineClamp={1}>
+                          📍 {p.shift.facility_name}
+                        </Text>
+                      )}
+                      {(p.shift.rides?.length ?? 0) > 0 && (
+                        <Text fz={detailed ? 11 : 9} c="grape.7" lineClamp={detailed ? 3 : 1}>
+                          {p.shift.rides
+                            .map((r) => (r.student_name ?? "Student") + (r.horse_name ? ` · ${r.horse_name}` : ""))
+                            .join(", ")}
+                        </Text>
+                      )}
                       {showNotes &&
                         p.shift.notes.slice(0, 3).map((n) => (
                           <Text key={n.id} fz={9} c="dimmed" mt={4} lineClamp={2}>
