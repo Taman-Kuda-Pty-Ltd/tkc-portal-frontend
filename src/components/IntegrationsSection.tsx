@@ -60,6 +60,54 @@ export function IntegrationsSection() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  const showResult = (res: { ok: boolean; detail: string }) =>
+    notifications.show({ color: res.ok ? "teal" : "red", message: res.detail, autoClose: 8000 });
+
+  // WeatherFlow: server-side live fetch of the SAVED station id + token.
+  const weatherTestM = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; detail: string }>("/settings/integrations/weather/test"),
+    onSuccess: showResult,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  // S3: server-side round-trip probe of the SAVED config (put/get/delete).
+  const s3TestM = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; detail: string }>("/settings/integrations/s3/test"),
+    onSuccess: showResult,
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  // S3 CORS: a real browser upload + read-back straight against the bucket —
+  // this is the only way to catch a CORS misconfiguration (the server test can't).
+  const s3CorsM = useMutation({
+    mutationFn: async () => {
+      const { put_url, get_url, key } = await api.post<{ put_url: string; get_url: string; key: string }>(
+        "/settings/integrations/s3/browser-check",
+      );
+      try {
+        const blob = new Blob(["tkc-cors-check"], { type: "text/plain" });
+        const put = await fetch(put_url, { method: "PUT", body: blob, headers: { "Content-Type": "text/plain" } });
+        if (!put.ok) throw new Error(`upload rejected (HTTP ${put.status})`);
+        const get = await fetch(get_url);
+        if (!get.ok) throw new Error(`read-back rejected (HTTP ${get.status})`);
+        return "Browser upload + read-back succeeded — CORS is configured correctly.";
+      } finally {
+        // Best-effort cleanup of the throwaway object (server-side delete).
+        api.post("/settings/integrations/s3/browser-check/cleanup", { key }).catch(() => {});
+      }
+    },
+    onSuccess: (message) => notifications.show({ color: "teal", message, autoClose: 8000 }),
+    onError: (e: Error) =>
+      notifications.show({
+        color: "red",
+        message: `Browser CORS/upload check failed: ${e.message}. Ensure the bucket allows this app's origin (PUT/GET).`,
+        autoClose: 10000,
+      }),
+  });
+
+  const weatherConfigured = !!q.data?.weatherflow_station_id && !!q.data?.has_weatherflow_token;
+  const s3Configured = !!q.data?.s3_configured;
+
   return (
     <Stack gap="sm">
       <Text fw={600}>WeatherFlow (Tempest)</Text>
@@ -73,6 +121,11 @@ export function IntegrationsSection() {
       <PasswordInput label="API token" w={360} value={token}
         onChange={(e) => setToken(e.currentTarget.value)}
         placeholder={q.data?.has_weatherflow_token ? "•••••••• (saved — leave blank to keep)" : "Paste your token"} />
+      <Group>
+        <Button variant="light" loading={weatherTestM.isPending} disabled={!weatherConfigured}
+          onClick={() => weatherTestM.mutate()}>Test connection</Button>
+        {!weatherConfigured && <Text size="xs" c="dimmed">Save a station id and token first.</Text>}
+      </Group>
       <Divider my="sm" />
 
       <Group gap="xs">
@@ -107,7 +160,16 @@ export function IntegrationsSection() {
 
       <Group>
         <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>Save</Button>
+        <Button variant="light" loading={s3TestM.isPending} disabled={!s3Configured}
+          onClick={() => s3TestM.mutate()}>Test connection</Button>
+        <Button variant="light" loading={s3CorsM.isPending} disabled={!s3Configured}
+          onClick={() => s3CorsM.mutate()}>Test browser upload (CORS)</Button>
       </Group>
+      {!s3Configured && <Text size="xs" c="dimmed">Save the S3 fields first to enable the connection tests.</Text>}
+      <Text size="xs" c="dimmed">
+        “Test connection” checks the server can reach the bucket; “Test browser upload” does a real
+        upload + read-back from this browser to catch a CORS misconfiguration.
+      </Text>
     </Stack>
   );
 }
