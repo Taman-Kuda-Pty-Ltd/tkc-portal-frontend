@@ -31,6 +31,7 @@ import { api } from "../api/client";
 import type { EngagementDetail, PersonDetail, Role } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
+import { FileUpload, useStorageStatus } from "../components/FileUpload";
 import { PersonContextsSection } from "../components/PersonContextsSection";
 import { PersonRatesSection } from "../components/PersonRatesSection";
 import { PhoneField } from "../components/PhoneField";
@@ -110,6 +111,7 @@ export function PersonDetailPage() {
   const qc = useQueryClient();
   const { can } = useAuth();
   const canManage = can("manage_people");
+  const storageReady = useStorageStatus();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
@@ -342,6 +344,23 @@ export function PersonDetailPage() {
           )
         )}
       </Group>
+
+      {/* Profile photo */}
+      <Card withBorder>
+        <FileUpload
+          scope="person_photo"
+          recordId={p.id}
+          attachPath={`/people/${p.id}/photo`}
+          urlPath={`/people/${p.id}/photo-url`}
+          removePath={`/people/${p.id}/photo`}
+          invalidateKey={["person", id]}
+          storageReady={storageReady}
+          variant="avatar"
+          canEdit={canManage}
+          label="Profile photo"
+          size={96}
+        />
+      </Card>
 
       {/* Personal */}
       <Card withBorder>
@@ -605,13 +624,29 @@ export function PersonDetailPage() {
       {p.credentials.length > 0 && (
         <Card withBorder>
           <Title order={4} mb="sm">Credentials</Title>
-          <Stack gap={4}>
+          <Stack gap="md">
             {p.credentials.map((cr) => (
-              <Text key={cr.id} size="sm">
-                {CRED_LABEL[cr.credential_type] ?? cr.credential_type}
-                {cr.identifier ? ` — ${cr.identifier}` : ""}
-                {cr.expires_on ? ` (expires ${dayjs(cr.expires_on).format("DD/MM/YYYY")})` : ""}
-              </Text>
+              <div key={cr.id}>
+                <Text size="sm" fw={500}>
+                  {CRED_LABEL[cr.credential_type] ?? cr.credential_type}
+                  {cr.identifier ? ` — ${cr.identifier}` : ""}
+                  {cr.state_of_issue ? ` · ${cr.state_of_issue}` : ""}
+                  {cr.expires_on ? ` (expires ${dayjs(cr.expires_on).format("DD/MM/YYYY")})` : ""}
+                </Text>
+                <div style={{ marginTop: 6 }}>
+                  <FileUpload
+                    scope="credential"
+                    recordId={p.id}
+                    attachPath={`/people/${p.id}/credentials/${cr.id}/image`}
+                    urlPath={`/people/${p.id}/credentials/${cr.id}/image-url`}
+                    invalidateKey={["person", id]}
+                    storageReady={storageReady}
+                    variant="document"
+                    canEdit={canManage}
+                    label="Copy on file"
+                  />
+                </div>
+              </div>
             ))}
           </Stack>
         </Card>

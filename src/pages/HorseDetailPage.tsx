@@ -8,6 +8,7 @@ import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { DateField } from "../components/DateField";
+import { FileUpload, useStorageStatus } from "../components/FileUpload";
 import { api } from "../api/client";
 import type { Horse, HorseCare, HorseCareType, Person, RiderLevel } from "../api/types";
 import { HorseTypeBadge } from "./HorsesPage";
@@ -30,6 +31,7 @@ export function HorseDetailPage() {
   const q = useQuery({ queryKey: ["horse", horseId], queryFn: () => api.get<Horse>(`/horses/${horseId}`) });
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
 
+  const storageReady = useStorageStatus();
   const [draft, setDraft] = useState<Partial<Horse>>({});
   useEffect(() => { if (q.data) setDraft(q.data); }, [q.data]);
   const set = (patch: Partial<Horse>) => setDraft((d) => ({ ...d, ...patch }));
@@ -147,12 +149,34 @@ export function HorseDetailPage() {
         )}
       </Card>
 
-      {/* Photo & documents — dormant placeholders */}
+      {/* Photo & documents */}
       <Title order={4} mt="sm">Photo &amp; documents</Title>
       <Card withBorder>
-        <Text size="sm" c="dimmed">
-          Photo and document uploads will appear here once file storage is set up. Not available yet.
-        </Text>
+        <Stack gap="md">
+          <FileUpload
+            scope="horse_photo"
+            recordId={horseId}
+            attachPath={`/horses/${horseId}/photo`}
+            urlPath={`/horses/${horseId}/photo-url`}
+            removePath={`/horses/${horseId}/photo`}
+            invalidateKey={["horse", horseId]}
+            storageReady={storageReady}
+            variant="image"
+            label="Photo"
+          />
+          <Divider />
+          <FileUpload
+            scope="horse_document"
+            recordId={horseId}
+            attachPath={`/horses/${horseId}/document`}
+            urlPath={`/horses/${horseId}/document-url`}
+            removePath={`/horses/${horseId}/document`}
+            invalidateKey={["horse", horseId]}
+            storageReady={storageReady}
+            variant="document"
+            label="Document"
+          />
+        </Stack>
       </Card>
 
       <Divider my="sm" />

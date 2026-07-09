@@ -23,6 +23,7 @@ import { api } from "../api/client";
 import type { PersonDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
+import { FileUpload, useStorageStatus } from "../components/FileUpload";
 import { PhoneField } from "../components/PhoneField";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -38,6 +39,7 @@ interface EcDraft { name: string; relationship: string; phone: string }
 export function MyProfilePage() {
   const qc = useQueryClient();
   const { me } = useAuth();
+  const storageReady = useStorageStatus();
   const q = useQuery({ queryKey: ["my-profile"], queryFn: () => api.get<PersonDetail>("/me/profile") });
   const p = q.data;
 
@@ -99,6 +101,21 @@ export function MyProfilePage() {
           <Button variant="light" onClick={() => setEditing(true)}>Edit</Button>
         )}
       </Group>
+
+      <Card withBorder>
+        <FileUpload
+          scope="person_photo"
+          recordId={p.id}
+          attachPath="/me/photo"
+          urlPath="/me/photo-url"
+          removePath="/me/photo"
+          invalidateKey={["my-profile"]}
+          storageReady={storageReady}
+          variant="avatar"
+          label="Profile photo"
+          size={96}
+        />
+      </Card>
 
       <Card withBorder>
         <Title order={4} mb="sm">Details</Title>

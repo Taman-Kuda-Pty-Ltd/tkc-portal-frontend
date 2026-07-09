@@ -61,6 +61,7 @@ const formatBsb = (v: string) => {
 interface CredRow {
   credential_type: CredentialType;
   identifier: string;
+  state_of_issue: string;
   expires_on: Date | null;
 }
 
@@ -143,6 +144,7 @@ export function OnboardingPage() {
         d.credentials.map((cr) => ({
           credential_type: cr.credential_type,
           identifier: cr.identifier ?? "",
+          state_of_issue: cr.state_of_issue ?? "",
           expires_on: cr.expires_on ? dayjs(cr.expires_on).toDate() : null,
         })),
       );
@@ -184,6 +186,7 @@ export function OnboardingPage() {
           .map((c) => ({
             credential_type: c.credential_type,
             identifier: c.identifier || null,
+            state_of_issue: c.state_of_issue || null,
             expires_on: fmt(c.expires_on),
           })),
         guardian: isMinor ? guardian : null,
@@ -430,7 +433,7 @@ export function OnboardingPage() {
           <Group justify="space-between" mb="sm">
             <Title order={4}>Credentials</Title>
             <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
-              onClick={() => setCreds([...creds, { credential_type: "wwcc", identifier: "", expires_on: null }])}>
+              onClick={() => setCreds([...creds, { credential_type: "wwcc", identifier: "", state_of_issue: "", expires_on: null }])}>
               Add
             </Button>
           </Group>
@@ -442,6 +445,8 @@ export function OnboardingPage() {
                   onChange={(v) => setCreds(creds.map((x, ix) => ix === i ? { ...x, credential_type: (v as CredentialType) ?? "other" } : x))} />
                 <TextInput label="Number" value={c.identifier}
                   onChange={(e) => setCreds(creds.map((x, ix) => ix === i ? { ...x, identifier: e.currentTarget.value } : x))} />
+                <TextInput w={120} label="State of issue" value={c.state_of_issue} placeholder="e.g. NSW"
+                  onChange={(e) => setCreds(creds.map((x, ix) => ix === i ? { ...x, state_of_issue: e.currentTarget.value } : x))} />
                 <DateField label="Expires" value={c.expires_on}
                   onChange={(d) => setCreds(creds.map((x, ix) => ix === i ? { ...x, expires_on: d } : x))} />
                 <ActionIcon color="red" variant="subtle" mb={6}

@@ -245,6 +245,7 @@ export interface Invitation {
 export interface OnboardingCredential {
   credential_type: CredentialType;
   identifier: string | null;
+  state_of_issue: string | null;
   expires_on: string | null;
 }
 
@@ -307,6 +308,7 @@ export interface PersonDetail {
   date_of_birth: string | null;
   is_active: boolean;
   onboarded: boolean;
+  photo_key: string | null;
   is_student?: boolean;
   is_account_holder?: boolean;
   has_pin: boolean;
@@ -326,9 +328,11 @@ export interface PersonDetail {
     credential_type: CredentialType;
     label: string | null;
     identifier: string | null;
+    state_of_issue: string | null;
     issued_on: string | null;
     expires_on: string | null;
     notes: string | null;
+    image_key: string | null;
   }[];
   engagements: EngagementDetail[];
 }
