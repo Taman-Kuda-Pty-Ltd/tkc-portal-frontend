@@ -99,6 +99,22 @@ export interface AccountHolderRec {
   is_active: boolean;
 }
 
+// OB-1: duplicate-check / people-search result.
+export interface PersonMatch {
+  id: number;
+  name: string;
+  email: string | null;
+  date_of_birth: string | null;
+  is_student: boolean;
+  is_account_holder: boolean;
+  match_reason: string;
+}
+export interface AccountCreated {
+  account_holder_id: number;
+  holder_person_id: number;
+  student_ids: number[];
+}
+
 export interface NamedResource {
   id: number;
   name: string;

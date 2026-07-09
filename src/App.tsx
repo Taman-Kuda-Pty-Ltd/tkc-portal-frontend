@@ -13,6 +13,7 @@ import { PayRatesPage } from "./pages/PayRatesPage";
 import { PayrollPage } from "./pages/PayrollPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { AddPersonPage } from "./pages/AddPersonPage";
+import { NewAccountPage } from "./pages/NewAccountPage";
 import { PersonDetailPage } from "./pages/PersonDetailPage";
 import { MyProfilePage } from "./pages/MyProfilePage";
 import { TerminalsPage } from "./pages/TerminalsPage";
@@ -49,6 +50,7 @@ function AuthedApp() {
         <Route path="/me" element={<MyProfilePage />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/people/new" element={<AddPersonPage />} />
+        <Route path="/accounts/new" element={<NewAccountPage />} />
         <Route path="/people/:id" element={<PersonDetailPage />} />
         <Route path="/horses" element={<HorsesPage />} />
         <Route path="/horses/:id" element={<HorseDetailPage />} />

@@ -246,9 +246,13 @@ export function AddPersonPage() {
 
           <Paper withBorder p="md">
             <Text size="sm" c="dimmed" mb="sm">
-              Register a rider and/or the account holder who's responsible for them.
+              Set up an account holder and all their riders (with emergency contact and,
+              for minors, a guardian) in one flow.
             </Text>
-            <Button variant="light" onClick={() => setClientModal(true)}>Register rider / account holder</Button>
+            <Group>
+              <Button onClick={() => navigate("/accounts/new")}>New account &amp; riders</Button>
+              <Button variant="light" onClick={() => setClientModal(true)}>Quick-register a single rider</Button>
+            </Group>
             <StudentRegisterModal opened={clientModal} onClose={() => { setClientModal(false); navigate("/people"); }} />
           </Paper>
         </>

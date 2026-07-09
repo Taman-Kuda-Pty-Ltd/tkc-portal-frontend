@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import type { AccountHolderRec, StudentRec } from "../api/types";
 import { StudentCard } from "./StudentsSection";
 import { StudentRegisterModal } from "./StudentRegisterModal";
+import { AddRiderModal } from "./AddRiderModal";
 
 /** Club-membership contexts for a person, surfaced on their People detail page:
  * their rider (student) record and/or the riders on their account. Contexts can be
@@ -13,6 +14,7 @@ import { StudentRegisterModal } from "./StudentRegisterModal";
 export function PersonContextsSection({ personId, personName }: { personId: number; personName: string }) {
   const qc = useQueryClient();
   const [registering, setRegistering] = useState(false);
+  const [addingRider, setAddingRider] = useState(false);
   const studentsQ = useQuery({ queryKey: ["students"], queryFn: () => api.get<StudentRec[]>("/students") });
   const holdersQ = useQuery({ queryKey: ["account-holders"], queryFn: () => api.get<AccountHolderRec[]>("/account-holders") });
   const students = studentsQ.data ?? [];
@@ -57,13 +59,19 @@ export function PersonContextsSection({ personId, personName }: { personId: numb
 
         {myHolder ? (
           <div>
-            <Text fw={600} size="sm" mb={4}>Account holder — riders on this account</Text>
+            <Group justify="space-between" mb={4}>
+              <Text fw={600} size="sm">Account holder — riders on this account</Text>
+              <Button size="xs" variant="light" onClick={() => setAddingRider(true)}>Add rider</Button>
+            </Group>
             {linked.length === 0 && <Text size="sm" c="dimmed">No riders linked to this account yet.</Text>}
             <Stack gap="sm">
               {linked.map((s) => (
                 <StudentCard key={s.id} student={s} holders={holders} onDelete={() => delStudent.mutate(s.id)} />
               ))}
             </Stack>
+            <AddRiderModal opened={addingRider} onClose={() => setAddingRider(false)}
+              accountHolderId={myHolder.id} holderName={personName}
+              holderPhone={myHolder.mobile ?? undefined} holderEmail={myHolder.email ?? undefined} />
           </div>
         ) : (
           <Group>
