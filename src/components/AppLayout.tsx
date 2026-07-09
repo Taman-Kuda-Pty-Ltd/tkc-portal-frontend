@@ -154,6 +154,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Menu.Dropdown>
               <Menu.Item leftSection={<IconUser size={16} />}
                 onClick={() => { navigate("/me"); close(); }}>My profile</Menu.Item>
+              <Menu.Item leftSection={<IconCoin size={16} />}
+                onClick={() => { navigate("/me/pay"); close(); }}>My pay</Menu.Item>
               <Menu.Divider />
               <Menu.Item color="red" leftSection={<IconLogout size={16} />}
                 onClick={() => { logout(); navigate("/login"); }}>Sign out</Menu.Item>

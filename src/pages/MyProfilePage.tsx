@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Button,
   Card,
@@ -12,6 +13,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { Link } from "react-router-dom";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -163,7 +165,12 @@ export function MyProfilePage() {
 
       {p.engagements.length > 0 && (
         <Card withBorder>
-          <Title order={4} mb="sm">My engagements</Title>
+          <Group justify="space-between" mb="sm">
+            <Title order={4}>My engagements</Title>
+            {p.engagements.some((e) => e.engagement_type === "employee") && (
+              <Anchor component={Link} to="/me/pay" size="sm">My pay →</Anchor>
+            )}
+          </Group>
           <Stack gap="xs">
             {p.engagements.map((e) => (
               <Group key={e.id} gap="xs">
