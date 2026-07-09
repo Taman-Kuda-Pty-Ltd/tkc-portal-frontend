@@ -9,6 +9,7 @@ import {
   Loader,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
   TextInput,
   Title,
@@ -47,7 +48,7 @@ export function MyProfilePage() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
     given_name: "", middle_names: "", family_name: "", preferred_name: "",
-    dob: null as Date | null, mobile: "",
+    dob: null as Date | null, mobile: "", sms_opt_in: false,
   });
   const [addr, setAddr] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
   const [ecs, setEcs] = useState<EcDraft[]>([]);
@@ -57,7 +58,7 @@ export function MyProfilePage() {
     setDraft({
       given_name: p.given_name, middle_names: p.middle_names ?? "", family_name: p.family_name,
       preferred_name: p.preferred_name ?? "", dob: p.date_of_birth ? dayjs(p.date_of_birth).toDate() : null,
-      mobile: p.mobile ?? "",
+      mobile: p.mobile ?? "", sms_opt_in: p.sms_opt_in ?? false,
     });
     setAddr({
       line1: p.address?.line1 ?? "", line2: p.address?.line2 ?? "", suburb: p.address?.suburb ?? "",
@@ -74,6 +75,7 @@ export function MyProfilePage() {
         given_name: draft.given_name, middle_names: draft.middle_names || null,
         family_name: draft.family_name, preferred_name: draft.preferred_name || null,
         mobile: draft.mobile || null,
+        sms_opt_in: draft.sms_opt_in,
         date_of_birth: draft.dob ? dayjs(draft.dob).format("YYYY-MM-DD") : null,
         address: addr,
         emergency_contacts: ecs.filter((e) => e.name.trim()),
@@ -137,6 +139,15 @@ export function MyProfilePage() {
           <PhoneField label="Mobile" value={draft.mobile} disabled={ro}
             onChange={(v) => setDraft({ ...draft, mobile: v })} />
         </SimpleGrid>
+
+        <Divider my="sm" label="Notifications" labelPosition="left" />
+        <Switch
+          label="Text me about urgent shift changes"
+          description="Only genuinely time-sensitive alerts (a shift covered for you, or moved to today). Needs a mobile number above, and an admin must have SMS set up — otherwise nothing is sent."
+          checked={draft.sms_opt_in}
+          disabled={ro}
+          onChange={(e) => setDraft({ ...draft, sms_opt_in: e.currentTarget.checked })}
+        />
 
         <Divider my="sm" label="Address" labelPosition="left" />
         <Stack gap="sm">

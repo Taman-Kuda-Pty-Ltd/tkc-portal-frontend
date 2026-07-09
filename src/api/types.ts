@@ -305,6 +305,7 @@ export interface PersonDetail {
   full_name: string;
   email: string | null;
   mobile: string | null;
+  sms_opt_in?: boolean;
   date_of_birth: string | null;
   is_active: boolean;
   onboarded: boolean;
