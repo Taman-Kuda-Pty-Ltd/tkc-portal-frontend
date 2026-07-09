@@ -28,6 +28,9 @@ const GENDERS = [
 const DISCLAIMER =
   "I understand horse riding carries inherent risks. I confirm the medical information above is accurate, and I accept the riding school's terms and liability waiver on behalf of this rider.";
 
+const GUARDIAN_RELATIONSHIPS = ["mother", "father", "guardian", "grandparent", "other"];
+const isMinor = (dob: Date | null) => dob !== null && dayjs().diff(dayjs(dob), "year") < 18;
+
 interface Rider {
   is_self: boolean;
   given_name: string;
@@ -42,10 +45,17 @@ interface Rider {
   photo_media_consent: boolean;
   notes: string;
   disclaimer_accepted: boolean;
+  // Guardian (minor riders) — defaults to the account holder.
+  guardian_is_holder: boolean;
+  guardian_name: string;
+  guardian_relationship: string;
+  guardian_phone: string;
+  guardian_email: string;
 }
 const emptyRider = (is_self = false): Rider => ({
   is_self, given_name: "", family_name: "", date_of_birth: null, gender: null, height_cm: "", weight_kg: "",
   riding_experience: null, medical_notes: "", allergies_dietary: "", photo_media_consent: false, notes: "", disclaimer_accepted: false,
+  guardian_is_holder: true, guardian_name: "", guardian_relationship: "", guardian_phone: "", guardian_email: "",
 });
 
 export function ClientOnboarding({ token, ctx }: { token: string; ctx: OnboardingContext }) {
@@ -82,6 +92,14 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           photo_media_consent: r.photo_media_consent,
           notes: r.notes.trim() || null,
           disclaimer_accepted: r.disclaimer_accepted,
+          guardian: !r.is_self && isMinor(r.date_of_birth)
+            ? {
+                guardian_name: r.guardian_is_holder ? null : r.guardian_name.trim() || null,
+                relationship: r.guardian_relationship || null,
+                phone: r.guardian_phone || null,
+                email: r.guardian_email.trim() || null,
+              }
+            : null,
         })),
       }),
     onSuccess: () => setDone(true),
@@ -98,6 +116,17 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
       if (!r.is_self && (!r.given_name.trim() || !r.family_name.trim())) return setError("Enter each rider's name.");
       if (!r.date_of_birth) return setError("Each rider needs a date of birth.");
       if (!r.disclaimer_accepted) return setError("Please accept the disclaimer for each rider.");
+      if (!r.is_self && isMinor(r.date_of_birth)) {
+        if (!r.guardian_relationship) return setError("Choose the guardian's relationship for each minor rider.");
+        if (r.guardian_is_holder) {
+          if (!mobile) return setError("Add your mobile — a minor rider's guardian needs a phone number.");
+          if (!ctx.email) return setError("A minor rider's guardian needs an email.");
+        } else {
+          if (!r.guardian_name.trim()) return setError("Enter the guardian's name.");
+          if (!r.guardian_phone) return setError("Each minor rider's guardian needs a phone number.");
+          if (!r.guardian_email.trim()) return setError("Each minor rider's guardian needs an email.");
+        }
+      }
     }
     submitM.mutate();
   }
@@ -180,6 +209,38 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
             <Checkbox mt="sm" checked={r.photo_media_consent}
               onChange={(e) => update(i, { photo_media_consent: e.currentTarget.checked })}
               label="I consent to photos/media of this rider being used by the club" />
+
+            {!r.is_self && isMinor(r.date_of_birth) && (
+              <Card withBorder mt="sm" bg="var(--mantine-color-gray-light)">
+                <Text fw={600} size="sm" mb="xs">Guardian (this rider is under 18)</Text>
+                <Select label="Guardian" allowDeselect={false}
+                  data={[{ value: "holder", label: `${given || "You"} (account holder)` }, { value: "other", label: "Someone else" }]}
+                  value={r.guardian_is_holder ? "holder" : "other"}
+                  onChange={(v) => update(i, { guardian_is_holder: v === "holder" })} />
+                <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
+                  <Select label="Relationship to rider" required data={GUARDIAN_RELATIONSHIPS}
+                    value={r.guardian_relationship || null}
+                    onChange={(v) => update(i, { guardian_relationship: v ?? "" })} />
+                  {r.guardian_is_holder ? (
+                    <TextInput label="Guardian contact" disabled
+                      value={[mobile, ctx.email].filter(Boolean).join(" · ") || "your details"} />
+                  ) : (
+                    <>
+                      <TextInput label="Guardian name" required value={r.guardian_name}
+                        onChange={(e) => update(i, { guardian_name: e.currentTarget.value })} />
+                      <TextInput label="Guardian phone" required value={r.guardian_phone}
+                        onChange={(e) => update(i, { guardian_phone: e.currentTarget.value })} />
+                      <TextInput label="Guardian email" required type="email" value={r.guardian_email}
+                        onChange={(e) => update(i, { guardian_email: e.currentTarget.value })} />
+                    </>
+                  )}
+                </SimpleGrid>
+                {r.guardian_is_holder && !mobile && (
+                  <Text size="xs" c="orange" mt={4}>Add your mobile above so we have a guardian phone number.</Text>
+                )}
+              </Card>
+            )}
+
             <Checkbox mt="sm" checked={r.disclaimer_accepted}
               onChange={(e) => update(i, { disclaimer_accepted: e.currentTarget.checked })}
               label={DISCLAIMER} />
