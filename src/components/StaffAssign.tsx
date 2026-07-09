@@ -13,7 +13,7 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { Activity, ActivityHeading, Assignment, Person, Role, Shift } from "../api/types";
-import { effectiveCount } from "./schedule/types";
+import { effectiveCount, eligibleAssignees } from "./schedule/types";
 
 /** Assign / edit staff for a shift, per heading. For lessons shared by two or more
  *  coaches it exposes an independent pay share and a (cosmetic) Lead/Assisting label.
@@ -131,10 +131,11 @@ function HeadingGroup({
   const label = heading?.label ?? "Staff";
   const target = heading ? effectiveCount(shift, heading) : undefined;
   const requiredRole = heading?.qualifying_role_id ?? shift.role_id ?? null;
-  const eligible = people
-    .filter((p) => !requiredRole || p.roles.some((r) => r.id === requiredRole))
-    .filter((p) => !assigned.some((a) => a.person_id === p.id))
-    .map((p) => ({ value: String(p.id), label: p.full_name }));
+  const eligible = eligibleAssignees(
+    people,
+    requiredRole,
+    assigned.map((a) => a.person_id),
+  );
   // Lead/share controls only matter when a lesson is shared by two or more coaches.
   const showCoachSplit = isLesson && assigned.length >= 2;
 

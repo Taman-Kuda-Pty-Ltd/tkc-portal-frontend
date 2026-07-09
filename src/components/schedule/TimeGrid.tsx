@@ -202,6 +202,7 @@ export function TimeGrid({
               {blocks.map((p) => {
                 const v = shiftVisual(p.shift, ctx);
                 const activity = ctx.activityById.get(p.shift.activity_id);
+                const clashed = (ctx.clashByShift?.get(p.shift.id)?.length ?? 0) > 0;
                 const noteCount = p.shift.notes.length;
                 const heightPx = (p.heightPct / 100) * GRID_HEIGHT;
                 const showNotes = noteCount > 0 && heightPx >= 150;
@@ -226,12 +227,19 @@ export function TimeGrid({
                       style={{
                         position: "relative",
                         background: BLOCK_BG,
-                        border: "1px solid var(--mantine-color-default-border)",
-                        borderLeft: `3px solid ${v.color}`,
+                        border: clashed
+                          ? "1px solid var(--mantine-color-red-6)"
+                          : "1px solid var(--mantine-color-default-border)",
+                        borderLeft: `3px solid ${clashed ? "var(--mantine-color-red-6)" : v.color}`,
                         overflow: "hidden",
                         boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                       }}
                     >
+                      {clashed && (
+                        <Text fz={9} fw={700} c="red" lineClamp={1}>
+                          ⚠ Double booked
+                        </Text>
+                      )}
                       {showNoteIcon && (
                         <Box
                           onClick={(e) => {

@@ -1,11 +1,41 @@
 import type { Dayjs } from "dayjs";
-import type { Activity, ActivityHeading, Person, Shift } from "../../api/types";
+import type { Activity, ActivityHeading, Person, Shift, ShiftClash } from "../../api/types";
 import type { TimeFormat } from "../../settings/SettingsContext";
 
 /** The target count for a heading on a shift — the shift's override or the default. */
 export function effectiveCount(shift: Shift, heading: ActivityHeading): number {
   const o = shift.heading_counts.find((c) => c.heading_id === heading.id);
   return o ? o.count : heading.count;
+}
+
+/** Eligible-assignee options for a picker, filtered by the required role AND active
+ *  engagement (ASG-1). Prefers people engaged for the role; keeps role-holders with
+ *  no engagement data (ambiguous — never hard-blocks); drops those engaged only for
+ *  another role. Non-engaged people shown are labelled and sorted last. */
+export function eligibleAssignees(
+  people: Person[],
+  requiredRole: number | null,
+  assignedPersonIds: number[],
+): { value: string; label: string }[] {
+  const avail = people
+    .filter((p) => p.is_active)
+    .filter((p) => !assignedPersonIds.includes(p.id));
+  const withRole = requiredRole
+    ? avail.filter((p) => p.roles.some((r) => r.id === requiredRole))
+    : avail;
+  return withRole
+    .map((p) => {
+      const engagedRoles = p.engaged_role_ids ?? [];
+      const engaged = requiredRole ? engagedRoles.includes(requiredRole) : true;
+      const keep = !requiredRole || engaged || engagedRoles.length === 0;
+      return { p, engaged, keep };
+    })
+    .filter((x) => x.keep)
+    .sort((a, b) => (a.engaged === b.engaged ? 0 : a.engaged ? -1 : 1))
+    .map(({ p, engaged }) => ({
+      value: String(p.id),
+      label: engaged ? p.full_name : `${p.full_name} · not engaged`,
+    }));
 }
 
 /** Shared handlers + lookups passed to every schedule view. */
@@ -16,6 +46,8 @@ export interface ScheduleCtx {
   canManageShifts: boolean;
   canAssign: boolean;
   timeFormat: TimeFormat;
+  /** Double-booked horses/coaches keyed by shift id (DBL-1). */
+  clashByShift?: Map<number, ShiftClash[]>;
   /** A recently-created/targeted shift to highlight + scroll to (SC-7 / SC-11). */
   highlightShiftId?: number | null;
   onOpenShift: (s: Shift) => void;

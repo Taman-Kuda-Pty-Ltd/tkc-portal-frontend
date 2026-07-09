@@ -32,6 +32,9 @@ export interface Person {
   roles: Role[];
   is_student?: boolean;
   is_account_holder?: boolean;
+  // Work roles this person is actively engaged for (ASG-1) — used to prefer
+  // genuinely-engaged assignees over mere role-holders.
+  engaged_role_ids?: number[];
 }
 
 export interface ActivityHeading {
@@ -117,6 +120,19 @@ export interface Clash {
   shift_label: string;
   starts_at: string;
   ends_at: string;
+}
+
+// DBL-1: a horse/coach double-booked across two overlapping published shifts.
+export interface ShiftClash {
+  shift_id: number;
+  kind: "horse" | "coach";
+  resource_name: string;
+  starts_at: string;
+  ends_at: string;
+  other_shift_id: number;
+  other_shift_label: string;
+  other_starts_at: string;
+  other_ends_at: string;
 }
 
 export type EngagementType = "employee" | "contractor" | "volunteer" | "other";

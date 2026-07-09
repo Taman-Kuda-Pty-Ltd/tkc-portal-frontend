@@ -16,7 +16,7 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, Person, ScheduleLens, Shift } from "../api/types";
+import type { Activity, Person, ScheduleLens, Shift, ShiftClash } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ShiftModal } from "../components/ShiftModal";
 import { RecordAttendanceModal } from "../components/schedule/RecordAttendanceModal";
@@ -97,6 +97,17 @@ export function SchedulePage() {
     queryKey: ["activities"],
     queryFn: () => api.get<Activity[]>("/activities"),
   });
+  // DBL-1: double-booked horses/coaches across the visible range.
+  const clashesQ = useQuery({
+    queryKey: ["clashes", rangeStart.format(DAY_KEY), rangeEnd.format(DAY_KEY)],
+    queryFn: () =>
+      api.get<ShiftClash[]>(
+        `/shifts/clashes?start=${rangeStart.format("YYYY-MM-DDTHH:mm:ss")}&end=${rangeEnd.format(
+          "YYYY-MM-DDTHH:mm:ss",
+        )}`,
+      ),
+    enabled: canManageShifts,
+  });
   const peopleQ = useQuery({
     queryKey: ["people"],
     queryFn: () => api.get<Person[]>("/people"),
@@ -120,6 +131,15 @@ export function SchedulePage() {
     () => new Map((lensesQ.data ?? []).map((l) => [String(l.id), l])),
     [lensesQ.data],
   );
+  const clashByShift = useMemo(() => {
+    const m = new Map<number, ShiftClash[]>();
+    for (const c of clashesQ.data ?? []) {
+      const list = m.get(c.shift_id) ?? [];
+      list.push(c);
+      m.set(c.shift_id, list);
+    }
+    return m;
+  }, [clashesQ.data]);
 
   const shiftsByDay = useMemo(() => {
     const selected = lensById.get(lens);
@@ -207,6 +227,7 @@ export function SchedulePage() {
     canManageShifts,
     canAssign,
     timeFormat,
+    clashByShift,
     highlightShiftId,
     onOpenShift: setEditingShift,
     onAddShift: (d) => setAddingOn(d.toDate()),

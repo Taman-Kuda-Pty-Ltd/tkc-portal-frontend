@@ -3,7 +3,7 @@ import { IconClock, IconPlus, IconX } from "@tabler/icons-react";
 import { useEffect, useRef } from "react";
 import { formatISOTime } from "../../lib/time";
 import type { ActivityHeading, Shift } from "../../api/types";
-import { effectiveCount, shiftVisual } from "./types";
+import { effectiveCount, eligibleAssignees, shiftVisual } from "./types";
 import type { ScheduleCtx } from "./types";
 import { RichTextView } from "../RichText";
 
@@ -11,6 +11,7 @@ import { RichTextView } from "../RichText";
 export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
   const v = shiftVisual(shift, ctx);
   const activity = ctx.activityById.get(shift.activity_id);
+  const clashes = ctx.clashByShift?.get(shift.id) ?? [];
   const headings = (activity?.headings ?? []).filter((h) => h.is_active);
   const highlighted = ctx.highlightShiftId === shift.id;
   const ref = useRef<HTMLDivElement>(null);
@@ -75,6 +76,17 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
           {shift.approval_status === "pending" && (
             <Badge size="sm" variant="light" color="yellow">Pending</Badge>
           )}
+          {clashes.length > 0 && (
+            <Tooltip
+              withArrow
+              multiline
+              label={clashes
+                .map((c) => `${c.resource_name} also on "${c.other_shift_label}" (${formatISOTime(c.other_starts_at, ctx.timeFormat)})`)
+                .join("\n")}
+            >
+              <Badge size="sm" variant="filled" color="red">Double booked</Badge>
+            </Tooltip>
+          )}
           <Badge size="sm" variant="light" color={v.fillColor} aria-label="Staffing">
             {v.assigned}/{v.needed}
           </Badge>
@@ -138,11 +150,11 @@ function HeadingGroup({
   const showCoachSplit = isLesson && assigned.length >= 2;
   // Required role: the heading's qualifying role, else the shift's role (from its activity).
   const requiredRole = heading?.qualifying_role_id ?? shift.role_id ?? null;
-  const eligible = [...ctx.personById.values()]
-    .filter((p) => p.is_active)
-    .filter((p) => !requiredRole || p.roles.some((r) => r.id === requiredRole))
-    .filter((p) => !assigned.some((a) => a.person_id === p.id))
-    .map((p) => ({ value: String(p.id), label: p.full_name }));
+  const eligible = eligibleAssignees(
+    [...ctx.personById.values()],
+    requiredRole,
+    assigned.map((a) => a.person_id),
+  );
 
   return (
     <div>
