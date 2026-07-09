@@ -105,12 +105,77 @@ export interface NamedResource {
   is_active: boolean;
 }
 
+export type HorseType = "school" | "agisted" | "visiting";
+export type HorseSex = "mare" | "gelding" | "stallion" | "colt" | "filly";
+export type RiderLevel = "never_ridden" | "beginner" | "novice" | "intermediate" | "advanced";
+export type HorseCareType = "worming" | "farrier" | "dental" | "vaccination";
+
+export interface Horse {
+  id: number;
+  name: string;
+  notes: string | null;
+  is_active: boolean;
+  type: HorseType;
+  breed: string | null;
+  colour: string | null;
+  sex: HorseSex | null;
+  date_of_birth: string | null;
+  age_years: number | null;
+  height_hh: number | null;
+  microchip: string | null;
+  brand: string | null;
+  registration: string | null;
+  markings: string | null;
+  owner_person_id: number | null;
+  owner_person_name: string | null;
+  owner_name: string | null;
+  owner_phone: string | null;
+  owner_email: string | null;
+  expected_departure: string | null;
+  max_rider_weight_kg: number | null;
+  rider_level_min: RiderLevel | null;
+  rider_level_max: RiderLevel | null;
+  disciplines: string | null;
+  temperament: string | null;
+  do_not_ride: boolean;
+  do_not_ride_note: string | null;
+  photo_key: string | null;
+  document_key: string | null;
+}
+
+export interface HorseCare {
+  id: number;
+  horse_id: number;
+  care_type: HorseCareType;
+  performed_on: string;
+  notes: string | null;
+  next_due: string | null;
+  product_name: string | null;
+  effective_weeks: number | null;
+}
+
+export interface HorseCareDue {
+  horse_id: number;
+  horse_name: string;
+  care_type: HorseCareType;
+  last_done: string | null;
+  next_due: string | null;
+  is_overdue: boolean;
+}
+
+export interface SuitabilityResult {
+  student_id: number;
+  horse_id: number;
+  warnings: string[];
+}
+
 export interface Ride {
   id: number;
   student_id: number;
   student_name: string | null;
   horse_id: number | null;
   horse_name: string | null;
+  override_note?: string | null;
 }
 
 export interface Clash {

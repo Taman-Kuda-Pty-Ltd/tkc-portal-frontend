@@ -8,6 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { HorsesPage } from "./pages/HorsesPage";
+import { HorseDetailPage } from "./pages/HorseDetailPage";
 import { PayRatesPage } from "./pages/PayRatesPage";
 import { PayrollPage } from "./pages/PayrollPage";
 import { PeoplePage } from "./pages/PeoplePage";
@@ -50,6 +51,7 @@ function AuthedApp() {
         <Route path="/people/new" element={<AddPersonPage />} />
         <Route path="/people/:id" element={<PersonDetailPage />} />
         <Route path="/horses" element={<HorsesPage />} />
+        <Route path="/horses/:id" element={<HorseDetailPage />} />
         <Route path="/terminals" element={<TerminalsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/schedule" replace />} />
