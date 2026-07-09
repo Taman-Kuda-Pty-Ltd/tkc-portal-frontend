@@ -240,7 +240,7 @@ function PayRunRow({ run }: { run: MyPayRun }) {
         <div style={{ textAlign: "right" }}>
           <Text fw={700} fz="lg">{money(run.gross)}</Text>
           <Text size="xs" c="dimmed">
-            net {money(run.net)} · +{money(run.super_amount)} super
+            Total (before tax) · +{money(run.super_amount)} super
           </Text>
         </div>
       </Group>
