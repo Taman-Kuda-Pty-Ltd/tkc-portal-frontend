@@ -1,7 +1,7 @@
 import {
-  ActionIcon, Anchor, Badge, Button, Card, Collapse, Group, Loader, Modal, NumberInput, Stack, Table, Text, Textarea, Title,
+  ActionIcon, Anchor, Badge, Button, Card, Collapse, Group, Loader, Modal, NumberInput, Popover, Stack, Table, Text, Textarea, Title,
 } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight, IconCoin, IconPlus, IconX } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconCoin, IconPencil, IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
@@ -31,7 +31,7 @@ interface PayrollLine {
 interface PayrollShift {
   shift_id: number | null; title: string | null; starts_at: string | null;
   capacity_role_name: string; hours: number; rate: number | null; amount: number | null;
-  projected: boolean; pending: boolean;
+  projected: boolean; pending: boolean; overridden: boolean;
 }
 interface Adjustment { id: number; hours: number; pay: number | null; reason: string; capacity_role_name: string | null }
 interface PayrollPerson {
@@ -293,6 +293,58 @@ function PeriodReport({ start, org, onBack, onSetStart }: {
   );
 }
 
+/** The Rate cell in the per-shift breakdown, with an inline override editor
+ *  (UAT#3 PAY-SHIFT-RATE): set a rate where none is assigned, or correct one. */
+function ShiftRateCell({ shift, personId, closed, onDone }: {
+  shift: PayrollShift; personId: number; closed: boolean; onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rate, setRate] = useState<number | string>(shift.rate ?? "");
+  const setM = useMutation({
+    mutationFn: () => api.post("/reports/shift-rate-override", {
+      shift_id: shift.shift_id, person_id: personId, hourly_rate: Number(rate),
+    }),
+    onSuccess: () => { setOpen(false); onDone(); notifications.show({ color: "teal", message: "Shift rate set." }); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const clearM = useMutation({
+    mutationFn: () => api.del(`/reports/shift-rate-override?shift_id=${shift.shift_id}&person_id=${personId}`),
+    onSuccess: () => { setOpen(false); onDone(); notifications.show({ color: "gray", message: "Override removed." }); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+
+  const label = shift.rate != null ? `$${shift.rate.toFixed(2)}` : "—";
+  // Can't override a row with no real shift (e.g. an aggregate), or a closed run.
+  if (shift.shift_id == null || closed)
+    return <>{label}{shift.overridden && <Text span size="9px" c="dimmed"> (set)</Text>}</>;
+
+  return (
+    <Popover opened={open} onChange={setOpen} position="left" withArrow trapFocus>
+      <Popover.Target>
+        <Anchor component="button" type="button" onClick={() => { setRate(shift.rate ?? ""); setOpen((o) => !o); }}
+          c={shift.overridden ? "tkc" : shift.rate == null ? "red" : undefined}>
+          <Group gap={2} wrap="nowrap" justify="flex-end">
+            {shift.rate == null ? "set rate" : label}
+            <IconPencil size={11} />
+          </Group>
+        </Anchor>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <Stack gap="xs" w={180}>
+          <Text size="xs" fw={600}>{shift.overridden ? "Override rate" : "Set a rate for this shift"}</Text>
+          <NumberInput size="xs" prefix="$" min={0} step={0.5} decimalScale={2} value={rate} onChange={setRate} />
+          <Group gap="xs" justify="space-between">
+            {shift.overridden ? (
+              <Button size="xs" variant="subtle" color="red" loading={clearM.isPending} onClick={() => clearM.mutate()}>Clear</Button>
+            ) : <span />}
+            <Button size="xs" loading={setM.isPending} disabled={rate === "" || Number(rate) < 0} onClick={() => setM.mutate()}>Save</Button>
+          </Group>
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
+
 function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; periodStart: string; closed: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -363,7 +415,9 @@ function PayrollRow({ person, periodStart, closed }: { person: PayrollPerson; pe
                           <Table.Td>{s.title || s.capacity_role_name}</Table.Td>
                           <Table.Td>{s.capacity_role_name}</Table.Td>
                           <Table.Td ta="right">{s.hours}h</Table.Td>
-                          <Table.Td ta="right">{s.rate != null ? `$${s.rate.toFixed(2)}` : "—"}</Table.Td>
+                          <Table.Td ta="right">
+                            <ShiftRateCell shift={s} personId={person.person_id} closed={closed} onDone={refresh} />
+                          </Table.Td>
                           <Table.Td ta="right">{s.amount != null ? `$${s.amount.toFixed(2)}` : "no rate"}</Table.Td>
                           <Table.Td>
                             {s.projected
