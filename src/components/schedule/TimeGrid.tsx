@@ -292,10 +292,11 @@ export function TimeGrid({
                         </Text>
                       )}
                       {(p.shift.rides?.length ?? 0) > 0 && (
-                        <Text fz={detailed ? 11 : 9} c="grape.7" lineClamp={detailed ? 3 : 1}>
-                          {p.shift.rides
-                            .map((r) => (r.student_name ?? "Student") + (r.horse_name ? ` · ${r.horse_name}` : ""))
-                            .join(", ")}
+                        <Text fz={detailed ? 11 : 9} c="grape.7" component="div" lineClamp={detailed ? undefined : 1}>
+                          {/* One rider (+ horse) per line in the room grid (RIDERS-PERLINE). */}
+                          {p.shift.rides.map((r, i) => (
+                            <div key={i}>{(r.student_name ?? "Student") + (r.horse_name ? ` · ${r.horse_name}` : "")}</div>
+                          ))}
                         </Text>
                       )}
                       {showNotes &&

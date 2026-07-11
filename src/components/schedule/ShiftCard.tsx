@@ -108,11 +108,12 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         </Text>
       )}
       {activity?.is_lesson && (shift.rides?.length ?? 0) > 0 && (
-        <Text size="xs" c="dimmed" mt={4}>
-          <Text span fw={600} c="grape">Riders: </Text>
-          {shift.rides
-            .map((r) => (r.student_name ?? "Student") + (r.horse_name ? ` on ${r.horse_name}` : ""))
-            .join(", ")}
+        <Text size="xs" c="dimmed" mt={4} component="div">
+          <Text span fw={600} c="grape">Riders</Text>
+          {/* One rider (+ horse) per line (UAT#3 RIDERS-PERLINE). */}
+          {shift.rides.map((r, i) => (
+            <div key={i}>{(r.student_name ?? "Student") + (r.horse_name ? ` on ${r.horse_name}` : "")}</div>
+          ))}
         </Text>
       )}
       {shift.notes.length > 0 && (

@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Autocomplete,
   Avatar,
   Badge,
   Box,
@@ -743,9 +744,14 @@ function CoverShiftCard({
                           <Badge color="violet" variant="light">Lesson · coach cover</Badge>
                         )}
                       </Group>
-                      <Text size="sm" c="dimmed">
+                      {/* Covered colleague made prominent (UAT#3 COVER-NAME). */}
+                      {s.original_name && (
+                        <Badge color="orange" variant="filled" mt={4} size="lg" tt="none">
+                          Covering for {s.original_name}
+                        </Badge>
+                      )}
+                      <Text size="sm" c="dimmed" mt={4}>
                         {fmtTime(s.starts_at, timeFormat)}–{fmtTime(s.ends_at, timeFormat)}
-                        {s.original_name ? ` · ${s.original_name}` : ""}
                       </Text>
                     </div>
                     {s.already_covered && <Badge color="gray" variant="light">Already covered</Badge>}
@@ -921,6 +927,11 @@ function CoachingSection({
             value: String(r.student_id),
             label: r.label.split(/ on /)[0],
           }));
+          // Horses assigned to this lesson (from "Student on Horse" labels) — offered
+          // as suggestions for horse notes, still free-typeable (UAT#3 HNOTE-DROPDOWN).
+          const horseNames = Array.from(new Set(
+            l.rider_details.map((r) => (r.label.split(/ on /)[1] ?? "").trim()).filter(Boolean),
+          ));
           return (
             <Card key={l.shift_id} withBorder radius="md" p="md" bg="var(--mantine-color-default)">
               <Group justify="space-between" align="flex-start" wrap="nowrap">
@@ -1028,14 +1039,14 @@ function CoachingSection({
                                   }}
                                   comboboxProps={{ withinPortal: true }} style={{ flex: 1 }} />
                               ) : (
-                                <TextInput size="xs" placeholder="Horse name"
+                                <Autocomplete size="xs" placeholder="Horse" data={horseNames}
                                   value={row.subject ?? ""}
-                                  onChange={(e) => {
+                                  onChange={(v) => {
                                     const rows = [...st.notes];
-                                    rows[idx] = { ...row, subject: e.currentTarget.value };
+                                    rows[idx] = { ...row, subject: v };
                                     setRows(l.shift_id, rows);
                                   }}
-                                  style={{ flex: 1 }} />
+                                  comboboxProps={{ withinPortal: true }} style={{ flex: 1 }} />
                               )}
                             </Group>
                             {!row.fixed && (

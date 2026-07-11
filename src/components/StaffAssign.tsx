@@ -8,7 +8,7 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import { IconClock, IconPlus, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconClock, IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -140,6 +140,11 @@ function HeadingGroup({
     requiredRole,
     assigned.map((a) => a.person_id),
   );
+  // People who actually hold the slot's required role — anyone assigned who is NOT
+  // in this set gets a manager-visible mismatch flag (UAT#3 ROLE-MISMATCH).
+  const roleHolderIds = new Set(
+    requiredRole ? people.filter((p) => p.roles.some((r) => r.id === requiredRole)).map((p) => p.id) : [],
+  );
   // Lead/share controls only matter when a lesson is shared by two or more coaches.
   const showCoachSplit = isLesson && assigned.length >= 2;
 
@@ -173,6 +178,8 @@ function HeadingGroup({
             onUnassign={onUnassign}
             onPatch={onPatch}
             onRecordAttendance={onRecordAttendance}
+            mismatch={requiredRole != null && !roleHolderIds.has(a.person_id)}
+            requiredRoleName={roleName(requiredRole)}
           />
         ))}
         {canAssign && (
@@ -203,6 +210,8 @@ function AssignedRow({
   onUnassign,
   onPatch,
   onRecordAttendance,
+  mismatch,
+  requiredRoleName,
 }: {
   shift: Shift;
   a: Assignment;
@@ -212,6 +221,8 @@ function AssignedRow({
   onUnassign: (assignmentId: number) => void;
   onPatch: (assignmentId: number, body: Record<string, unknown>) => void;
   onRecordAttendance?: (shift: Shift, personId: number, personName: string) => void;
+  mismatch?: boolean;
+  requiredRoleName?: string | null;
 }) {
   const name = a.person_name ?? `#${a.person_id}`;
   const isLead = a.coach_kind !== "secondary";
@@ -228,6 +239,14 @@ function AssignedRow({
       <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
         {name}
       </Text>
+      {mismatch && (
+        <Tooltip withArrow multiline w={220}
+          label={`${name} isn't set up for ${requiredRoleName ?? "this role"}. They can still be assigned, but won't be paid for it until an engagement for that role exists.`}>
+          <Badge size="xs" color="orange" variant="filled" leftSection={<IconAlertTriangle size={11} />}>
+            no {requiredRoleName ?? "role"}
+          </Badge>
+        </Tooltip>
+      )}
       {a.attendance_status === "checked_in" && <Badge size="xs" color="teal">In</Badge>}
       {a.attendance_status === "checked_out" && <Badge size="xs" color="blue" variant="light">Out</Badge>}
 

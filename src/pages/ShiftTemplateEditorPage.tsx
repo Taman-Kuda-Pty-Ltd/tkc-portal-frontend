@@ -226,7 +226,15 @@ export function ShiftTemplateEditorPage() {
 
               <SimpleGrid cols={{ base: 1, sm: 2 }}>
                 <Select label="Activity" data={activityOptions} value={s.activity_id} placeholder="Activity" required
-                  onChange={(v) => updateSlot(i, { activity_id: v })} comboboxProps={{ withinPortal: true }} />
+                  onChange={(v) => {
+                    // Auto-fill the role from the activity's default when none is set yet
+                    // (Stablehand→Stablehand, Lesson→Coach, …) — TMPL-ROLE-AUTO.
+                    const act = (activitiesQ.data ?? []).find((a) => String(a.id) === v);
+                    updateSlot(i, {
+                      activity_id: v,
+                      role_id: s.role_id || (act?.default_role_id ? String(act.default_role_id) : null),
+                    });
+                  }} comboboxProps={{ withinPortal: true }} />
                 <Select label="Role" data={roleOptions} value={s.role_id} placeholder="Any" clearable
                   onChange={(v) => updateSlot(i, { role_id: v })} comboboxProps={{ withinPortal: true }} />
               </SimpleGrid>
