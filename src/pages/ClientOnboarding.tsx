@@ -3,7 +3,7 @@ import {
   Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { IconCircleCheck, IconPlus, IconX } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
@@ -11,7 +11,7 @@ import { api } from "../api/client";
 import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
 import type { OnboardingContext } from "../api/types";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
-import { PhoneVerification } from "../components/PhoneVerification";
+import { PhoneConfirmModal } from "../components/PhoneConfirmModal";
 
 const EXPERIENCE = [
   { value: "never_ridden", label: "Never ridden" },
@@ -72,8 +72,9 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [noMobile, setNoMobile] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const requirePhone = ctx.require_phone_verification;
-  const mobileValid = mobile.replace(/\D/g, "").length >= 8;
 
   const hasSelf = riders.some((r) => r.is_self);
   const update = (i: number, patch: Partial<Rider>) => setRiders(riders.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -81,7 +82,8 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
   const submitM = useMutation({
     mutationFn: () =>
       api.post<{ access_token: string }>(`/onboarding/${token}`, {
-        given_name: given.trim(), family_name: family.trim(), mobile: mobile || null,
+        given_name: given.trim(), family_name: family.trim(),
+        mobile: noMobile ? null : mobile || null, no_mobile: noMobile,
         address: address.line1 || address.suburb ? address : null,
         emergency_contacts: ec.name.trim() ? [ec] : [],
         password,
@@ -118,8 +120,6 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
     if (!given.trim() || !family.trim()) return setError("Please enter your name.");
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     if (password !== confirm) return setError("Passwords do not match.");
-    if (requirePhone && !phoneVerified)
-      return setError("Please verify your mobile number with the SMS code before finishing.");
     if (riders.length === 0) return setError("Add at least one rider.");
     for (const r of riders) {
       if (!r.is_self && (!r.given_name.trim() || !r.family_name.trim())) return setError("Enter each rider's name.");
@@ -136,6 +136,11 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           if (!r.guardian_email.trim()) return setError("Each minor rider's guardian needs an email.");
         }
       }
+    }
+    // 2FA (UAT#3 2FA-1): confirm the mobile with a code, then submit — unless opted out.
+    if (requirePhone && !noMobile && !phoneVerified) {
+      setConfirmOpen(true);
+      return;
     }
     submitM.mutate();
   }
@@ -162,14 +167,20 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
             <TextInput label="First name" value={given} onChange={(e) => setGiven(e.currentTarget.value)} required />
             <TextInput label="Last name" value={family} onChange={(e) => setFamily(e.currentTarget.value)} required />
             <TextInput label="Email" value={ctx.email ?? ""} disabled />
-            <TextInput label="Mobile" value={mobile}
+            <TextInput label="Mobile" value={mobile} disabled={noMobile}
               onChange={(e) => { setMobile(e.currentTarget.value); setPhoneVerified(false); }} />
           </SimpleGrid>
-          <div style={{ marginTop: "var(--mantine-spacing-sm)" }}>
-            <PhoneVerification token={token} phone={mobile} phoneValid={mobileValid}
-              verified={phoneVerified} onVerifiedChange={setPhoneVerified}
-              required={requirePhone} />
-          </div>
+          {requirePhone && phoneVerified && !noMobile && (
+            <Group gap={6} c="teal" mt={6}><IconCircleCheck size={16} /><Text size="xs" fw={500}>Mobile confirmed</Text></Group>
+          )}
+          {requirePhone && !phoneVerified && !noMobile && (
+            <Text size="xs" c="dimmed" mt={6}>We'll text a code to confirm this when you finish.</Text>
+          )}
+          {requirePhone && (
+            <Checkbox mt="xs" checked={noMobile}
+              onChange={(e) => { setNoMobile(e.currentTarget.checked); setPhoneVerified(false); }}
+              label="I don't have a mobile number (skip verification)" />
+          )}
           <Divider my="sm" label="Address" labelPosition="left" />
           <Stack gap="sm">
             <AddressAutocomplete value={address.line1} token={token}
@@ -287,6 +298,9 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           <Button loading={submitM.isPending} onClick={submit}>Create account</Button>
         </Group>
       </Stack>
+      <PhoneConfirmModal token={token} phone={mobile} opened={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onVerified={() => { setPhoneVerified(true); setConfirmOpen(false); submitM.mutate(); }} />
     </Center>
   );
 }

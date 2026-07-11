@@ -16,7 +16,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconCircleCheck, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
@@ -27,7 +27,7 @@ import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationship
 import { STATE_OF_ISSUE_OPTIONS } from "../constants/states";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
-import { PhoneVerification } from "../components/PhoneVerification";
+import { PhoneConfirmModal } from "../components/PhoneConfirmModal";
 import type { CredentialType, OnboardingContext } from "../api/types";
 import { ClientOnboarding } from "./ClientOnboarding";
 
@@ -116,6 +116,8 @@ export function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [noMobile, setNoMobile] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     const d = ctxQ.data;
@@ -180,7 +182,8 @@ export function OnboardingPage() {
         family_name: personal.family_name,
         preferred_name: displayName || null,
         date_of_birth: fmt(dob),
-        mobile: personal.mobile || null,
+        mobile: noMobile ? null : personal.mobile || null,
+        no_mobile: noMobile,
         address: address.line1 || address.suburb ? address : null,
         emergency_contacts: emergency.name ? [emergency] : [],
         tax: isEmployee ? tax : null,
@@ -220,9 +223,7 @@ export function OnboardingPage() {
     setFieldErrors({});
     if (!personal.given_name || !personal.family_name) return setError("Please enter your name.");
     if (!dob) return setError("Date of birth is required.");
-    if (!phoneOk(personal.mobile)) return setError("Enter a valid mobile number.");
-    if (requirePhone && !phoneVerified)
-      return setError("Please verify your mobile number with the SMS code before finishing.");
+    if (!noMobile && !phoneOk(personal.mobile)) return setError("Enter a valid mobile number, or tick that you don't have one.");
     if (emergency.name && !phoneOk(emergency.phone)) return setError("Enter a valid emergency contact phone.");
     // Guardian consent is mandatory for under-18s (UAT#3 MINOR-1).
     if (isMinor) {
@@ -245,6 +246,12 @@ export function OnboardingPage() {
       if (password !== confirm) return setError("Passwords do not match.");
     }
     if (pin && !/^\d{6,8}$/.test(pin)) return setError("PIN must be 6–8 digits.");
+    // 2FA (UAT#3 2FA-1): confirm the mobile with a code in a modal, then submit.
+    // Opting out of a mobile (or an already-verified number) skips straight to submit.
+    if (requirePhone && !noMobile && !phoneVerified) {
+      setConfirmOpen(true);
+      return;
+    }
     submitM.mutate();
   }
 
@@ -291,17 +298,24 @@ export function OnboardingPage() {
             <TextInput label="Display name" value={displayName}
               onChange={(e) => { setDisplayEdited(true); setDisplayName(e.currentTarget.value); }} />
             <DateField label="Date of birth" required value={dob} onChange={setDob} maxDate={new Date()} />
-            {/* Mobile + its verification live in one cell so 'Send code' sits under
-                the Mobile field, not under Date of birth (UAT#3 SENDCODE-1). */}
+            {/* Mobile is confirmed by a code at the end (UAT#3 2FA-1), unless the
+                person opts out of having a mobile below. */}
             <div>
-              <PhoneField label="Mobile" value={personal.mobile} error={fieldErrors["mobile"]}
+              <PhoneField label="Mobile" value={personal.mobile} error={fieldErrors["mobile"]} disabled={noMobile}
                 onChange={(v) => { setPersonal({ ...personal, mobile: v }); setPhoneVerified(false); }} />
-              <PhoneVerification token={token} phone={personal.mobile}
-                phoneValid={!!personal.mobile && isValidPhoneNumber(personal.mobile)}
-                verified={phoneVerified} onVerifiedChange={setPhoneVerified}
-                required={requirePhone} />
+              {requirePhone && phoneVerified && !noMobile && (
+                <Group gap={6} c="teal" mt={4}><IconCircleCheck size={16} /><Text size="xs" fw={500}>Mobile confirmed</Text></Group>
+              )}
+              {requirePhone && !phoneVerified && !noMobile && (
+                <Text size="xs" c="dimmed" mt={4}>We'll text a code to confirm this when you finish.</Text>
+              )}
             </div>
           </SimpleGrid>
+          {requirePhone && (
+            <Checkbox mt="sm" checked={noMobile}
+              onChange={(e) => { setNoMobile(e.currentTarget.checked); setPhoneVerified(false); }}
+              label="This person doesn't have a mobile number (skip mobile verification)" />
+          )}
         </Paper>
 
         <Paper withBorder p="md">
@@ -543,6 +557,9 @@ export function OnboardingPage() {
           </Button>
         </Group>
       </Stack>
+      <PhoneConfirmModal token={token} phone={personal.mobile} opened={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onVerified={() => { setPhoneVerified(true); setConfirmOpen(false); submitM.mutate(); }} />
     </Container>
   );
 }
