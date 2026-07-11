@@ -86,13 +86,14 @@ export function PeoplePage() {
   const filteredPeople = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (peopleQ.data ?? []).filter((p) => {
-      if (query && !`${p.full_name} ${p.email ?? ""}`.toLowerCase().includes(query)) return false;
+      if (query && !`${p.full_name} ${p.list_name} ${p.email ?? ""}`.toLowerCase().includes(query)) return false;
       if (kind === "student" && !p.is_student) return false;
       if (kind === "account_holder" && !p.is_account_holder) return false;
       if (kind === "staff" && (p.is_student || p.is_account_holder) && p.roles.length === 0) return false;
       if (roleFilter && !p.roles.some((r) => String(r.id) === roleFilter)) return false;
       return true;
-    });
+    // Alphabetical by surname to match the "Family, Given" listing (NAME-LIST).
+    }).sort((a, b) => a.list_name.localeCompare(b.list_name));
   }, [peopleQ.data, search, kind, roleFilter]);
   const pageCount = Math.max(1, Math.ceil(filteredPeople.length / PAGE_SIZE));
   const pagedPeople = filteredPeople.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -150,7 +151,7 @@ export function PeoplePage() {
                 return (
                   <Table.Tr key={p.id}>
                     <Table.Td>
-                      <Anchor onClick={() => navigate(`/people/${p.id}`)}>{p.full_name}</Anchor>
+                      <Anchor onClick={() => navigate(`/people/${p.id}`)}>{p.list_name}</Anchor>
                     </Table.Td>
                     <Table.Td>{p.email ?? <Text c="dimmed" size="sm">—</Text>}</Table.Td>
                     <Table.Td>

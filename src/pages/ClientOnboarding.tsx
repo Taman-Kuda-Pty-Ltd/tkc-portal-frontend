@@ -64,7 +64,7 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
   const [given, setGiven] = useState(ctx.given_name);
   const [family, setFamily] = useState(ctx.family_name);
   const [mobile, setMobile] = useState(ctx.mobile ?? "");
-  const [address, setAddress] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
+  const [address, setAddress] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
   const [ec, setEc] = useState({ name: "", relationship: "", phone: "" });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -172,11 +172,13 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           </div>
           <Divider my="sm" label="Address" labelPosition="left" />
           <Stack gap="sm">
-            <AddressAutocomplete value={address.line1}
+            <AddressAutocomplete value={address.line1} token={token}
               onChange={(line1) => setAddress({ ...address, line1 })}
-              onSelect={(p) => setAddress({ ...address, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
+              onSelect={(p) => setAddress({ ...address, line1: p.line1, line2: p.line2 || address.line2, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
             <TextInput label="Address line 2" value={address.line2}
               onChange={(e) => setAddress({ ...address, line2: e.currentTarget.value })} />
+            <TextInput label="Address line 3" value={address.line3}
+              onChange={(e) => setAddress({ ...address, line3: e.currentTarget.value })} />
             <SimpleGrid cols={{ base: 1, sm: 3 }}>
               <TextInput label="Suburb" value={address.suburb}
                 onChange={(e) => setAddress({ ...address, suburb: e.currentTarget.value })} />

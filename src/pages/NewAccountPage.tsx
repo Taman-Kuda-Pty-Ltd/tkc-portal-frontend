@@ -19,11 +19,12 @@ import type { RiderDraft } from "../components/riderForm";
 interface Address {
   line1: string;
   line2: string;
+  line3: string;
   suburb: string;
   state: string;
   postcode: string;
 }
-const emptyAddress = (): Address => ({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
+const emptyAddress = (): Address => ({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
 
 interface HolderDraft {
   mode: "new" | "existing";
@@ -152,9 +153,11 @@ export function NewAccountPage() {
             <Stack gap="sm">
               <AddressAutocomplete value={holder.address.line1}
                 onChange={(line1) => setHolderP({ address: { ...holder.address, line1 } })}
-                onSelect={(p) => setHolderP({ address: { ...holder.address, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode } })} />
+                onSelect={(p) => setHolderP({ address: { ...holder.address, line1: p.line1, line2: p.line2 || holder.address.line2, suburb: p.suburb, state: p.state, postcode: p.postcode } })} />
               <TextInput label="Address line 2" value={holder.address.line2}
                 onChange={(e) => setHolderP({ address: { ...holder.address, line2: e.currentTarget.value } })} />
+              <TextInput label="Address line 3" value={holder.address.line3}
+                onChange={(e) => setHolderP({ address: { ...holder.address, line3: e.currentTarget.value } })} />
               <SimpleGrid cols={{ base: 1, sm: 3 }}>
                 <TextInput label="Suburb" value={holder.address.suburb}
                   onChange={(e) => setHolderP({ address: { ...holder.address, suburb: e.currentTarget.value } })} />

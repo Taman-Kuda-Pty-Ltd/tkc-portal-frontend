@@ -50,7 +50,7 @@ export function MyProfilePage() {
     given_name: "", middle_names: "", family_name: "", preferred_name: "",
     dob: null as Date | null, mobile: "", sms_opt_in: false,
   });
-  const [addr, setAddr] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
+  const [addr, setAddr] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
   const [ecs, setEcs] = useState<EcDraft[]>([]);
 
   useEffect(() => {
@@ -61,8 +61,8 @@ export function MyProfilePage() {
       mobile: p.mobile ?? "", sms_opt_in: p.sms_opt_in ?? false,
     });
     setAddr({
-      line1: p.address?.line1 ?? "", line2: p.address?.line2 ?? "", suburb: p.address?.suburb ?? "",
-      state: p.address?.state ?? "", postcode: p.address?.postcode ?? "",
+      line1: p.address?.line1 ?? "", line2: p.address?.line2 ?? "", line3: p.address?.line3 ?? "",
+      suburb: p.address?.suburb ?? "", state: p.address?.state ?? "", postcode: p.address?.postcode ?? "",
     });
     setEcs(p.emergency_contacts.map((e) => ({
       name: e.name, relationship: e.relationship ?? "", phone: e.phone ?? "",
@@ -156,6 +156,8 @@ export function MyProfilePage() {
             onSelect={(p) => setAddr({ ...addr, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
           <TextInput label="Line 2" value={addr.line2} disabled={ro}
             onChange={(e) => setAddr({ ...addr, line2: e.currentTarget.value })} />
+          <TextInput label="Line 3" value={addr.line3} disabled={ro}
+            onChange={(e) => setAddr({ ...addr, line3: e.currentTarget.value })} />
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <TextInput label="Suburb" value={addr.suburb} disabled={ro}
               onChange={(e) => setAddr({ ...addr, suburb: e.currentTarget.value })} />

@@ -13,6 +13,7 @@ interface Facility {
   is_active: boolean;
   line1: string | null;
   line2: string | null;
+  line3: string | null;
   suburb: string | null;
   state: string | null;
   postcode: string | null;
@@ -21,18 +22,19 @@ interface Facility {
 interface Address {
   line1: string;
   line2: string;
+  line3?: string;
   suburb: string;
   state: string;
   postcode: string;
 }
-const emptyAddress = (): Address => ({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
+const emptyAddress = (): Address => ({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
 const fromFacility = (f: Facility): Address => ({
-  line1: f.line1 ?? "", line2: f.line2 ?? "", suburb: f.suburb ?? "", state: f.state ?? "", postcode: f.postcode ?? "",
+  line1: f.line1 ?? "", line2: f.line2 ?? "", line3: f.line3 ?? "", suburb: f.suburb ?? "", state: f.state ?? "", postcode: f.postcode ?? "",
 });
 // Empty strings -> null so a blank field clears rather than storing "".
 const addressPayload = (a: Address) => ({
-  line1: a.line1.trim() || null, line2: a.line2.trim() || null, suburb: a.suburb.trim() || null,
-  state: a.state.trim() || null, postcode: a.postcode.trim() || null,
+  line1: a.line1.trim() || null, line2: a.line2.trim() || null, line3: (a.line3 ?? "").trim() || null,
+  suburb: a.suburb.trim() || null, state: a.state.trim() || null, postcode: a.postcode.trim() || null,
 });
 
 // The line2 + suburb/state/postcode block, shared by add + edit.
@@ -41,9 +43,11 @@ function AddressBlock({ address, set }: { address: Address; set: (a: Address) =>
     <>
       <AddressAutocomplete value={address.line1}
         onChange={(line1) => set({ ...address, line1 })}
-        onSelect={(p) => set({ ...address, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
+        onSelect={(p) => set({ ...address, line1: p.line1, line2: p.line2 || address.line2, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
       <TextInput label="Address line 2" value={address.line2}
         onChange={(e) => set({ ...address, line2: e.currentTarget.value })} />
+      <TextInput label="Address line 3" value={address.line3 ?? ""}
+        onChange={(e) => set({ ...address, line3: e.currentTarget.value })} />
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
         <TextInput label="Suburb" value={address.suburb} onChange={(e) => set({ ...address, suburb: e.currentTarget.value })} />
         <TextInput label="State" value={address.state} onChange={(e) => set({ ...address, state: e.currentTarget.value })} />

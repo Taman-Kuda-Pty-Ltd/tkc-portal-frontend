@@ -84,7 +84,7 @@ export function OnboardingPage() {
   const [displayName, setDisplayName] = useState("");
   const [displayEdited, setDisplayEdited] = useState(false);
   const [dob, setDob] = useState<Date | null>(null);
-  const [address, setAddress] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
+  const [address, setAddress] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
   const [emergency, setEmergency] = useState({ name: "", relationship: "", phone: "" });
   const [tax, setTax] = useState({
     tfn: "",
@@ -134,6 +134,7 @@ export function OnboardingPage() {
       setAddress({
         line1: d.address.line1 ?? "",
         line2: d.address.line2 ?? "",
+        line3: d.address.line3 ?? "",
         suburb: d.address.suburb ?? "",
         state: d.address.state ?? "",
         postcode: d.address.postcode ?? "",
@@ -305,11 +306,13 @@ export function OnboardingPage() {
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Address</Title>
           <Stack>
-            <AddressAutocomplete value={address.line1}
+            <AddressAutocomplete value={address.line1} token={token}
               onChange={(line1) => setAddress({ ...address, line1 })}
-              onSelect={(p) => setAddress({ ...address, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
+              onSelect={(p) => setAddress({ ...address, line1: p.line1, line2: p.line2 || address.line2, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
             <TextInput label="Address line 2" value={address.line2}
               onChange={(e) => setAddress({ ...address, line2: e.currentTarget.value })} />
+            <TextInput label="Address line 3" value={address.line3}
+              onChange={(e) => setAddress({ ...address, line3: e.currentTarget.value })} />
             <SimpleGrid cols={{ base: 1, sm: 3 }}>
               <TextInput label="Suburb" value={address.suburb}
                 onChange={(e) => setAddress({ ...address, suburb: e.currentTarget.value })} />

@@ -15,11 +15,12 @@ export interface AddressSuggestion {
   lon: number | null;
 }
 
-// The structured address fields we fill on select. `line1` is the street
-// portion of the display (everything before the first comma); suburb comes from
-// the upstream locality.
+// The structured address fields we fill on select. The street portion of the
+// display (everything before the locality) becomes line1 (+ line2 for a comma'd
+// unit like "Unit 5, 12 Main St"); suburb comes from the upstream locality.
 export interface AddressParts {
   line1: string;
+  line2: string;
   suburb: string;
   state: string;
   postcode: string;
@@ -35,12 +36,21 @@ interface Props {
   label?: string;
   placeholder?: string;
   disabled?: boolean;
+  /** Onboarding invitation token — authorises the lookup for a not-logged-in
+   *  invitee (ADDR-AUTH). Logged-in pages don't need it (their JWT authorises). */
+  token?: string;
 }
 
-// Split "12 MAIN ST, SYDNEY NSW 2000" into its street portion for line 1.
-function streetPart(display: string): string {
-  const comma = display.indexOf(",");
-  return (comma === -1 ? display : display.slice(0, comma)).trim();
+// Split a display like "UNIT 5, 12 MAIN ST, SYDNEY NSW 2000" into street line(s).
+// The LAST comma segment is the locality/state/postcode (dropped here — filled from
+// the structured fields); everything before it is the street. A comma *within* the
+// street (a unit/flat) splits across line1/line2 rather than being truncated
+// (fixes UAT#3 ADDR-LINE2, where a unit address lost everything after the 1st comma).
+function streetLines(display: string): { line1: string; line2: string } {
+  const lastComma = display.lastIndexOf(",");
+  const street = (lastComma === -1 ? display : display.slice(0, lastComma)).trim();
+  const parts = street.split(",").map((s) => s.trim()).filter(Boolean);
+  return { line1: parts[0] ?? street, line2: parts.slice(1).join(", ") };
 }
 
 // Hard cap on a single /addresses/search call. A dead/slow lookup server must
@@ -57,14 +67,15 @@ const SEARCH_TIMEOUT_MS = 4000;
  * On a runtime failure it stops hitting the (likely dead) server for the rest of
  * the session, keeps whatever the user has typed, and shows a small inline hint.
  */
-export function AddressAutocomplete({ value, onChange, onSelect, label = "Address line 1", placeholder, disabled }: Props) {
+export function AddressAutocomplete({ value, onChange, onSelect, label = "Address line 1", placeholder, disabled, token }: Props) {
   // Once a live lookup fails we stay in manual mode for the session, rather than
   // hammering a dead server on every keystroke.
   const [degraded, setDegraded] = useState(false);
+  const tokenQ = token ? `?token=${encodeURIComponent(token)}` : "";
 
   const status = useQuery({
-    queryKey: ["address-status"],
-    queryFn: () => api.get<{ configured: boolean }>("/addresses/status"),
+    queryKey: ["address-status", token ?? ""],
+    queryFn: () => api.get<{ configured: boolean }>(`/addresses/status${tokenQ}`),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -75,15 +86,16 @@ export function AddressAutocomplete({ value, onChange, onSelect, label = "Addres
   const byDisplay = useRef<Map<string, AddressSuggestion>>(new Map());
 
   const search = useQuery({
-    queryKey: ["address-search", debounced],
+    queryKey: ["address-search", debounced, token ?? ""],
     queryFn: async () => {
       // Impose our own timeout on top of whatever react-query does — a hung
       // socket should abort at SEARCH_TIMEOUT_MS and surface as an error.
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), SEARCH_TIMEOUT_MS);
       try {
+        const t = token ? `&token=${encodeURIComponent(token)}` : "";
         return await api.get<AddressSuggestion[]>(
-          `/addresses/search?q=${encodeURIComponent(debounced.trim())}`,
+          `/addresses/search?q=${encodeURIComponent(debounced.trim())}${t}`,
           { signal: ac.signal },
         );
       } finally {
@@ -142,8 +154,10 @@ export function AddressAutocomplete({ value, onChange, onSelect, label = "Addres
         onChange(val);
         const picked = byDisplay.current.get(val);
         if (picked) {
+          const { line1, line2 } = streetLines(picked.display ?? val);
           onSelect({
-            line1: streetPart(picked.display ?? val),
+            line1,
+            line2,
             suburb: picked.locality ?? "",
             state: picked.state ?? "",
             postcode: picked.postcode ?? "",

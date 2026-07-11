@@ -118,7 +118,7 @@ export function PersonDetailPage() {
     given_name: "", middle_names: "", family_name: "", preferred_name: "",
     dob: null as Date | null, mobile: "", email: "", is_active: true, role_ids: [] as string[],
   });
-  const [addr, setAddr] = useState({ line1: "", line2: "", suburb: "", state: "", postcode: "" });
+  const [addr, setAddr] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
   const [ecDraft, setEcDraft] = useState<EcDraft[]>([]);
   const [engDrafts, setEngDrafts] = useState<Record<number, EngDraft>>({});
   const [retiring, setRetiring] = useState<EngagementDetail | null>(null);
@@ -153,8 +153,8 @@ export function PersonDetailPage() {
       role_ids: p.roles.map((r) => String(r.id)),
     });
     setAddr({
-      line1: p.address?.line1 ?? "", line2: p.address?.line2 ?? "", suburb: p.address?.suburb ?? "",
-      state: p.address?.state ?? "", postcode: p.address?.postcode ?? "",
+      line1: p.address?.line1 ?? "", line2: p.address?.line2 ?? "", line3: p.address?.line3 ?? "",
+      suburb: p.address?.suburb ?? "", state: p.address?.state ?? "", postcode: p.address?.postcode ?? "",
     });
     setEcDraft(p.emergency_contacts.map((e) => ({
       name: e.name, relationship: e.relationship ?? "", phone: e.phone ?? "",
@@ -172,8 +172,8 @@ export function PersonDetailPage() {
         is_active: draft.is_active, role_ids: draft.role_ids.map(Number),
       });
       await api.put(`/people/${id}/address`, {
-        line1: addr.line1 || null, line2: addr.line2 || null, suburb: addr.suburb || null,
-        state: addr.state || null, postcode: addr.postcode || null,
+        line1: addr.line1 || null, line2: addr.line2 || null, line3: addr.line3 || null,
+        suburb: addr.suburb || null, state: addr.state || null, postcode: addr.postcode || null,
       });
       await api.put(
         `/people/${id}/emergency-contacts`,
@@ -388,6 +388,8 @@ export function PersonDetailPage() {
             onChange={(e) => setAddr({ ...addr, line1: e.currentTarget.value })} />
           <TextInput label="Line 2" value={addr.line2} disabled={ro}
             onChange={(e) => setAddr({ ...addr, line2: e.currentTarget.value })} />
+          <TextInput label="Line 3" value={addr.line3} disabled={ro}
+            onChange={(e) => setAddr({ ...addr, line3: e.currentTarget.value })} />
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <TextInput label="Suburb" value={addr.suburb} disabled={ro}
               onChange={(e) => setAddr({ ...addr, suburb: e.currentTarget.value })} />

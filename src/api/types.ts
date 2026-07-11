@@ -28,6 +28,7 @@ export interface Person {
   is_active: boolean;
   onboarded: boolean;
   full_name: string; // computed display name
+  list_name: string; // "Family, Given" for alphabetical lists
   gender?: string | null;
   roles: Role[];
   is_student?: boolean;
@@ -318,6 +319,7 @@ export interface PersonDetail {
   address: {
     line1: string | null;
     line2: string | null;
+    line3: string | null;
     suburb: string | null;
     state: string | null;
     postcode: string | null;
@@ -355,6 +357,7 @@ export interface OnboardingContext {
   address: {
     line1: string | null;
     line2: string | null;
+    line3: string | null;
     suburb: string | null;
     state: string | null;
     postcode: string | null;
