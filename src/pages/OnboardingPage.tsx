@@ -328,16 +328,17 @@ export function OnboardingPage() {
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Emergency contact</Title>
           <Stack>
+            {/* Phone shares the grid so it matches the Name field width (UAT#3 EMER-WIDTH). */}
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <TextInput label="Name" value={emergency.name}
                 onChange={(e) => setEmergency({ ...emergency, name: e.currentTarget.value })} />
               <Select label="Relationship" data={RELATIONSHIPS} value={emergency.relationship || null}
                 placeholder="Select" comboboxProps={{ withinPortal: true }}
                 onChange={(v) => setEmergency({ ...emergency, relationship: v || "" })} />
+              <PhoneField label="Phone" value={emergency.phone}
+                error={fieldErrors["emergency_contacts.0.phone"]}
+                onChange={(v) => setEmergency({ ...emergency, phone: v })} />
             </SimpleGrid>
-            <PhoneField label="Phone" value={emergency.phone}
-              error={fieldErrors["emergency_contacts.0.phone"]}
-              onChange={(v) => setEmergency({ ...emergency, phone: v })} />
           </Stack>
         </Paper>
 

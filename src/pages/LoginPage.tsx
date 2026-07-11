@@ -6,11 +6,11 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { useState } from "react";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import tkcLogo from "../assets/tkc-logo.png";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -42,12 +42,10 @@ export function LoginPage() {
       <Card withBorder shadow="sm" padding="xl" w={360} maw="100%">
         <form onSubmit={submit}>
           <Stack>
-            <div>
-              <Title order={3}>Taman Kuda Club</Title>
-              <Text size="sm" c="dimmed">
-                Staff sign in
-              </Text>
-            </div>
+            <Stack align="center" gap={4}>
+              <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 120, width: "auto" }} />
+              <Text size="sm" c="dimmed">Staff sign in</Text>
+            </Stack>
             <TextInput
               label="Email"
               type="email"

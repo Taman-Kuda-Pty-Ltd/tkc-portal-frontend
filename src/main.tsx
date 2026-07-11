@@ -13,9 +13,23 @@ import App from "./App";
 import { AuthProvider } from "./auth/AuthContext";
 import { SettingsProvider } from "./settings/SettingsContext";
 
+// Taman Kuda Club brand (UAT#3 BRANDING). Primary = the brand maroon (#801e2b,
+// Pantone 1815 C); brand font is Gill Sans. Explicit color="teal" usages stay teal
+// as a "success / on-site" semantic — only default-primary elements turn maroon.
 const theme = createTheme({
-  primaryColor: "teal",
+  primaryColor: "tkc",
+  primaryShade: { light: 8, dark: 6 },
+  colors: {
+    tkc: [
+      "#fdecef", "#f4d3d9", "#e6a7b1", "#d97a88", "#ce5366",
+      "#c73a50", "#c32c44", "#a92338", "#801e2b", "#5e141d",
+    ],
+  },
   defaultRadius: "md",
+  fontFamily: '"Gill Sans Nova", "Gill Sans", "Gill Sans MT", Calibri, "Segoe UI", system-ui, sans-serif',
+  headings: {
+    fontFamily: '"Gill Sans Nova", "Gill Sans", "Gill Sans MT", Calibri, "Segoe UI", system-ui, sans-serif',
+  },
 });
 
 const queryClient = new QueryClient({
