@@ -78,6 +78,8 @@ export function AddPersonPage() {
   const [roleIds, setRoleIds] = useState<string[]>([]);
   const [result, setResult] = useState<Invitation | null>(null);
   const [clientModal, setClientModal] = useState(false);
+  // CLIENT-LANDING: pick one of three explicit client actions before showing a form.
+  const [clientChoice, setClientChoice] = useState<"invite" | null>(null);
 
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
   const gradesQ = useQuery({ queryKey: ["pay-grades"], queryFn: () => api.get<PayGrade[]>("/pay-grades") });
@@ -216,46 +218,59 @@ export function AddPersonPage() {
       />
 
       {kind === "school_client" ? (
-        <>
-          <Paper withBorder p="md">
-            <Text size="sm" c="dimmed" mb="sm">
-              Invite the account holder to complete their own (and their rider's) details,
-              by email or a copyable link.
-            </Text>
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label="Given name" required value={given} onChange={(e) => setGiven(e.currentTarget.value)} />
-              <TextInput label="Family name" required value={family} onChange={(e) => setFamily(e.currentTarget.value)} />
-              <TextInput
-                label="Email"
-                description="Optional — leave blank to hand over a link yourself"
-                value={email}
-                error={emailInvalid ? "Enter a valid email address" : null}
-                onChange={(e) => setEmail(e.currentTarget.value)}
-              />
-              <PhoneField label="Mobile" value={mobile} onChange={setMobile} />
+        clientChoice === null ? (
+          <>
+            <Text size="sm" c="dimmed">What would you like to do?</Text>
+            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+              <ClientChoiceCard
+                title="Invite a new client"
+                desc="They complete their own and their riders' details via an emailed or copyable link (self-onboard)."
+                cta="Invite by email / link"
+                onClick={() => setClientChoice("invite")} />
+              <ClientChoiceCard
+                title="Create a new client"
+                desc="Set up an account holder and all their riders yourself, in one flow — no link needed."
+                cta="New account & riders"
+                onClick={() => navigate("/accounts/new")} />
+              <ClientChoiceCard
+                title="Create a new student"
+                desc="Register a rider — optionally for an existing account holder (incl. a staff member)."
+                cta="Register a student"
+                onClick={() => setClientModal(true)} />
             </SimpleGrid>
-            <Group justify="flex-end" mt="md">
-              <Button loading={clientInviteM.isPending} disabled={!canSubmit || !can("manage_onboarding")}
-                onClick={() => clientInviteM.mutate()}>
-                {email.trim() ? "Send invite" : "Add & get link"}
-              </Button>
-            </Group>
-          </Paper>
-
-          <Divider label="or register manually" labelPosition="center" />
-
-          <Paper withBorder p="md">
-            <Text size="sm" c="dimmed" mb="sm">
-              Set up an account holder and all their riders (with emergency contact and,
-              for minors, a guardian) in one flow.
-            </Text>
-            <Group>
-              <Button onClick={() => navigate("/accounts/new")}>New account &amp; riders</Button>
-              <Button variant="light" onClick={() => setClientModal(true)}>Quick-register a single rider</Button>
-            </Group>
             <StudentRegisterModal opened={clientModal} onClose={() => { setClientModal(false); navigate("/people"); }} />
-          </Paper>
-        </>
+          </>
+        ) : (
+          <>
+            <Anchor size="sm" c="dimmed" onClick={() => setClientChoice(null)}>
+              <Group gap={4}><IconArrowLeft size={14} /> Back to options</Group>
+            </Anchor>
+            <Paper withBorder p="md">
+              <Text size="sm" c="dimmed" mb="sm">
+                Invite the account holder to complete their own (and their rider's) details,
+                by email or a copyable link.
+              </Text>
+              <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                <TextInput label="Given name" required value={given} onChange={(e) => setGiven(e.currentTarget.value)} />
+                <TextInput label="Family name" required value={family} onChange={(e) => setFamily(e.currentTarget.value)} />
+                <TextInput
+                  label="Email"
+                  description="Optional — leave blank to hand over a link yourself"
+                  value={email}
+                  error={emailInvalid ? "Enter a valid email address" : null}
+                  onChange={(e) => setEmail(e.currentTarget.value)}
+                />
+                <PhoneField label="Mobile" value={mobile} onChange={setMobile} />
+              </SimpleGrid>
+              <Group justify="flex-end" mt="md">
+                <Button loading={clientInviteM.isPending} disabled={!canSubmit || !can("manage_onboarding")}
+                  onClick={() => clientInviteM.mutate()}>
+                  {email.trim() ? "Send invite" : "Add & get link"}
+                </Button>
+              </Group>
+            </Paper>
+          </>
+        )
       ) : (
         <>
           <Paper withBorder p="md">
@@ -350,5 +365,18 @@ export function AddPersonPage() {
         </>
       )}
     </Stack>
+  );
+}
+
+/** One of the three explicit "add a client" choices (CLIENT-LANDING). */
+function ClientChoiceCard({ title, desc, cta, onClick }: {
+  title: string; desc: string; cta: string; onClick: () => void;
+}) {
+  return (
+    <Paper withBorder p="md" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <Text fw={600}>{title}</Text>
+      <Text size="sm" c="dimmed" style={{ flex: 1 }}>{desc}</Text>
+      <Button variant="light" fullWidth onClick={onClick}>{cta}</Button>
+    </Paper>
   );
 }
