@@ -80,6 +80,8 @@ export function AddPersonPage() {
   const [clientModal, setClientModal] = useState(false);
   // CLIENT-LANDING: pick one of three explicit client actions before showing a form.
   const [clientChoice, setClientChoice] = useState<"invite" | null>(null);
+  // MANUAL-STAFF: invite the staffer to self-onboard, or enter their details yourself.
+  const [staffMode, setStaffMode] = useState<"invite" | "manual">("invite");
 
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
   const gradesQ = useQuery({ queryKey: ["pay-grades"], queryFn: () => api.get<PayGrade[]>("/pay-grades") });
@@ -147,7 +149,16 @@ export function AddPersonPage() {
         })),
         role_ids: roleIds.map(Number),
       }),
-    onSuccess: onInviteSuccess,
+    onSuccess: (inv) => {
+      qc.invalidateQueries({ queryKey: ["people"] });
+      qc.invalidateQueries({ queryKey: ["invitations"] });
+      // Manager-entry: jump straight into the full form to fill on their behalf.
+      if (staffMode === "manual") {
+        const t = inv.onboarding_url?.split("/onboard/")[1];
+        if (t) { navigate(`/staff-onboard/${t}`); return; }
+      }
+      onInviteSuccess(inv);
+    },
     onError: onInviteError,
   });
 
@@ -274,6 +285,19 @@ export function AddPersonPage() {
       ) : (
         <>
           <Paper withBorder p="md">
+            <Text size="sm" fw={600} mb={4}>How would you like to set them up?</Text>
+            <SegmentedControl fullWidth value={staffMode} onChange={(v) => setStaffMode(v as "invite" | "manual")}
+              data={[
+                { value: "invite", label: "Invite (they self-onboard)" },
+                { value: "manual", label: "Enter their details myself" },
+              ]} />
+            <Text size="xs" c="dimmed" mt={6}>
+              {staffMode === "invite"
+                ? "They get a link to complete their own details and set a password."
+                : "You fill in their full details (incl. TFN/bank); they get a link afterwards to set a password and confirm their mobile."}
+            </Text>
+          </Paper>
+          <Paper withBorder p="md">
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <TextInput label="Given name" required value={given} onChange={(e) => setGiven(e.currentTarget.value)} />
               <TextInput label="Family name" required value={family} onChange={(e) => setFamily(e.currentTarget.value)} />
@@ -359,7 +383,7 @@ export function AddPersonPage() {
             <Button variant="default" onClick={() => navigate("/people")}>Cancel</Button>
             <Button loading={inviteM.isPending} disabled={!canSubmit || !can("manage_onboarding")}
               onClick={() => inviteM.mutate()}>
-              {email.trim() ? "Send invite" : "Add & get link"}
+              {staffMode === "manual" ? "Continue to full details" : email.trim() ? "Send invite" : "Add & get link"}
             </Button>
           </Group>
         </>

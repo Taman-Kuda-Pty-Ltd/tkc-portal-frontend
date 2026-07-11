@@ -314,6 +314,7 @@ export interface PersonDetail {
   is_student?: boolean;
   is_account_holder?: boolean;
   has_pin: boolean;
+  has_password?: boolean;
   super_percent?: number | null;
   roles: Role[];
   address: {

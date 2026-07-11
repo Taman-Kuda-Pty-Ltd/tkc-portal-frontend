@@ -6,6 +6,7 @@ import { useAuth } from "./auth/AuthContext";
 import { AppLayout } from "./components/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
+import { SetPasswordPage } from "./pages/SetPasswordPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { HorsesPage } from "./pages/HorsesPage";
 import { HorseDetailPage } from "./pages/HorseDetailPage";
@@ -50,6 +51,8 @@ function AuthedApp() {
         <Route path="/templates/:id" element={<ShiftTemplateEditorPage />} />
         <Route path="/me" element={<MyProfilePage />} />
         <Route path="/me/pay" element={<MyPayPage />} />
+        {/* Manager-entry staff onboarding (fills the full form on their behalf) */}
+        <Route path="/staff-onboard/:token" element={<OnboardingPage managerMode />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/people/new" element={<AddPersonPage />} />
         <Route path="/accounts/new" element={<NewAccountPage />} />
@@ -79,6 +82,8 @@ export default function App() {
     <Routes>
       {/* Public: onboarding completion from an invite link */}
       <Route path="/onboard/:token" element={<OnboardingPage />} />
+      {/* Public: set password + confirm mobile from a set-password link (PWVERIFY-1) */}
+      <Route path="/set-password/:token" element={<SetPasswordPage />} />
       {/* Public: kiosk terminal (device-token authenticated) */}
       <Route path="/terminal" element={<TerminalApp />} />
       {me ? (

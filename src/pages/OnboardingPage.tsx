@@ -20,7 +20,8 @@ import { IconCircleCheck, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { notifications } from "@mantine/notifications";
 import { api, ApiError, setToken } from "../api/client";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
@@ -68,8 +69,11 @@ interface CredRow {
   expires_on: Date | null;
 }
 
-export function OnboardingPage() {
-  const { token = "" } = useParams();
+export function OnboardingPage({ managerMode = false, tokenOverride }: {
+  managerMode?: boolean; tokenOverride?: string;
+} = {}) {
+  const { token: tokenParam = "" } = useParams();
+  const token = tokenOverride ?? tokenParam;
   const ctxQ = useQuery({
     queryKey: ["onboarding", token],
     queryFn: () => api.get<OnboardingContext>(`/onboarding/${token}`),
@@ -174,9 +178,11 @@ export function OnboardingPage() {
   const isMinor = !!dob && dayjs().diff(dayjs(dob), "year") < 18;
   const requirePhone = ctxQ.data?.require_phone_verification ?? false;
 
+  const navigate = useNavigate();
   const submitM = useMutation({
     mutationFn: () =>
-      api.post<{ access_token: string }>(`/onboarding/${token}`, {
+      api.post<{ access_token?: string; person_id?: number }>(
+        managerMode ? `/onboarding/${token}/manager-complete` : `/onboarding/${token}`, {
         given_name: personal.given_name,
         middle_names: personal.middle_names || null,
         family_name: personal.family_name,
@@ -199,11 +205,17 @@ export function OnboardingPage() {
             expires_on: fmt(c.expires_on),
           })),
         guardian: isMinor ? guardian : null,
-        password: password || null,
-        pin: pin || null,
+        // Manager-entry sets no password/PIN — the staffer sets those via a link (PWVERIFY-1).
+        password: managerMode ? null : password || null,
+        pin: managerMode ? null : pin || null,
       }),
     onSuccess: (res) => {
-      setToken(res.access_token);
+      if (managerMode) {
+        notifications.show({ color: "teal", message: "Staff member created. Send them the set-password link from their profile." });
+        navigate(`/people/${res.person_id}`);
+        return;
+      }
+      setToken(res.access_token!);
       sessionStorage.setItem("tkc_welcome", displayName || personal.given_name);
       window.location.assign("/schedule"); // hard reload so auth re-initialises
     },
@@ -240,6 +252,12 @@ export function OnboardingPage() {
         return setError("Bank account name, BSB and account number are required.");
       if (bank.bsb.replace(/\D/g, "").length !== 6)
         return setError("Enter a valid 6-digit BSB (XXX-XXX).");
+    }
+    // Manager-entry skips password + mobile-confirm entirely (the staffer does those
+    // later via a set-password link) — submit straight away (UAT#3 MANUAL-STAFF).
+    if (managerMode) {
+      submitM.mutate();
+      return;
     }
     if (!hasAccount || password) {
       if (password.length < 8) return setError("Password must be at least 8 characters.");
@@ -282,8 +300,12 @@ export function OnboardingPage() {
     <Container size="sm" py="xl">
       <Stack>
         <div>
-          <Title order={2}>Welcome to Taman Kuda Club</Title>
-          <Text c="dimmed">Complete your details to finish setting up your account.</Text>
+          <Title order={2}>{managerMode ? "Add staff member — full details" : "Welcome to Taman Kuda Club"}</Title>
+          <Text c="dimmed">
+            {managerMode
+              ? "Enter this staff member's details on their behalf. They'll set their own password and confirm their mobile afterwards."
+              : "Complete your details to finish setting up your account."}
+          </Text>
         </div>
 
         <Paper withBorder p="md">
@@ -303,15 +325,18 @@ export function OnboardingPage() {
             <div>
               <PhoneField label="Mobile" value={personal.mobile} error={fieldErrors["mobile"]} disabled={noMobile}
                 onChange={(v) => { setPersonal({ ...personal, mobile: v }); setPhoneVerified(false); }} />
-              {requirePhone && phoneVerified && !noMobile && (
+              {!managerMode && requirePhone && phoneVerified && !noMobile && (
                 <Group gap={6} c="teal" mt={4}><IconCircleCheck size={16} /><Text size="xs" fw={500}>Mobile confirmed</Text></Group>
               )}
-              {requirePhone && !phoneVerified && !noMobile && (
+              {!managerMode && requirePhone && !phoneVerified && !noMobile && (
                 <Text size="xs" c="dimmed" mt={4}>We'll text a code to confirm this when you finish.</Text>
+              )}
+              {managerMode && (
+                <Text size="xs" c="dimmed" mt={4}>They'll confirm this when they set their password.</Text>
               )}
             </div>
           </SimpleGrid>
-          {requirePhone && (
+          {!managerMode && requirePhone && (
             <Checkbox mt="sm" checked={noMobile}
               onChange={(e) => { setNoMobile(e.currentTarget.checked); setPhoneVerified(false); }}
               label="This person doesn't have a mobile number (skip mobile verification)" />
@@ -521,39 +546,50 @@ export function OnboardingPage() {
           </Paper>
         )}
 
-        <Paper withBorder p="md">
-          <Group justify="space-between" mb="sm">
-            <Title order={4}>{hasAccount ? "Password & PIN" : "Set your password"}</Title>
-            {authDisabled && (
-              <Button variant="light" size="xs" onClick={() => setChangingAuth(true)}>
-                Change password / PIN
-              </Button>
-            )}
-          </Group>
-          {hasAccount && (
-            <Text size="sm" c="dimmed" mb="sm">
-              You already have an account. Leave these as-is to keep your current
-              password and PIN, or choose “Change password / PIN” to update them.
+        {/* Manager-entry sets no password — the staffer sets it via a link (PWVERIFY-1). */}
+        {managerMode ? (
+          <Paper withBorder p="md" bg="var(--mantine-color-default)">
+            <Text size="sm" c="dimmed">
+              You're entering this on the staff member's behalf. After you save, send them
+              the “set password & confirm mobile” link from their profile — they choose
+              their own password and PIN.
             </Text>
-          )}
-          <SimpleGrid cols={{ base: 1, sm: 2 }}>
-            <PasswordInput label="Password" value={password} required={!hasAccount} disabled={authDisabled}
-              error={fieldErrors["password"]}
-              onChange={(e) => setPassword(e.currentTarget.value)} />
-            <PasswordInput label="Confirm password" value={confirm} required={!hasAccount} disabled={authDisabled}
-              onChange={(e) => setConfirm(e.currentTarget.value)} />
-            <TextInput label="PIN (6–8 digits)" value={pin} disabled={authDisabled}
-              error={fieldErrors["pin"]}
-              description="For quick check-in on shared terminals (coming soon)"
-              onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
-          </SimpleGrid>
-        </Paper>
+          </Paper>
+        ) : (
+          <Paper withBorder p="md">
+            <Group justify="space-between" mb="sm">
+              <Title order={4}>{hasAccount ? "Password & PIN" : "Set your password"}</Title>
+              {authDisabled && (
+                <Button variant="light" size="xs" onClick={() => setChangingAuth(true)}>
+                  Change password / PIN
+                </Button>
+              )}
+            </Group>
+            {hasAccount && (
+              <Text size="sm" c="dimmed" mb="sm">
+                You already have an account. Leave these as-is to keep your current
+                password and PIN, or choose “Change password / PIN” to update them.
+              </Text>
+            )}
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <PasswordInput label="Password" value={password} required={!hasAccount} disabled={authDisabled}
+                error={fieldErrors["password"]}
+                onChange={(e) => setPassword(e.currentTarget.value)} />
+              <PasswordInput label="Confirm password" value={confirm} required={!hasAccount} disabled={authDisabled}
+                onChange={(e) => setConfirm(e.currentTarget.value)} />
+              <TextInput label="PIN (6–8 digits)" value={pin} disabled={authDisabled}
+                error={fieldErrors["pin"]}
+                description="For quick check-in on shared terminals (coming soon)"
+                onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
+            </SimpleGrid>
+          </Paper>
+        )}
 
         {error && <Text c="red" size="sm">{error}</Text>}
         <Divider />
         <Group justify="flex-end">
           <Button size="md" loading={submitM.isPending} onClick={submit}>
-            Finish onboarding
+            {managerMode ? "Create staff member" : "Finish onboarding"}
           </Button>
         </Group>
       </Stack>

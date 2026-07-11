@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Alert,
   Anchor,
   Badge,
   Button,
@@ -344,6 +345,9 @@ export function PersonDetailPage() {
           )
         )}
       </Group>
+
+      {/* Manager-entered (or otherwise password-less) person: offer the set-password link. */}
+      {canManage && p.onboarded && p.has_password === false && <SetPasswordPrompt personId={p.id} />}
 
       {/* Profile photo */}
       <Card withBorder>
@@ -756,5 +760,42 @@ export function PersonDetailPage() {
         </Stack>
       </Modal>
     </Stack>
+  );
+}
+
+/** Offer a set-password/confirm-mobile link for a person who has no password yet
+ *  (e.g. a manager-entered staff member) — PWVERIFY-1. */
+function SetPasswordPrompt({ personId }: { personId: number }) {
+  const [link, setLink] = useState<string | null>(null);
+  const [emailed, setEmailed] = useState(false);
+  const m = useMutation({
+    mutationFn: () =>
+      api.post<{ email_sent: boolean; set_password_url: string }>("/invitations/send-set-password", { person_id: personId }),
+    onSuccess: (r) => {
+      setLink(r.set_password_url);
+      setEmailed(r.email_sent);
+      notifications.show({ color: "teal", message: r.email_sent ? "Set-password link emailed." : "Link created — copy it below." });
+    },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Alert color="orange" title="This person can't sign in yet">
+      <Text size="sm" mb="sm">
+        They were set up manually and haven't set a password. Send them a link to set a
+        password and confirm their mobile.
+      </Text>
+      {!link ? (
+        <Button size="xs" loading={m.isPending} onClick={() => m.mutate()}>Send set-password link</Button>
+      ) : (
+        <Stack gap="xs">
+          {emailed && <Text size="xs" c="teal">Emailed to them.</Text>}
+          <Group gap="xs" wrap="nowrap">
+            <TextInput readOnly value={link} style={{ flex: 1 }} />
+            <Button size="xs" variant="light" onClick={() => navigator.clipboard?.writeText(link)}>Copy</Button>
+            <Button size="xs" variant="subtle" loading={m.isPending} onClick={() => m.mutate()}>Regenerate</Button>
+          </Group>
+        </Stack>
+      )}
+    </Alert>
   );
 }
