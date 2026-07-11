@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
+import { ACCOUNT_RELATIONSHIPS } from "../constants/relationships";
 import type { AccountHolderRec, Person, StudentRec } from "../api/types";
 
 export const GENDERS = [
@@ -41,7 +42,7 @@ export function StudentRegisterModal({ opened, onClose, fixedPersonId, fixedPers
   const [medical, setMedical] = useState(""); const [allergies, setAllergies] = useState("");
   const [notes, setNotes] = useState(""); const [photo, setPhoto] = useState(false);
   const [holderId, setHolderId] = useState<string | null>(null);
-  const [relationship, setRelationship] = useState("parent");
+  const [relationship, setRelationship] = useState("Parent");
 
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people"), enabled: !fixedPersonId });
   const holdersQ = useQuery({ queryKey: ["account-holders"], queryFn: () => api.get<AccountHolderRec[]>("/account-holders") });
@@ -118,7 +119,7 @@ export function StudentRegisterModal({ opened, onClose, fixedPersonId, fixedPers
         <Group grow>
           <Select label="Link to account holder" placeholder="None" data={(holdersQ.data ?? []).map((h) => ({ value: String(h.id), label: h.name }))}
             value={holderId} onChange={setHolderId} clearable searchable comboboxProps={{ withinPortal: true }} />
-          <Select label="Relationship" data={["parent", "guardian", "payer", "other"]} value={relationship}
+          <Select label="Relationship" data={ACCOUNT_RELATIONSHIPS} value={relationship}
             onChange={(v) => v && setRelationship(v)} comboboxProps={{ withinPortal: true }} />
         </Group>
 

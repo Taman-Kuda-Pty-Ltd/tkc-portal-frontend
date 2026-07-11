@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
+import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
 import type { OnboardingContext } from "../api/types";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { PhoneVerification } from "../components/PhoneVerification";
@@ -30,7 +31,6 @@ const GENDERS = [
 const DISCLAIMER =
   "I understand horse riding carries inherent risks. I confirm the medical information above is accurate, and I accept the riding school's terms and liability waiver on behalf of this rider.";
 
-const GUARDIAN_RELATIONSHIPS = ["mother", "father", "guardian", "grandparent", "other"];
 const isMinor = (dob: Date | null) => dob !== null && dayjs().diff(dayjs(dob), "year") < 18;
 
 interface Rider {
@@ -191,7 +191,9 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           <Divider my="sm" label="Emergency contact" labelPosition="left" />
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <TextInput label="Name" value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
-            <TextInput label="Relationship" value={ec.relationship} onChange={(e) => setEc({ ...ec, relationship: e.currentTarget.value })} />
+            <Select label="Relationship" data={RELATIONSHIPS} value={ec.relationship || null}
+              placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
+              onChange={(v) => setEc({ ...ec, relationship: v ?? "" })} />
             <TextInput label="Phone" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.currentTarget.value })} />
           </SimpleGrid>
           <Divider my="sm" label="Password" labelPosition="left" />

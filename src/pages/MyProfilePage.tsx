@@ -7,6 +7,7 @@ import {
   Divider,
   Group,
   Loader,
+  Select,
   SimpleGrid,
   Stack,
   Switch,
@@ -21,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { RELATIONSHIPS } from "../constants/relationships";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import type { PersonDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -153,7 +155,7 @@ export function MyProfilePage() {
         <Stack gap="sm">
           <AddressAutocomplete label="Line 1" value={addr.line1} disabled={ro}
             onChange={(line1) => setAddr({ ...addr, line1 })}
-            onSelect={(p) => setAddr({ ...addr, line1: p.line1, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
+            onSelect={(p) => setAddr({ ...addr, line1: p.line1, line2: p.line2 || addr.line2, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
           <TextInput label="Line 2" value={addr.line2} disabled={ro}
             onChange={(e) => setAddr({ ...addr, line2: e.currentTarget.value })} />
           <TextInput label="Line 3" value={addr.line3} disabled={ro}
@@ -175,8 +177,9 @@ export function MyProfilePage() {
             <Group key={i} gap="xs" wrap="nowrap" align="flex-end">
               <TextInput label={i === 0 ? "Name" : undefined} value={e.name} disabled={ro} style={{ flex: 1 }}
                 onChange={(ev) => setEcs(ecs.map((x, xi) => (xi === i ? { ...x, name: ev.currentTarget.value } : x)))} />
-              <TextInput label={i === 0 ? "Relationship" : undefined} value={e.relationship} disabled={ro} style={{ flex: 1 }}
-                onChange={(ev) => setEcs(ecs.map((x, xi) => (xi === i ? { ...x, relationship: ev.currentTarget.value } : x)))} />
+              <Select label={i === 0 ? "Relationship" : undefined} data={RELATIONSHIPS} value={e.relationship || null}
+                disabled={ro} style={{ flex: 1 }} placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
+                onChange={(v) => setEcs(ecs.map((x, xi) => (xi === i ? { ...x, relationship: v ?? "" } : x)))} />
               <PhoneField label={i === 0 ? "Phone" : undefined} value={e.phone} disabled={ro}
                 onChange={(v) => setEcs(ecs.map((x, xi) => (xi === i ? { ...x, phone: v } : x)))} />
               {!ro && (

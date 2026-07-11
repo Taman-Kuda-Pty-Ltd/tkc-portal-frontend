@@ -24,6 +24,7 @@ import { useParams } from "react-router-dom";
 import { api, ApiError, setToken } from "../api/client";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
+import { STATE_OF_ISSUE_OPTIONS } from "../constants/states";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import { PhoneVerification } from "../components/PhoneVerification";
@@ -470,8 +471,10 @@ export function OnboardingPage() {
                   onChange={(v) => setCreds(creds.map((x, ix) => ix === i ? { ...x, credential_type: (v as CredentialType) ?? "other" } : x))} />
                 <TextInput label="Number" value={c.identifier}
                   onChange={(e) => setCreds(creds.map((x, ix) => ix === i ? { ...x, identifier: e.currentTarget.value } : x))} />
-                <TextInput w={120} label="State of issue" value={c.state_of_issue} placeholder="e.g. NSW"
-                  onChange={(e) => setCreds(creds.map((x, ix) => ix === i ? { ...x, state_of_issue: e.currentTarget.value } : x))} />
+                <Select w={140} label="State of issue" data={STATE_OF_ISSUE_OPTIONS}
+                  value={c.state_of_issue || null} placeholder="Select" clearable searchable
+                  comboboxProps={{ withinPortal: true }}
+                  onChange={(v) => setCreds(creds.map((x, ix) => ix === i ? { ...x, state_of_issue: v ?? "" } : x))} />
                 <DateField label="Expires" value={c.expires_on}
                   onChange={(d) => setCreds(creds.map((x, ix) => ix === i ? { ...x, expires_on: d } : x))} />
                 <ActionIcon color="red" variant="subtle" mb={6}

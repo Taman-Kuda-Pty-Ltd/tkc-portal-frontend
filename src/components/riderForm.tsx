@@ -23,10 +23,10 @@ export const GENDERS = [
   { value: "other", label: "Other" },
   { value: "undisclosed", label: "Prefer not to say" },
 ];
-// How a rider is linked to the account holder.
-export const RELATIONSHIPS = ["parent", "guardian", "grandparent", "sibling", "self", "payer", "other"];
-// The guardian's relationship to a minor rider (OB: dropdown).
-export const GUARDIAN_RELATIONSHIPS = ["mother", "father", "guardian", "grandparent", "other"];
+// Shared, capitalised relationship lists (UAT#3 REL-CONSIST/REL-CASING).
+import { ACCOUNT_RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
+export const RELATIONSHIPS = ACCOUNT_RELATIONSHIPS; // rider ↔ account-holder link
+export { GUARDIAN_RELATIONSHIPS };
 
 export function ageFrom(dob: Date | string | null): number | null {
   if (!dob) return null;
@@ -106,11 +106,13 @@ export function riderPayload(r: RiderDraft): Record<string, unknown> {
     }
   }
   if (minor) {
+    // When the guardian is the account holder, leave phone/email null — the backend
+    // fills them from the holder (GUARDIAN-LOCK), so they can't drift out of sync.
     body.guardian = {
       guardian_name: r.guardian_is_holder ? null : r.guardian_name.trim() || null,
       relationship: r.guardian_relationship || null,
-      phone: r.guardian_phone || null,
-      email: r.guardian_email.trim() || null,
+      phone: r.guardian_is_holder ? null : r.guardian_phone || null,
+      email: r.guardian_is_holder ? null : r.guardian_email.trim() || null,
     };
   }
   return body;
@@ -126,9 +128,13 @@ export function validateRider(r: RiderDraft): string | null {
   }
   if (isMinorDob(riderDob(r))) {
     if (!r.guardian_relationship) return "Choose the guardian's relationship for the minor rider.";
-    if (!r.guardian_phone) return "The guardian needs a phone number.";
-    if (!r.guardian_email.trim()) return "The guardian needs an email.";
-    if (!r.guardian_is_holder && !r.guardian_name.trim()) return "Enter the guardian's name.";
+    // When the guardian is the account holder, their phone/email come from the holder,
+    // so they aren't required on the rider row (GUARDIAN-LOCK).
+    if (!r.guardian_is_holder) {
+      if (!r.guardian_phone) return "The guardian needs a phone number.";
+      if (!r.guardian_email.trim()) return "The guardian needs an email.";
+      if (!r.guardian_name.trim()) return "Enter the guardian's name.";
+    }
   }
   return null;
 }
@@ -305,13 +311,18 @@ export function RiderFields({
               value={r.guardian_relationship || null}
               onChange={(v) => update({ guardian_relationship: v ?? "" })}
               comboboxProps={{ withinPortal: true }} />
-            <PhoneField label="Guardian phone" required value={r.guardian_phone}
+            {/* GUARDIAN-LOCK: when the guardian IS the account holder, their phone/email
+                are locked to the holder's — not independently editable. */}
+            <PhoneField label="Guardian phone" required value={r.guardian_is_holder ? (holderPhone ?? "") : r.guardian_phone}
+              disabled={r.guardian_is_holder}
               onChange={(v) => update({ guardian_phone: v })} />
-            <TextInput label="Guardian email" required type="email" value={r.guardian_email}
+            <TextInput label="Guardian email" required type="email"
+              value={r.guardian_is_holder ? (holderEmail ?? "") : r.guardian_email}
+              disabled={r.guardian_is_holder}
               onChange={(e) => update({ guardian_email: e.currentTarget.value })} />
           </SimpleGrid>
           {r.guardian_is_holder && (
-            <Text size="xs" c="dimmed" mt={4}>Defaults to the account holder — override the phone/email if needed.</Text>
+            <Text size="xs" c="dimmed" mt={4}>Uses the account holder's phone and email.</Text>
           )}
         </Card>
       )}
