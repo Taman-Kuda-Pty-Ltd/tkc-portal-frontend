@@ -357,7 +357,7 @@ export function PersonDetailPage() {
           storageReady={storageReady}
           variant="avatar"
           crop="circle"
-          canEdit={canManage}
+          canEdit={canManage && editing}
           label="Profile photo"
           size={96}
         />
@@ -578,7 +578,7 @@ export function PersonDetailPage() {
         if (!(can("manage_pay_rates") || can("manage_shifts"))) return null;
         return (
           <PersonRatesSection personId={p.id} dob={p.date_of_birth} superPercent={p.super_percent ?? null}
-            canContractorRates={can("manage_pay_rates")}
+            canContractorRates={can("manage_pay_rates")} readOnly={!editing}
             showEmployee={hasEmployee} showContractor={hasContractor} />
         );
       })()}

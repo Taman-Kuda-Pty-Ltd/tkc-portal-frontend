@@ -79,8 +79,24 @@ export function EmailSettingsSection() {
 
   if (q.isLoading || !draft) return <Loader />;
 
+  // Match the Integrations test-button convention: the test uses the SAVED config,
+  // so it's only enabled once email is enabled + a host/from-address are saved AND
+  // there are no unsaved edits (UAT#3 EMAIL-2).
+  const emailConfigured = !!q.data?.enabled && !!q.data?.host && !!q.data?.from_email;
+  const dirty =
+    draft.enabled !== q.data!.enabled ||
+    draft.host !== (q.data!.host ?? "") ||
+    draft.port !== q.data!.port ||
+    draft.security !== q.data!.security ||
+    draft.username !== (q.data!.username ?? "") ||
+    draft.from_email !== (q.data!.from_email ?? "") ||
+    draft.from_name !== (q.data!.from_name ?? "") ||
+    password.length > 0;
+  const canTest = !!testTo.trim() && emailConfigured && !dirty;
+
   return (
     <Stack gap="sm">
+      <Text fw={600}>Email (SMTP)</Text>
       <Text size="sm" c="dimmed">
         SMTP server used to send onboarding invitations and notifications. The
         password is stored encrypted and never shown back.
@@ -137,29 +153,33 @@ export function EmailSettingsSection() {
         />
       </SimpleGrid>
 
-      <Group>
+      <Group align="flex-end" gap="sm">
         <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>
-          Save
+          Save email
         </Button>
-      </Group>
-
-      <Group align="flex-end" gap="sm" mt="xs">
         <TextInput
-          label="Send a test email to"
+          label="Send test to"
           placeholder="you@example.com"
           value={testTo}
           onChange={(e) => setTestTo(e.currentTarget.value)}
-          style={{ flex: 1, maxWidth: 320 }}
+          w={240}
         />
         <Button
           variant="light"
           loading={testM.isPending}
-          disabled={!testTo}
+          disabled={!canTest}
           onClick={() => testM.mutate()}
         >
           Send test
         </Button>
       </Group>
+      {!emailConfigured ? (
+        <Text size="xs" c="dimmed">
+          Enable email and save a host and from-address first to send a test.
+        </Text>
+      ) : dirty ? (
+        <Text size="xs" c="dimmed">Save your changes first — the test uses the saved settings.</Text>
+      ) : null}
     </Stack>
   );
 }

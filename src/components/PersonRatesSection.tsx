@@ -45,20 +45,24 @@ function ageCategoryFor(dob: string | null): string | null {
 
 export function PersonRatesSection({
   personId, dob, superPercent = null, canContractorRates = true, showEmployee = true, showContractor = true,
+  readOnly = false,
 }: {
   personId: number; dob: string | null; superPercent?: number | null; canContractorRates?: boolean;
-  showEmployee?: boolean; showContractor?: boolean;
+  showEmployee?: boolean; showContractor?: boolean; readOnly?: boolean;
 }) {
   return (
     <Card withBorder>
-      <Title order={4} mb="sm">Pay rates</Title>
+      <Group justify="space-between" mb="sm">
+        <Title order={4}>Pay rates</Title>
+        {readOnly && <Text size="xs" c="dimmed">Select “Edit details” to change pay rates</Text>}
+      </Group>
       {showEmployee && (
         <Text size="sm" c="dimmed" mb="sm">
           Employees are paid by grade (per work type) at their employment basis.
         </Text>
       )}
-      {showEmployee && <SuperOverride personId={personId} value={superPercent} />}
-      {showEmployee && <EmployeeGrades personId={personId} dob={dob} />}
+      {showEmployee && <SuperOverride personId={personId} value={superPercent} readOnly={readOnly} />}
+      {showEmployee && <EmployeeGrades personId={personId} dob={dob} readOnly={readOnly} />}
       {showContractor && canContractorRates && (
         <>
           {showEmployee && <Divider my="md" label="Contractor rates" labelPosition="left" />}
@@ -66,7 +70,7 @@ export function PersonRatesSection({
             Contractors are paid per-activity rates — weekday, Saturday, Sunday and public
             holiday — not by grade.
           </Text>
-          <ContractorRates personId={personId} />
+          <ContractorRates personId={personId} readOnly={readOnly} />
         </>
       )}
     </Card>
@@ -78,7 +82,7 @@ function fmtRange(from: string, to: string | null) {
 }
 
 /** Optional per-person super % override; blank = the org default in force. */
-function SuperOverride({ personId, value }: { personId: number; value: number | null }) {
+function SuperOverride({ personId, value, readOnly = false }: { personId: number; value: number | null; readOnly?: boolean }) {
   const qc = useQueryClient();
   const [pct, setPct] = useState<number | string>(value ?? "");
   const saveM = useMutation({
@@ -86,6 +90,12 @@ function SuperOverride({ personId, value }: { personId: number; value: number | 
     onSuccess: () => qc.invalidateQueries({ queryKey: ["person", String(personId)] }),
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
+  if (readOnly)
+    return (
+      <Text size="sm" mb="md">
+        Super override: <b>{value != null ? `${value}%` : "org default"}</b>
+      </Text>
+    );
   return (
     <Group align="flex-end" gap="xs" mb="md">
       <NumberInput label="Super override %" description="Blank = use the org default"
@@ -96,7 +106,7 @@ function SuperOverride({ personId, value }: { personId: number; value: number | 
   );
 }
 
-function EmployeeGrades({ personId, dob }: { personId: number; dob: string | null }) {
+function EmployeeGrades({ personId, dob, readOnly = false }: { personId: number; dob: string | null; readOnly?: boolean }) {
   const qc = useQueryClient();
   const [gradeId, setGradeId] = useState<string | null>(null);
   const [basis, setBasis] = useState("casual");
@@ -158,10 +168,12 @@ function EmployeeGrades({ personId, dob }: { personId: number; dob: string | nul
             <Badge size="xs" color="orange" variant="light">age ≠ DOB</Badge>
           )}
           <Text size="sm" c="dimmed">{fmtRange(e.from_date, e.to_date)}</Text>
-          <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(e.id)}><IconX size={12} /></ActionIcon>
+          {!readOnly && (
+            <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(e.id)}><IconX size={12} /></ActionIcon>
+          )}
         </Group>
       ))}
-      {!adding ? (
+      {readOnly ? null : !adding ? (
         <Button size="xs" variant="light" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>
           + Add grade
         </Button>
@@ -188,7 +200,7 @@ function EmployeeGrades({ personId, dob }: { personId: number; dob: string | nul
   );
 }
 
-function ContractorRates({ personId }: { personId: number }) {
+function ContractorRates({ personId, readOnly = false }: { personId: number; readOnly?: boolean }) {
   const qc = useQueryClient();
   const [activityId, setActivityId] = useState<string | null>(null);
   const [wd, setWd] = useState<number>(0);
@@ -239,13 +251,15 @@ function ContractorRates({ personId }: { personId: number }) {
               <Table.Td>{money(r.public_holiday_rate)}</Table.Td>
               <Table.Td>from {dayjs(r.from_date).format("D MMM YYYY")}</Table.Td>
               <Table.Td>
-                <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(r.id)}><IconX size={12} /></ActionIcon>
+                {!readOnly && (
+                  <ActionIcon size="sm" color="red" variant="subtle" onClick={() => delM.mutate(r.id)}><IconX size={12} /></ActionIcon>
+                )}
               </Table.Td>
             </Table.Tr>
           ))}
         </Table.Tbody>
       </Table>
-      {!adding ? (
+      {readOnly ? null : !adding ? (
         <Button size="xs" variant="light" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>
           + Add rate
         </Button>

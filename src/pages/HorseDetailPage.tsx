@@ -1,8 +1,9 @@
 import {
-  Anchor, Badge, Button, Card, Divider, Group, NumberInput, Select, SimpleGrid,
-  Stack, Switch, Text, Textarea, TextInput, Title,
+  ActionIcon, Alert, Anchor, Autocomplete, Badge, Button, Card, Divider, Group, NumberInput,
+  Select, SimpleGrid, Stack, Switch, Text, Textarea, TextInput, Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { IconAlertTriangle, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
@@ -19,6 +20,18 @@ const LEVELS: { value: RiderLevel; label: string }[] = [
   { value: "novice", label: "Novice" },
   { value: "intermediate", label: "Intermediate" },
   { value: "advanced", label: "Advanced" },
+];
+
+// Free-text with common suggestions (Autocomplete) — the field still accepts anything,
+// so an unusual breed/colour isn't blocked (UAT#3 HORSE-BREED-COLR judgment call).
+const BREED_SUGGESTIONS = [
+  "Australian Stock Horse", "Thoroughbred", "Standardbred", "Quarter Horse", "Warmblood",
+  "Arabian", "Welsh Pony", "Australian Pony", "Riding Pony", "Shetland Pony", "Connemara",
+  "Clydesdale", "Appaloosa", "Paint", "Andalusian", "Crossbred", "Pony (unspecified)",
+];
+const COLOUR_SUGGESTIONS = [
+  "Bay", "Dark Bay", "Black", "Brown", "Chestnut", "Liver Chestnut", "Grey", "Palomino",
+  "Buckskin", "Dun", "Roan", "Cremello", "Piebald", "Skewbald", "Pinto", "White",
 ];
 
 const toISO = (d: Date | null) => (d ? dayjs(d).format("YYYY-MM-DD") : null);
@@ -82,8 +95,10 @@ export function HorseDetailPage() {
       <Title order={4} mt="sm">Identity &amp; markings</Title>
       <Card withBorder>
         <SimpleGrid cols={{ base: 1, sm: 3 }}>
-          <TextInput label="Breed" value={h.breed ?? ""} onChange={(e) => set({ breed: e.currentTarget.value })} />
-          <TextInput label="Colour" value={h.colour ?? ""} onChange={(e) => set({ colour: e.currentTarget.value })} />
+          <Autocomplete label="Breed" data={BREED_SUGGESTIONS} value={h.breed ?? ""}
+            onChange={(v) => set({ breed: v })} placeholder="Type or pick" />
+          <Autocomplete label="Colour" data={COLOUR_SUGGESTIONS} value={h.colour ?? ""}
+            onChange={(v) => set({ colour: v })} placeholder="Type or pick" />
           <Select label="Sex" clearable data={[
             { value: "mare", label: "Mare" }, { value: "gelding", label: "Gelding" },
             { value: "stallion", label: "Stallion" }, { value: "colt", label: "Colt" },
@@ -138,8 +153,10 @@ export function HorseDetailPage() {
             onChange={(v) => set({ rider_level_max: (v as RiderLevel) ?? null })} />
         </SimpleGrid>
         <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
-          <TextInput label="Disciplines" value={h.disciplines ?? ""} onChange={(e) => set({ disciplines: e.currentTarget.value })} />
-          <TextInput label="Temperament" value={h.temperament ?? ""} onChange={(e) => set({ temperament: e.currentTarget.value })} />
+          <Textarea label="Disciplines" autosize minRows={2} value={h.disciplines ?? ""}
+            onChange={(e) => set({ disciplines: e.currentTarget.value })} />
+          <Textarea label="Temperament" autosize minRows={2} value={h.temperament ?? ""}
+            onChange={(e) => set({ temperament: e.currentTarget.value })} />
         </SimpleGrid>
         <Switch mt="md" label="Do not ride" checked={h.do_not_ride ?? false}
           onChange={(e) => set({ do_not_ride: e.currentTarget.checked })} />
@@ -212,15 +229,30 @@ function HealthAndCare({ horseId }: { horseId: number }) {
       <WormingPanel horseId={horseId} latest={latest("worming")}
         records={records.filter((r) => r.care_type === "worming")} onChange={invalidate} />
 
-      {/* Placeholders — last-done only */}
+      {/* Farrier / dental / vaccination — latest + full history */}
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
         {PLACEHOLDER_TYPES.map((p) => (
           <PlaceholderCarePanel key={p.type} horseId={horseId} type={p.type} label={p.label}
-            latest={latest(p.type)} onChange={invalidate} />
+            latest={latest(p.type)} records={records.filter((r) => r.care_type === p.type)}
+            onChange={invalidate} />
         ))}
       </SimpleGrid>
     </Stack>
   );
+}
+
+/** Delete a care record after an explicit confirm (records were previously
+ *  irreversible — UAT#3 HCARE-EDIT). */
+function useDeleteCare(horseId: number, onChange: () => void) {
+  const delM = useMutation({
+    mutationFn: (id: number) => api.del(`/horses/${horseId}/care/${id}`),
+    onSuccess: () => { onChange(); notifications.show({ color: "gray", message: "Record deleted" }); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (r: HorseCare) => {
+    if (window.confirm(`Delete this ${r.care_type} record from ${dayjs(r.performed_on).format("D MMM YYYY")}? This can't be undone.`))
+      delM.mutate(r.id);
+  };
 }
 
 function WormingPanel({ horseId, latest, records, onChange }: {
@@ -229,6 +261,8 @@ function WormingPanel({ horseId, latest, records, onChange }: {
   const [product, setProduct] = useState("");
   const [weeks, setWeeks] = useState<number | string>(12);
   const [when, setWhen] = useState<Date | null>(new Date());
+  const [notes, setNotes] = useState("");
+  const confirmDelete = useDeleteCare(horseId, onChange);
 
   const addM = useMutation({
     mutationFn: () => api.post(`/horses/${horseId}/care`, {
@@ -236,64 +270,91 @@ function WormingPanel({ horseId, latest, records, onChange }: {
       performed_on: toISO(when),
       product_name: product.trim() || null,
       effective_weeks: weeks === "" ? null : Number(weeks),
+      notes: notes.trim() || null,
     }),
-    onSuccess: () => { setProduct(""); onChange(); },
+    onSuccess: () => {
+      setProduct(""); setNotes(""); onChange();
+      notifications.show({ color: "teal", message: "Worming recorded" });
+    },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  // Prominent next-due callout (UAT#3 HWORM-PROM): an alert when overdue/due-soon,
+  // a clear line when up to date.
   let status: React.ReactNode = <Text size="sm" c="dimmed">No worming recorded yet.</Text>;
   if (latest?.next_due) {
     const due = dayjs(latest.next_due);
     const overdue = due.isBefore(dayjs(), "day");
     const soon = !overdue && due.diff(dayjs(), "day") <= 14;
+    const color = overdue ? "red" : soon ? "orange" : "teal";
     status = (
-      <Group gap="xs">
-        <Text size="sm">Last done {dayjs(latest.performed_on).format("D MMM YYYY")}
-          {latest.product_name ? ` · ${latest.product_name}` : ""} · next due {due.format("D MMM YYYY")}</Text>
-        <Badge color={overdue ? "red" : soon ? "orange" : "teal"} variant="light">
-          {overdue ? "Overdue" : soon ? "Due soon" : "Up to date"}
-        </Badge>
-      </Group>
+      <Alert color={color} variant={overdue || soon ? "filled" : "light"}
+        icon={overdue || soon ? <IconAlertTriangle size={18} /> : undefined} py={8}>
+        <Group justify="space-between" wrap="nowrap">
+          <div>
+            <Text fw={700} size="sm">
+              {overdue ? `Worming OVERDUE — was due ${due.format("D MMM YYYY")}`
+                : soon ? `Worming due soon — ${due.format("D MMM YYYY")}`
+                : `Next worming due ${due.format("D MMM YYYY")}`}
+            </Text>
+            <Text size="xs" opacity={0.9}>
+              Last done {dayjs(latest.performed_on).format("D MMM YYYY")}
+              {latest.product_name ? ` · ${latest.product_name}` : ""}
+            </Text>
+          </div>
+        </Group>
+      </Alert>
     );
   }
 
   return (
     <Card withBorder>
-      <Group justify="space-between">
-        <Text fw={600}>Worming</Text>
-      </Group>
-      <div style={{ marginTop: 6 }}>{status}</div>
+      <Text fw={600} mb={6}>Worming</Text>
+      {status}
       <Divider my="sm" />
       <Group align="flex-end">
         <TextInput label="Product" placeholder="e.g. Equimax" value={product} style={{ flex: 1 }}
           onChange={(e) => setProduct(e.currentTarget.value)} />
-        <NumberInput label="Effective (weeks)" w={130} min={1} value={weeks}
-          onChange={setWeeks} />
+        <NumberInput label="Effective (weeks)" w={130} min={1} value={weeks} onChange={setWeeks} />
         <DateField label="Date given" value={when} onChange={(d) => setWhen(d as Date | null)} />
         <Button loading={addM.isPending} disabled={!when} onClick={() => addM.mutate()}>Record</Button>
       </Group>
+      <Textarea mt="xs" label="Comments" autosize minRows={1} value={notes}
+        onChange={(e) => setNotes(e.currentTarget.value)} placeholder="Optional notes for this treatment" />
       {records.length > 0 && (
-        <Stack gap={2} mt="sm">
-          {records.slice().sort((a, b) => (a.performed_on < b.performed_on ? 1 : -1)).map((r) => (
-            <Text key={r.id} size="xs" c="dimmed">
-              {dayjs(r.performed_on).format("D MMM YYYY")}
-              {r.product_name ? ` — ${r.product_name}` : ""}
-              {r.next_due ? ` (next due ${dayjs(r.next_due).format("D MMM YYYY")})` : ""}
-            </Text>
-          ))}
-        </Stack>
+        <>
+          <Text size="xs" fw={500} mt="sm" c="dimmed">History</Text>
+          <Stack gap={2} mt={4}>
+            {records.slice().sort((a, b) => (a.performed_on < b.performed_on ? 1 : -1)).map((r) => (
+              <Group key={r.id} gap={6} wrap="nowrap" justify="space-between">
+                <Text size="xs" c="dimmed">
+                  {dayjs(r.performed_on).format("D MMM YYYY")}
+                  {r.product_name ? ` — ${r.product_name}` : ""}
+                  {r.next_due ? ` (next due ${dayjs(r.next_due).format("D MMM YYYY")})` : ""}
+                  {r.notes ? ` · ${r.notes}` : ""}
+                </Text>
+                <ActionIcon size="sm" color="red" variant="subtle" onClick={() => confirmDelete(r)}>
+                  <IconTrash size={13} />
+                </ActionIcon>
+              </Group>
+            ))}
+          </Stack>
+        </>
       )}
     </Card>
   );
 }
 
-function PlaceholderCarePanel({ horseId, type, label, latest, onChange }: {
-  horseId: number; type: HorseCareType; label: string; latest?: HorseCare; onChange: () => void;
+function PlaceholderCarePanel({ horseId, type, label, latest, records, onChange }: {
+  horseId: number; type: HorseCareType; label: string; latest?: HorseCare; records: HorseCare[]; onChange: () => void;
 }) {
   const [when, setWhen] = useState<Date | null>(new Date());
+  const [notes, setNotes] = useState("");
+  const confirmDelete = useDeleteCare(horseId, onChange);
   const addM = useMutation({
-    mutationFn: () => api.post(`/horses/${horseId}/care`, { care_type: type, performed_on: toISO(when) }),
-    onSuccess: onChange,
+    mutationFn: () => api.post(`/horses/${horseId}/care`,
+      { care_type: type, performed_on: toISO(when), notes: notes.trim() || null }),
+    onSuccess: () => { setNotes(""); onChange(); notifications.show({ color: "teal", message: `${label} recorded` }); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   return (
@@ -303,8 +364,24 @@ function PlaceholderCarePanel({ horseId, type, label, latest, onChange }: {
         {latest ? `Last done ${dayjs(latest.performed_on).format("D MMM YYYY")}` : "Not recorded"}
       </Text>
       <DateField label="Last done" size="xs" value={when} onChange={(d) => setWhen(d as Date | null)} />
+      <TextInput label="Comments" size="xs" mt={4} value={notes} placeholder="Optional"
+        onChange={(e) => setNotes(e.currentTarget.value)} />
       <Button size="xs" variant="light" mt={6} fullWidth loading={addM.isPending} disabled={!when}
         onClick={() => addM.mutate()}>Record</Button>
+      {records.length > 0 && (
+        <Stack gap={2} mt={6}>
+          {records.slice().sort((a, b) => (a.performed_on < b.performed_on ? 1 : -1)).map((r) => (
+            <Group key={r.id} gap={4} wrap="nowrap" justify="space-between">
+              <Text size="xs" c="dimmed">
+                {dayjs(r.performed_on).format("D MMM YYYY")}{r.notes ? ` · ${r.notes}` : ""}
+              </Text>
+              <ActionIcon size="xs" color="red" variant="subtle" onClick={() => confirmDelete(r)}>
+                <IconTrash size={12} />
+              </ActionIcon>
+            </Group>
+          ))}
+        </Stack>
+      )}
     </Card>
   );
 }

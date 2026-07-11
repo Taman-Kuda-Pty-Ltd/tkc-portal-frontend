@@ -1,4 +1,4 @@
-import { Accordion, Group, NumberInput, SegmentedControl, Stack, Text, Title, useMantineColorScheme } from "@mantine/core";
+import { Accordion, Divider, Group, NumberInput, SegmentedControl, Stack, Text, Title, useMantineColorScheme } from "@mantine/core";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
@@ -165,22 +165,13 @@ export function SettingsPage() {
         )}
 
         {can("manage_settings") && (
-          <Accordion.Item value="email">
-            <Accordion.Control>
-              <Text fw={600}>Email (SMTP)</Text>
-            </Accordion.Control>
-            <Accordion.Panel>
-              <EmailSettingsSection />
-            </Accordion.Panel>
-          </Accordion.Item>
-        )}
-
-        {can("manage_settings") && (
           <Accordion.Item value="integrations">
             <Accordion.Control>
               <Text fw={600}>Integrations</Text>
             </Accordion.Control>
             <Accordion.Panel>
+              <EmailSettingsSection />
+              <Divider my="lg" />
               <IntegrationsSection />
             </Accordion.Panel>
           </Accordion.Item>

@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, ApiError, setToken } from "../api/client";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
+import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import { PhoneVerification } from "../components/PhoneVerification";
@@ -51,7 +52,6 @@ const BASIS_LABEL: Record<string, string> = {
   casual: "Casual",
 };
 
-const RELATIONSHIPS = ["Parent", "Guardian", "Spouse", "Partner", "Sibling", "Child", "Friend", "Grandparent", "Other"];
 
 const fmt = (d: Date | null) => (d ? dayjs(d).format("YYYY-MM-DD") : null);
 const phoneOk = (v: string) => !v || isValidPhoneNumber(v);
@@ -222,7 +222,14 @@ export function OnboardingPage() {
     if (requirePhone && !phoneVerified)
       return setError("Please verify your mobile number with the SMS code before finishing.");
     if (emergency.name && !phoneOk(emergency.phone)) return setError("Enter a valid emergency contact phone.");
-    if (isMinor && !phoneOk(guardian.phone)) return setError("Enter a valid guardian phone.");
+    // Guardian consent is mandatory for under-18s (UAT#3 MINOR-1).
+    if (isMinor) {
+      if (!guardian.guardian_name.trim() || !guardian.relationship || !guardian.email.trim())
+        return setError("Guardian name, relationship and email are required for under-18s.");
+      if (!phoneOk(guardian.phone)) return setError("Enter a valid guardian phone.");
+      if (!guardian.consent_given)
+        return setError("A parent/guardian must consent before an under-18 can be set up.");
+    }
     if (isEmployee && !tax.tfn.trim() && !tax.tfn_not_provided)
       return setError("Provide a Tax File Number, or tick 'I have not provided a TFN'.");
     if (isEmployee || isContractor) {
@@ -282,13 +289,17 @@ export function OnboardingPage() {
             <TextInput label="Display name" value={displayName}
               onChange={(e) => { setDisplayEdited(true); setDisplayName(e.currentTarget.value); }} />
             <DateField label="Date of birth" required value={dob} onChange={setDob} maxDate={new Date()} />
-            <PhoneField label="Mobile" value={personal.mobile} error={fieldErrors["mobile"]}
-              onChange={(v) => { setPersonal({ ...personal, mobile: v }); setPhoneVerified(false); }} />
+            {/* Mobile + its verification live in one cell so 'Send code' sits under
+                the Mobile field, not under Date of birth (UAT#3 SENDCODE-1). */}
+            <div>
+              <PhoneField label="Mobile" value={personal.mobile} error={fieldErrors["mobile"]}
+                onChange={(v) => { setPersonal({ ...personal, mobile: v }); setPhoneVerified(false); }} />
+              <PhoneVerification token={token} phone={personal.mobile}
+                phoneValid={!!personal.mobile && isValidPhoneNumber(personal.mobile)}
+                verified={phoneVerified} onVerifiedChange={setPhoneVerified}
+                required={requirePhone} />
+            </div>
           </SimpleGrid>
-          <PhoneVerification token={token} phone={personal.mobile}
-            phoneValid={!!personal.mobile && isValidPhoneNumber(personal.mobile)}
-            verified={phoneVerified} onVerifiedChange={setPhoneVerified}
-            required={requirePhone} />
         </Paper>
 
         <Paper withBorder p="md">
@@ -474,13 +485,14 @@ export function OnboardingPage() {
             <Title order={4} mb="sm">Guardian consent</Title>
             <Text size="sm" c="dimmed" mb="sm">As you're under 18, we need a parent/guardian's consent.</Text>
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label="Guardian name" value={guardian.guardian_name}
+              <TextInput label="Guardian name" required value={guardian.guardian_name}
                 onChange={(e) => setGuardian({ ...guardian, guardian_name: e.currentTarget.value })} />
-              <TextInput label="Relationship" value={guardian.relationship}
-                onChange={(e) => setGuardian({ ...guardian, relationship: e.currentTarget.value })} />
-              <PhoneField label="Phone" value={guardian.phone} error={fieldErrors["guardian.phone"]}
+              <Select label="Relationship" required data={GUARDIAN_RELATIONSHIPS}
+                value={guardian.relationship || null} placeholder="Select" comboboxProps={{ withinPortal: true }}
+                onChange={(v) => setGuardian({ ...guardian, relationship: v || "" })} />
+              <PhoneField label="Phone" required value={guardian.phone} error={fieldErrors["guardian.phone"]}
                 onChange={(v) => setGuardian({ ...guardian, phone: v })} />
-              <TextInput label="Email" value={guardian.email}
+              <TextInput label="Email" required type="email" value={guardian.email}
                 onChange={(e) => setGuardian({ ...guardian, email: e.currentTarget.value })} />
             </SimpleGrid>
             <Checkbox mt="sm" label="My parent/guardian consents to my participation" checked={guardian.consent_given}

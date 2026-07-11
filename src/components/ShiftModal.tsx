@@ -84,6 +84,13 @@ export function ShiftModal({
   // on it and reveal the (persisted-shift-only) staff/coach assign section.
   const [createdShift, setCreatedShift] = useState<Shift | null>(null);
   const activeShift = shift ?? createdShift;
+  // The created-shift snapshot isn't in the ["shifts"] cache, so after an assignment
+  // change we refetch it directly — otherwise its assignments render stale (the
+  // "added but shows None / says already assigned" bug, UAT#3 LESSON-ASSIGN b).
+  const refreshCreatedShift = () => {
+    if (createdShift)
+      api.get<Shift>(`/shifts/${createdShift.id}`).then(setCreatedShift).catch(() => {});
+  };
   const isDraft = shift?.status === "draft";
   const isPublished = shift?.status === "published";
 
@@ -314,6 +321,7 @@ export function ShiftModal({
       opened={opened}
       onClose={onClose}
       closeOnClickOutside={false}
+      size="lg"
       title={activeShift ? (editing ? "Edit shift" : "Shift") : "Add shift"}
     >
       <Stack>
@@ -559,6 +567,31 @@ export function ShiftModal({
           </Alert>
         )}
 
+        {/* Staff/coach assignment sits ABOVE the action buttons (UAT#3 LESSON-ASSIGN c). */}
+        {activeShift && canAssign && (() => {
+          // Staff attach to the shift's *saved* activity/headings (not the edit dropdown).
+          const savedActivity = (activitiesQ.data ?? []).find((a) => a.id === activeShift.activity_id);
+          return (
+            <>
+              {createdShift && !shift && (
+                <Alert color="teal" py="xs">
+                  Shift created. You can assign {savedActivity?.is_lesson ? "a coach" : "staff"} below,
+                  then close.
+                </Alert>
+              )}
+              <Divider label={savedActivity?.is_lesson ? "Coaches & staff" : "Staff"} labelPosition="left" />
+              <StaffAssign
+                shift={activeShift}
+                activity={savedActivity}
+                canAssign={canAssign}
+                canManageShifts={canManageShifts}
+                onRecordAttendance={onRecordAttendance}
+                onChanged={refreshCreatedShift}
+              />
+            </>
+          );
+        })()}
+
         {editing ? (
           <Group justify="flex-end" gap="xs">
             {/* New shift can be abandoned; existing edits discard and return to view. */}
@@ -580,29 +613,6 @@ export function ShiftModal({
             <Button variant="default" onClick={onClose}>Close</Button>
           </Group>
         )}
-
-        {activeShift && canAssign && (() => {
-          // Staff attach to the shift's *saved* activity/headings (not the edit dropdown).
-          const savedActivity = (activitiesQ.data ?? []).find((a) => a.id === activeShift.activity_id);
-          return (
-            <>
-              {createdShift && !shift && (
-                <Alert color="teal" py="xs">
-                  Shift created. You can assign {savedActivity?.is_lesson ? "a coach" : "staff"} below,
-                  then close.
-                </Alert>
-              )}
-              <Divider label={savedActivity?.is_lesson ? "Coaches & staff" : "Staff"} labelPosition="left" />
-              <StaffAssign
-                shift={activeShift}
-                activity={savedActivity}
-                canAssign={canAssign}
-                canManageShifts={canManageShifts}
-                onRecordAttendance={onRecordAttendance}
-              />
-            </>
-          );
-        })()}
 
         {shift && (
           <>

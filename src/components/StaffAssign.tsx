@@ -24,18 +24,22 @@ export function StaffAssign({
   canAssign,
   canManageShifts,
   onRecordAttendance,
+  onChanged,
 }: {
   shift: Shift;
   activity: Activity | undefined;
   canAssign: boolean;
   canManageShifts?: boolean;
   onRecordAttendance?: (shift: Shift, personId: number, personName: string) => void;
+  // Fired after any assign/unassign/patch so a caller holding a local copy of the
+  // shift (e.g. a just-created shift not yet in the query cache) can refresh it.
+  onChanged?: () => void;
 }) {
   const qc = useQueryClient();
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["shifts"] });
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["shifts"] }); onChanged?.(); };
   const onErr = (e: Error) => notifications.show({ color: "red", message: e.message });
 
   const assignM = useMutation({
