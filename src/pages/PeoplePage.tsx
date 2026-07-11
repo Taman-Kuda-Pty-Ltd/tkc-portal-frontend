@@ -15,6 +15,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconPlus } from "@tabler/icons-react";
+import { roleColor } from "../constants/roleColors";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -157,7 +158,7 @@ export function PeoplePage() {
                     <Table.Td>
                       <Group gap={4}>
                         {p.roles.map((r) => (
-                          <Badge key={r.id} size="sm" variant="light">{r.name}</Badge>
+                          <Badge key={r.id} size="sm" variant="light" color={roleColor(r.slug)}>{r.name}</Badge>
                         ))}
                         {p.is_student && <Badge size="sm" variant="light" color="grape">Student</Badge>}
                         {p.is_account_holder && <Badge size="sm" variant="light" color="cyan">Account holder</Badge>}

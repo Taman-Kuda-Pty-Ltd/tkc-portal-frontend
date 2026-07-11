@@ -171,7 +171,8 @@ export function FileUpload({
 
   const preview = isImage ? (
     variant === "avatar" ? (
-      <Avatar src={displayUrl} size={size} radius="xl" />
+      <Avatar src={displayUrl} size={size} radius="xl"
+        style={{ border: "3px solid var(--mantine-color-default-border)", boxShadow: "var(--mantine-shadow-xs)" }} />
     ) : displayUrl ? (
       <Image src={displayUrl} w={size} h={size} fit="cover" radius="md" alt={label ?? "image"} />
     ) : (
@@ -249,7 +250,9 @@ export function FileUpload({
                 </ActionIcon>
               )}
             </Group>
-            <Text size="xs" c="dimmed">Pick a file, or use your device / webcam camera.</Text>
+            <Text size="xs" c="dimmed">
+              {variant === "avatar" ? "A square photo works best (JPG or PNG). Use a file, or your camera." : "Pick a file, or use your device / webcam camera."}
+            </Text>
           </Stack>
         )}
       </Group>

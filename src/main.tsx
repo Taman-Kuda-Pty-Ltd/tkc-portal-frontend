@@ -24,6 +24,16 @@ const theme = createTheme({
       "#fdecef", "#f4d3d9", "#e6a7b1", "#d97a88", "#ce5366",
       "#c73a50", "#c32c44", "#a92338", "#801e2b", "#5e141d",
     ],
+    // Brand secondaries from the Taman Kuda palette (the Malaysian-flag accents),
+    // used as identity/accent colours (roles, activities) — not as state semantics.
+    gold: [
+      "#fff8e1", "#ffefc0", "#ffe299", "#ffd166", "#ffc23d",
+      "#f7b016", "#e09a00", "#bd7f00", "#996600", "#7a5100",
+    ],
+    royal: [
+      "#ecedfb", "#cccef0", "#a7abe4", "#8286d9", "#6167cf",
+      "#4a50c7", "#3238a8", "#282d86", "#1f2368", "#15184a",
+    ],
   },
   defaultRadius: "md",
   fontFamily: '"Gill Sans Nova", "Gill Sans", "Gill Sans MT", Calibri, "Segoe UI", system-ui, sans-serif',
