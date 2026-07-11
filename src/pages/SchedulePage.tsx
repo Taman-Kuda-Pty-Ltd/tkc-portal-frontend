@@ -59,7 +59,11 @@ export function SchedulePage() {
   const [highlightShiftId, setHighlightShiftId] = useState<number | null>(null);
 
   const canManageShifts = can("manage_shifts");
-  const canAssign = can("assign_staff") && can("manage_people");
+  const canAssignCap = can("assign_staff") && can("manage_people");
+  // View/Edit toggle (UAT#3 SCHED-TOGGLE): managers see the staff-facing view by
+  // default and switch to Edit to reveal assign controls. Non-managers only ever view.
+  const [editMode, setEditMode] = useState(false);
+  const canAssign = canAssignCap && editMode;
 
   // Visible date range for the current view.
   const [rangeStart, rangeEnd] = useMemo<[Dayjs, Dayjs]>(() => {
@@ -285,7 +289,7 @@ export function SchedulePage() {
               {title}
             </Text>
           </Button>
-          {canManageShifts && (
+          {canManageShifts && editMode && (
             <Button
               size="xs"
               variant="light"
@@ -295,7 +299,7 @@ export function SchedulePage() {
               Add shift
             </Button>
           )}
-          {canManageShifts && draftCount > 0 && (
+          {canManageShifts && editMode && draftCount > 0 && (
             <Button size="xs" color="teal" loading={publishDraftsM.isPending}
               onClick={() => publishDraftsM.mutate()}>
               Publish {draftCount} draft{draftCount === 1 ? "" : "s"}
@@ -322,6 +326,17 @@ export function SchedulePage() {
               data={[
                 { label: "Day", value: "day" },
                 { label: "Week", value: "week" },
+              ]}
+            />
+          )}
+          {(canAssignCap || canManageShifts) && (
+            <SegmentedControl
+              size="xs"
+              value={editMode ? "edit" : "view"}
+              onChange={(v) => setEditMode(v === "edit")}
+              data={[
+                { label: "View", value: "view" },
+                { label: "Edit", value: "edit" },
               ]}
             />
           )}

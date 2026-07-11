@@ -41,10 +41,12 @@ export function StudentRegisterModal({ opened, onClose, fixedPersonId, fixedPers
   const [experience, setExperience] = useState<string | null>(null);
   const [medical, setMedical] = useState(""); const [allergies, setAllergies] = useState("");
   const [notes, setNotes] = useState(""); const [photo, setPhoto] = useState(false);
-  const [holderId, setHolderId] = useState<string | null>(null);
+  // Holder is chosen as a PERSON (UAT#3 STAFF-HOLDER) — any person can be the account
+  // holder, including a staff member; their account-holder context is created on demand.
+  const [holderPersonId, setHolderPersonId] = useState<string | null>(null);
   const [relationship, setRelationship] = useState("Parent");
 
-  const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people"), enabled: !fixedPersonId });
+  const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
   const holdersQ = useQuery({ queryKey: ["account-holders"], queryFn: () => api.get<AccountHolderRec[]>("/account-holders") });
 
   const saveM = useMutation({
@@ -58,9 +60,17 @@ export function StudentRegisterModal({ opened, onClose, fixedPersonId, fixedPers
       if (mode === "existing") body.person_id = Number(personId);
       else { body.given_name = given.trim(); body.family_name = family.trim(); body.date_of_birth = dob ? dayjs(dob).format("YYYY-MM-DD") : null; }
       const student = await api.post<StudentRec>("/students", body);
-      if (holderId) {
+      if (holderPersonId) {
+        // Resolve (or create) the account-holder context for the chosen person, so a
+        // staff member (or anyone) can be the holder without being one already.
+        const pid = Number(holderPersonId);
+        let acctHolderId = (holdersQ.data ?? []).find((h) => h.person_id === pid)?.id ?? null;
+        if (acctHolderId == null) {
+          const created = await api.post<{ id: number }>("/account-holders", { person_id: pid });
+          acctHolderId = created.id;
+        }
         await api.post(`/students/${student.id}/account-holders`, {
-          account_holder_id: Number(holderId), relationship, is_billing: true, is_responsible: true,
+          account_holder_id: acctHolderId, relationship, is_billing: true, is_responsible: true,
         });
       }
       return student;
@@ -117,8 +127,9 @@ export function StudentRegisterModal({ opened, onClose, fixedPersonId, fixedPers
 
         <Divider label="Account holder (optional)" labelPosition="left" />
         <Group grow>
-          <Select label="Link to account holder" placeholder="None" data={(holdersQ.data ?? []).map((h) => ({ value: String(h.id), label: h.name }))}
-            value={holderId} onChange={setHolderId} clearable searchable comboboxProps={{ withinPortal: true }} />
+          <Select label="Link to account holder" placeholder="Search anyone (incl. staff)"
+            data={peopleOptions} value={holderPersonId} onChange={setHolderPersonId}
+            clearable searchable comboboxProps={{ withinPortal: true }} />
           <Select label="Relationship" data={ACCOUNT_RELATIONSHIPS} value={relationship}
             onChange={(v) => v && setRelationship(v)} comboboxProps={{ withinPortal: true }} />
         </Group>
