@@ -29,6 +29,7 @@ import { STATE_OF_ISSUE_OPTIONS } from "../constants/states";
 import { DateField } from "../components/DateField";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import { PhoneConfirmModal } from "../components/PhoneConfirmModal";
+import { OnboardingCredentialUpload } from "../components/OnboardingCredentialUpload";
 import type { CredentialType, OnboardingContext } from "../api/types";
 import { ClientOnboarding } from "./ClientOnboarding";
 
@@ -67,6 +68,7 @@ interface CredRow {
   identifier: string;
   state_of_issue: string;
   expires_on: Date | null;
+  image_key: string;
 }
 
 export function OnboardingPage({ managerMode = false, tokenOverride }: {
@@ -157,6 +159,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
           identifier: cr.identifier ?? "",
           state_of_issue: cr.state_of_issue ?? "",
           expires_on: cr.expires_on ? dayjs(cr.expires_on).toDate() : null,
+          image_key: cr.image_key ?? "",
         })),
       );
   }, [ctxQ.data]);
@@ -203,6 +206,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
             identifier: c.identifier || null,
             state_of_issue: c.state_of_issue || null,
             expires_on: fmt(c.expires_on),
+            image_key: c.image_key || null,
           })),
         guardian: isMinor ? guardian : null,
         // Manager-entry sets no password/PIN — the staffer sets those via a link (PWVERIFY-1).
@@ -499,7 +503,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
           <Group justify="space-between" mb="sm">
             <Title order={4}>Credentials</Title>
             <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}
-              onClick={() => setCreds([...creds, { credential_type: "wwcc", identifier: "", state_of_issue: "", expires_on: null }])}>
+              onClick={() => setCreds([...creds, { credential_type: "wwcc", identifier: "", state_of_issue: "", expires_on: null, image_key: "" }])}>
               Add
             </Button>
           </Group>
@@ -517,6 +521,11 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
                   onChange={(v) => setCreds(creds.map((x, ix) => ix === i ? { ...x, state_of_issue: v ?? "" } : x))} />
                 <DateField label="Expires" value={c.expires_on}
                   onChange={(d) => setCreds(creds.map((x, ix) => ix === i ? { ...x, expires_on: d } : x))} />
+                {/* Attach a copy/photo of the credential during onboarding (CRED-1). */}
+                {ctxQ.data?.storage_configured && (
+                  <OnboardingCredentialUpload token={token} imageKey={c.image_key}
+                    onKey={(key) => setCreds(creds.map((x, ix) => ix === i ? { ...x, image_key: key } : x))} />
+                )}
                 <ActionIcon color="red" variant="subtle" mb={6}
                   onClick={() => setCreds(creds.filter((_, ix) => ix !== i))}>
                   <IconTrash size={16} />

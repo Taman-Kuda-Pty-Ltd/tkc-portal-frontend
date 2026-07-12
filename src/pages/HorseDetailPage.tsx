@@ -169,7 +169,7 @@ export function HorseDetailPage() {
       {/* Photo & documents */}
       <Title order={4} mt="sm">Photo &amp; documents</Title>
       <Card withBorder>
-        <Stack gap="md">
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
           <FileUpload
             scope="horse_photo"
             recordId={horseId}
@@ -180,20 +180,22 @@ export function HorseDetailPage() {
             storageReady={storageReady}
             variant="image"
             label="Photo"
+            size={160}
           />
-          <Divider />
-          <FileUpload
-            scope="horse_document"
-            recordId={horseId}
-            attachPath={`/horses/${horseId}/document`}
-            urlPath={`/horses/${horseId}/document-url`}
-            removePath={`/horses/${horseId}/document`}
-            invalidateKey={["horse", horseId]}
-            storageReady={storageReady}
-            variant="document"
-            label="Document"
-          />
-        </Stack>
+          <div>
+            <FileUpload
+              scope="horse_document"
+              recordId={horseId}
+              attachPath={`/horses/${horseId}/document`}
+              urlPath={`/horses/${horseId}/document-url`}
+              removePath={`/horses/${horseId}/document`}
+              invalidateKey={["horse", horseId]}
+              storageReady={storageReady}
+              variant="document"
+              label="Document (registration, passport, vet certificate…)"
+            />
+          </div>
+        </SimpleGrid>
       </Card>
 
       <Divider my="sm" />

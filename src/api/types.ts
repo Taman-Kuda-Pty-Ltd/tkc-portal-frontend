@@ -248,6 +248,7 @@ export interface OnboardingCredential {
   identifier: string | null;
   state_of_issue: string | null;
   expires_on: string | null;
+  image_key?: string | null;
 }
 
 export interface EngagementDetail {
@@ -367,6 +368,7 @@ export interface OnboardingContext {
   credentials: OnboardingCredential[];
   expires_at: string;
   require_phone_verification: boolean;
+  storage_configured?: boolean;
 }
 
 export type SmtpSecurity = "none" | "starttls" | "ssl";

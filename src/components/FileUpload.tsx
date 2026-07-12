@@ -174,19 +174,21 @@ export function FileUpload({
       <Avatar src={displayUrl} size={size} radius="xl"
         style={{ border: "3px solid var(--mantine-color-default-border)", boxShadow: "var(--mantine-shadow-xs)" }} />
     ) : displayUrl ? (
-      <Image src={displayUrl} w={size} h={size} fit="cover" radius="md" alt={label ?? "image"} />
+      <Image src={displayUrl} w={size} h={size} fit="cover" radius="md" alt={label ?? "image"}
+        style={{ border: "1px solid var(--mantine-color-default-border)", boxShadow: "var(--mantine-shadow-xs)" }} />
     ) : (
       <Box
         w={size}
         h={size}
         style={{
-          borderRadius: 8,
-          border: "1px dashed var(--mantine-color-gray-4)",
+          borderRadius: "var(--mantine-radius-md)",
+          border: "1px dashed var(--mantine-color-default-border)",
+          background: "var(--mantine-color-default)",
           display: "grid",
           placeItems: "center",
         }}
       >
-        <IconCamera size={28} opacity={0.4} />
+        <IconCamera size={28} opacity={0.35} />
       </Box>
     )
   ) : (
