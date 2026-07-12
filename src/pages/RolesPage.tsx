@@ -15,6 +15,7 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { roleColor } from "../constants/roleColors";
 import type { Role } from "../api/types";
 import { CAPABILITY_LABELS } from "../lib/constants";
 
@@ -91,7 +92,7 @@ export function RolesPage() {
                 <div>
                   <Group gap="xs">
                     <Text fw={600}>{r.name}</Text>
-                    <Badge variant="light" color="gray">
+                    <Badge variant="light" color={roleColor(r.slug)}>
                       {r.slug}
                     </Badge>
                   </Group>
