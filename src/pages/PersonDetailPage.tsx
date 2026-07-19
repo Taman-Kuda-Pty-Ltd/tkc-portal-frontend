@@ -299,11 +299,12 @@ export function PersonDetailPage() {
 
   return (
     <Stack maw={820} w="100%" mx="auto">
-      <Group justify="space-between" wrap="wrap">
+      {/* BREADCRUMB-POS: breadcrumb sits on its own line above the name, not inline. */}
+      <Anchor onClick={() => navigate("/people")} c="dimmed" w="fit-content">
+        <Group gap={4}><IconArrowLeft size={16} /> People</Group>
+      </Anchor>
+      <Group justify="space-between" wrap="wrap" mt={-8}>
         <Group gap="xs">
-          <Anchor onClick={() => navigate("/people")} c="dimmed">
-            <Group gap={4}><IconArrowLeft size={16} /> People</Group>
-          </Anchor>
           <Title order={2}>{p.full_name}</Title>
           {!p.is_active && <Badge color="gray" variant="light">Disabled</Badge>}
           {p.is_active && !p.onboarded && <Badge color="yellow" variant="light">Invited</Badge>}

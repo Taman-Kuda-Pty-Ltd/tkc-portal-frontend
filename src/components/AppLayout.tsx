@@ -147,7 +147,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Menu.Target>
               <UnstyledButton>
                 <Group gap="xs">
-                  <Avatar radius="xl" size="sm" color="teal">{initials(me?.full_name)}</Avatar>
+                  {/* AVATAR-COLOR: Malaysian-flag blue (royal), not the off-theme green. */}
+                  <Avatar radius="xl" size="sm" color="royal">{initials(me?.full_name)}</Avatar>
                   <Text size="sm" c="dimmed" visibleFrom="xs">{me?.full_name}</Text>
                 </Group>
               </UnstyledButton>
