@@ -958,7 +958,10 @@ function CoachingSection({
                   ) : (
                     <Text fw={700} size="lg" mb={6}>{l.title || "Lesson"}</Text>
                   )}
-                  <Text fw={700} size="lg">{fmtTime(l.starts_at, timeFormat)}</Text>
+                  {/* LESSON-RANGE: show the full start–end range, not just the start. */}
+                  <Text fw={700} size="lg">
+                    {fmtTime(l.starts_at, timeFormat)}–{fmtTime(l.ends_at, timeFormat)}
+                  </Text>
                   {l.facility_name && <Text size="sm" c="dimmed">{l.facility_name}</Text>}
                 </div>
                 <Stack gap={6} align="flex-end">

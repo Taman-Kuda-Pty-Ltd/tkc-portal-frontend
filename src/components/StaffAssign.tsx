@@ -139,6 +139,7 @@ function HeadingGroup({
     people,
     requiredRole,
     assigned.map((a) => a.person_id),
+    requiredRole ? roleName(requiredRole) : null,
   );
   // People who actually hold the slot's required role — anyone assigned who is NOT
   // in this set gets a manager-visible mismatch flag (UAT#3 ROLE-MISMATCH).

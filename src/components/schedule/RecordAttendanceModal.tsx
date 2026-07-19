@@ -156,11 +156,12 @@ export function RecordAttendanceModal({ target, onClose }: {
               </div>
             </>
           ) : (
-            <NumberInput label="Paid hours (blank = the shift's planned hours)" min={0} step={0.25} value={hours}
-              onChange={setHours} />
+            <NumberInput label="Paid hours" description="Blank = the shift's scheduled hours"
+              min={0} step={0.25} value={hours} onChange={setHours} />
           )}
-          <Textarea label="Reason" required autosize minRows={2} value={reason}
-            onChange={(e) => setReason(e.currentTarget.value)} />
+          <Textarea label="Reason not checked in/out normally" required autosize minRows={2}
+            description="Why this shift is being recorded manually (e.g. missed check-in, cancelled, covered)."
+            value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>Cancel</Button>
             <Button loading={saveM.isPending} disabled={!inAt || !reason.trim()} onClick={() => saveM.mutate()}>

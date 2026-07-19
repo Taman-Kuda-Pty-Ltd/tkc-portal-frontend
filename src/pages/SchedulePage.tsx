@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Badge,
   Box,
   Button,
   Group,
@@ -64,6 +65,10 @@ export function SchedulePage() {
   // default and switch to Edit to reveal assign controls. Non-managers only ever view.
   const [editMode, setEditMode] = useState(false);
   const canAssign = canAssignCap && editMode;
+  // COACH-ASSIGN-EDITMODE: editing a shift (times/activity/riders/coach) is only
+  // allowed in Edit mode — View mode is read-only. Creating a new shift (addingOn)
+  // always allows editing (Add is itself an Edit-mode action).
+  const canEditShift = canManageShifts && (editMode || addingOn !== null);
 
   // Visible date range for the current view.
   const [rangeStart, rangeEnd] = useMemo<[Dayjs, Dayjs]>(() => {
@@ -330,15 +335,26 @@ export function SchedulePage() {
             />
           )}
           {(canAssignCap || canManageShifts) && (
-            <SegmentedControl
-              size="xs"
-              value={editMode ? "edit" : "view"}
-              onChange={(v) => setEditMode(v === "edit")}
-              data={[
-                { label: "View", value: "view" },
-                { label: "Edit", value: "edit" },
-              ]}
-            />
+            <Group gap={6} wrap="nowrap">
+              <SegmentedControl
+                size="xs"
+                // SCHED-TOGGLE-VISIBILITY: colour the active state (brand maroon in Edit)
+                // so the mode is obvious at a glance rather than a grey control.
+                color={editMode ? "tkc" : "gray"}
+                value={editMode ? "edit" : "view"}
+                onChange={(v) => setEditMode(v === "edit")}
+                data={[
+                  { label: "View", value: "view" },
+                  { label: "Edit", value: "edit" },
+                ]}
+              />
+              {/* SCHED-UNPUBLISHED-INDICATOR: flag unpublished draft changes while in View. */}
+              {!editMode && draftCount > 0 && (
+                <Badge color="orange" variant="light" size="sm">
+                  {draftCount} unpublished
+                </Badge>
+              )}
+            </Group>
           )}
           <Group gap={4} wrap="nowrap">
             <ActionIcon variant="default" onClick={() => navigate(-1)} aria-label="Previous">
@@ -421,7 +437,7 @@ export function SchedulePage() {
         shift={editingShift}
         defaultDate={addingOn ?? anchor.toDate()}
         opened={editingShift !== null || addingOn !== null}
-        canEdit={canManageShifts}
+        canEdit={canEditShift}
         canAssign={canAssign}
         canManageShifts={canManageShifts}
         onRecordAttendance={(shift, personId, personName) =>

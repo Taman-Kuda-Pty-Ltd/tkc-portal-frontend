@@ -49,17 +49,18 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
         ...highlightStyle,
       }}
     >
-      <Group gap={6} mb={4} wrap="nowrap" justify="space-between" align="flex-start">
-        <UnstyledButton
-          onClick={() => ctx.onOpenShift(shift)}
-          style={{ flex: 1, textAlign: "left" }}
-          title="View shift"
-        >
-          <Text size="sm" fw={600} lineClamp={2}>
-            {v.label}
-          </Text>
-        </UnstyledButton>
-        <Group gap={4} wrap="nowrap">
+      {/* SCHED-LIST-CHIPS: title on its own line; status chips wrap onto the line
+          below so a busy shift no longer concatenates into one cramped row. */}
+      <UnstyledButton
+        onClick={() => ctx.onOpenShift(shift)}
+        style={{ width: "100%", textAlign: "left" }}
+        title="View shift"
+      >
+        <Text size="sm" fw={600} lineClamp={2}>
+          {v.label}
+        </Text>
+      </UnstyledButton>
+      <Group gap={4} wrap="wrap" mt={4}>
           {shift.status === "draft" && (
             <Badge size="sm" variant="light" color="gray">Draft</Badge>
           )}
@@ -90,7 +91,6 @@ export function ShiftCard({ shift, ctx }: { shift: Shift; ctx: ScheduleCtx }) {
           <Badge size="sm" variant="light" color={v.fillColor} aria-label="Staffing">
             {v.assigned}/{v.needed}
           </Badge>
-        </Group>
       </Group>
       <Text size="xs" c="dimmed">
         {formatISOTime(shift.starts_at, ctx.timeFormat)}–
@@ -156,10 +156,15 @@ function HeadingGroup({
   const showCoachSplit = isLesson && assigned.length >= 2;
   // Required role: the heading's qualifying role, else the shift's role (from its activity).
   const requiredRole = heading?.qualifying_role_id ?? shift.role_id ?? null;
+  const people = [...ctx.personById.values()];
+  const requiredRoleName = requiredRole
+    ? people.flatMap((p) => p.roles).find((r) => r.id === requiredRole)?.name ?? null
+    : null;
   const eligible = eligibleAssignees(
-    [...ctx.personById.values()],
+    people,
     requiredRole,
     assigned.map((a) => a.person_id),
+    requiredRoleName,
   );
 
   return (

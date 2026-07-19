@@ -9,33 +9,37 @@ export function effectiveCount(shift: Shift, heading: ActivityHeading): number {
   return o ? o.count : heading.count;
 }
 
-/** Eligible-assignee options for a picker, filtered by the required role AND active
- *  engagement (ASG-1). Prefers people engaged for the role; keeps role-holders with
- *  no engagement data (ambiguous — never hard-blocks); drops those engaged only for
- *  another role. Non-engaged people shown are labelled and sorted last. */
+/** Eligible-assignee options for a picker. Everyone active (and not already assigned)
+ *  is selectable — a manager may need to force through someone who doesn't hold the
+ *  slot's role (FORCE-ROLE-ASSIGN); the assigned row then shows a ROLE-MISMATCH badge.
+ *  Ordering: engaged role-holders first, then role-holders, then non-role-holders last.
+ *  Labels flag "not engaged" and "no <role>" so the choice is explicit. */
 export function eligibleAssignees(
   people: Person[],
   requiredRole: number | null,
   assignedPersonIds: number[],
+  roleName?: string | null,
 ): { value: string; label: string }[] {
   const avail = people
     .filter((p) => p.is_active)
     .filter((p) => !assignedPersonIds.includes(p.id));
-  const withRole = requiredRole
-    ? avail.filter((p) => p.roles.some((r) => r.id === requiredRole))
-    : avail;
-  return withRole
+  return avail
     .map((p) => {
+      const hasRole = !requiredRole || p.roles.some((r) => r.id === requiredRole);
       const engagedRoles = p.engaged_role_ids ?? [];
       const engaged = requiredRole ? engagedRoles.includes(requiredRole) : true;
-      const keep = !requiredRole || engaged || engagedRoles.length === 0;
-      return { p, engaged, keep };
+      // rank: 0 engaged role-holder · 1 role-holder · 2 not engaged · 3 no role
+      const rank = !requiredRole ? 0 : !hasRole ? 3 : engaged ? 0 : engagedRoles.length === 0 ? 1 : 2;
+      return { p, hasRole, engaged, rank };
     })
-    .filter((x) => x.keep)
-    .sort((a, b) => (a.engaged === b.engaged ? 0 : a.engaged ? -1 : 1))
-    .map(({ p, engaged }) => ({
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ p, hasRole, engaged }) => ({
       value: String(p.id),
-      label: engaged ? p.full_name : `${p.full_name} · not engaged`,
+      label: !hasRole
+        ? `${p.full_name} · no ${roleName ?? "role"}`
+        : engaged || !requiredRole
+        ? p.full_name
+        : `${p.full_name} · not engaged`,
     }));
 }
 

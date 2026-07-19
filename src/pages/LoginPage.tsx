@@ -44,7 +44,7 @@ export function LoginPage() {
           <Stack>
             <Stack align="center" gap={4}>
               <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 120, width: "auto" }} />
-              <Text size="sm" c="dimmed">Staff sign in</Text>
+              <Text size="sm" c="dimmed">Portal sign in</Text>
             </Stack>
             <TextInput
               label="Email"
