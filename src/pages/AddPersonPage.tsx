@@ -139,6 +139,9 @@ export function AddPersonPage() {
         email: email.trim() || null,
         mobile: mobile || null,
         kind: "staff",
+        // Manager-entry: suppress the onboarding-link email; a set-password email is
+        // sent after the manager finishes the full form (MANUAL-STAFF-EMAIL).
+        manual_entry: staffMode === "manual",
         engagements: engagements.map((e) => ({
           engagement_type: e.engagement_type,
           work_role_id: e.work_role_id ? Number(e.work_role_id) : null,
@@ -179,7 +182,9 @@ export function AddPersonPage() {
     onError: onInviteError,
   });
 
-  const canSubmit = given.trim() && family.trim() && !emailInvalid;
+  // EMAIL-MANDATORY-STAFF: a staff member must have an email (clients may not).
+  const canSubmit =
+    given.trim() && family.trim() && !emailInvalid && (kind !== "staff" || !!email.trim());
 
   // --- Result screen: hand over the onboarding link ---
   if (result) {
@@ -303,7 +308,8 @@ export function AddPersonPage() {
               <TextInput label="Family name" required value={family} onChange={(e) => setFamily(e.currentTarget.value)} />
               <TextInput
                 label="Email"
-                description="Optional — leave blank to hand over a link yourself"
+                required
+                description="Required for a staff account"
                 value={email}
                 error={emailInvalid ? "Enter a valid email address" : null}
                 onChange={(e) => setEmail(e.currentTarget.value)}
@@ -383,7 +389,7 @@ export function AddPersonPage() {
             <Button variant="default" onClick={() => navigate("/people")}>Cancel</Button>
             <Button loading={inviteM.isPending} disabled={!canSubmit || !can("manage_onboarding")}
               onClick={() => inviteM.mutate()}>
-              {staffMode === "manual" ? "Continue to full details" : email.trim() ? "Send invite" : "Add & get link"}
+              {staffMode === "manual" ? "Continue to full details" : "Send invite"}
             </Button>
           </Group>
         </>

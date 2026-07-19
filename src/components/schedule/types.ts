@@ -88,7 +88,8 @@ function personInitials(p: Person | undefined, fallbackName: string | null): str
 
 /** ABBR-1: derive a compact abbreviation live from the activity + current state
  *  (assignment / start time), used when the shift has no manual abbreviation.
- *   - Groom      → initials of the assigned groom, else "GROOM"
+ *   - Groom      → the activity's configured abbreviation, else "GR" (role-based,
+ *                  NOT the assignee's initials — a groom is identified by the role)
  *   - Stablehand → "AM"/"PM" by start time
  *   - Lesson     → initials of the (lead) coach, else "L"
  *   - Other      → the activity's configured abbreviation, else "OTR"
@@ -99,9 +100,7 @@ export function autoAbbr(shift: Shift, activity: Activity | undefined, ctx: Sche
     return dayjs(shift.starts_at).hour() < 12 ? "AM" : "PM";
   }
   if (slug === "groom") {
-    const a = shift.assignments[0];
-    const init = a ? personInitials(ctx.personById.get(a.person_id), a.person_name) : "";
-    return init || "GROOM";
+    return activity?.abbreviation || "GR";
   }
   if (activity?.is_lesson || slug === "lesson") {
     const coach =

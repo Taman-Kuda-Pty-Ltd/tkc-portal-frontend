@@ -24,11 +24,10 @@ export function PhoneConfirmModal({
 }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [sentOnce, setSentOnce] = useState(false);
 
   const sendM = useMutation({
     mutationFn: () => api.post<{ ok: boolean; detail: string }>(`/onboarding/${token}/send-phone-code`, { phone }),
-    onSuccess: () => { setSentOnce(true); setError(null); },
+    onSuccess: () => setError(null),
     onError: (e: Error) => setError(e.message),
   });
 
@@ -41,9 +40,14 @@ export function PhoneConfirmModal({
     onError: (e: Error) => setError(e.message),
   });
 
-  // Auto-send the code the first time the modal opens.
+  // Each time the modal opens: clear any stale code/error from a previous attempt
+  // and send a fresh code. (Without the reset, a code left over from a failed
+  // submit would persist when the form is re-submitted.)
   useEffect(() => {
-    if (opened && !sentOnce && !sendM.isPending) sendM.mutate();
+    if (!opened) return;
+    setCode("");
+    setError(null);
+    if (!sendM.isPending) sendM.mutate();
   }, [opened]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const masked = phone ? `•••• ••• ${phone.slice(-3)}` : "your mobile";

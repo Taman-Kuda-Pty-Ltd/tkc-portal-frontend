@@ -92,7 +92,9 @@ export function NewAccountPage() {
     setError(null);
     if (holder.mode === "existing" && !holder.person) return setError("Search for and choose the account holder, or add a new one.");
     if (holder.mode === "new" && (!holder.given_name.trim() || !holder.family_name.trim())) return setError("Enter the account holder's first and last name.");
-    // Emergency contact is optional (UAT#3 EMER-OPTIONAL) — matches the self-onboarding flow.
+    // EMER-MANDATORY: an account holder must have an emergency contact (the backend
+    // enforces this too — surface it here rather than as a 422).
+    if (!ec.name.trim()) return setError("An emergency contact is required.");
     if (alsoRides) {
       const holderDob = holder.mode === "existing" ? holder.person?.date_of_birth ?? null : holder.date_of_birth;
       const err = validateRider({ ...holderRider, is_holder: true, person_dob: holderDob ? String(holderDob) : null });
@@ -171,9 +173,9 @@ export function NewAccountPage() {
           </>
         )}
 
-        <Divider my="md" label="Emergency contact (optional)" labelPosition="left" />
+        <Divider my="md" label="Emergency contact" labelPosition="left" />
         <SimpleGrid cols={{ base: 1, sm: 3 }}>
-          <TextInput label="Name" value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
+          <TextInput label="Name" required value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
           <Select label="Relationship" data={RELATIONSHIPS} value={ec.relationship || null}
             placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
             onChange={(v) => setEc({ ...ec, relationship: v ?? "" })} />

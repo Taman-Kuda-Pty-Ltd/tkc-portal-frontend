@@ -79,10 +79,11 @@ export function SetPasswordPage() {
             onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
           <PhoneField label="Mobile" value={mobile} disabled={noMobile}
             onChange={(v) => { setMobile(v); setVerified(false); }} />
-          {requirePhone && (
-            <Checkbox checked={noMobile} onChange={(e) => { setNoMobile(e.currentTarget.checked); setVerified(false); }}
-              label="I don't have a mobile number (skip verification)" />
-          )}
+          {/* Always offer the no-mobile opt-out — otherwise, with 2FA off (so no
+              verification step), the "enter a valid mobile, or tick that you don't
+              have one" error is a dead end with no tickbox (SETPW-NO-MOBILE-OPTOUT). */}
+          <Checkbox checked={noMobile} onChange={(e) => { setNoMobile(e.currentTarget.checked); setVerified(false); }}
+            label={requirePhone ? "I don't have a mobile number (skip verification)" : "I don't have a mobile number"} />
           {error && <Alert color="red" p="xs"><Text size="xs">{error}</Text></Alert>}
           <Button loading={submitM.isPending} onClick={submit}>Set password &amp; sign in</Button>
         </Stack>

@@ -355,7 +355,8 @@ function PersonView({
           Done
         </Button>
       </Group>
-      {session.shifts.length === 0 && session.lessons.length === 0 && (
+      {session.shifts.length === 0 && session.lessons.length === 0 &&
+        session.coaching_attendance?.status !== "checked_in" && (
         <Card withBorder padding="xl">
           <Text size="lg">You have no shift scheduled today.</Text>
         </Card>
@@ -365,7 +366,10 @@ function PersonView({
           minHours={minHours} checkoutWindowMinutes={checkoutWindowMinutes}
           timeFormat={timeFormat} onRefresh={onRefresh} />
       ))}
-      {session.lessons.length > 0 && (
+      {/* Render whenever there are lessons OR an open coaching check-in — the latter
+          so a coach whose lesson was covered-away/removed still has a Check-out
+          control and can't get stuck "on site" with no way to sign out (TERM-STUCK-IN). */}
+      {(session.lessons.length > 0 || session.coaching_attendance?.status === "checked_in") && (
         <CoachingSection
           key={session.coaching_attendance?.status ?? "none"}
           session={session}
@@ -921,6 +925,12 @@ function CoachingSection({
       </Group>
 
       <Stack gap="sm">
+        {checkedIn && session.lessons.length === 0 && (
+          <Text size="sm" c="dimmed">
+            You're checked in for coaching but have no lessons listed right now (they may
+            have been covered or removed). You can check out below.
+          </Text>
+        )}
         {session.lessons.map((l) => {
           const st = state[l.shift_id];
           const studentOptions = l.rider_details.map((r) => ({

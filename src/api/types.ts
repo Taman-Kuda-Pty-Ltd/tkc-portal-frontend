@@ -229,10 +229,12 @@ export type CredentialType =
   | "drivers_licence"
   | "other";
 export type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
+export type InvitationKind = "staff" | "school_client" | "set_password";
 
 export interface Invitation {
   id: number;
   person_id: number;
+  kind: InvitationKind;
   status: InvitationStatus;
   expires_at: string;
   given_name: string;

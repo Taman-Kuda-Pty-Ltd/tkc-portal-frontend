@@ -184,7 +184,11 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
   const navigate = useNavigate();
   const submitM = useMutation({
     mutationFn: () =>
-      api.post<{ access_token?: string; person_id?: number }>(
+      api.post<{
+        access_token?: string;
+        person_id?: number;
+        set_password_email_sent?: boolean;
+      }>(
         managerMode ? `/onboarding/${token}/manager-complete` : `/onboarding/${token}`, {
         given_name: personal.given_name,
         middle_names: personal.middle_names || null,
@@ -215,7 +219,14 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
       }),
     onSuccess: (res) => {
       if (managerMode) {
-        notifications.show({ color: "teal", message: "Staff member created. Send them the set-password link from their profile." });
+        // A set-password email is auto-sent on completion (MANUAL-STAFF-EMAIL); the
+        // profile shows the link + a Resend/Copy fallback if the send didn't land.
+        notifications.show({
+          color: "teal",
+          message: res.set_password_email_sent
+            ? "Staff member created — a set-password email has been sent to them."
+            : "Staff member created. Send them the set-password link from their profile.",
+        });
         navigate(`/people/${res.person_id}`);
         return;
       }

@@ -41,7 +41,12 @@ export function PeoplePage() {
 
   const pendingByPerson = useMemo(() => {
     const m = new Map<number, Invitation>();
-    for (const i of invitesQ.data ?? []) if (i.status === "pending") m.set(i.person_id, i);
+    // Only a not-yet-onboarded STAFF/CLIENT invite means "Invited" + Resend/Revoke. A
+    // pending SET_PASSWORD invite belongs to an already-onboarded person (they just
+    // need to set a password) — that's surfaced on their profile, not here
+    // (RESEND-REVOKE-SHOWN).
+    for (const i of invitesQ.data ?? [])
+      if (i.status === "pending" && i.kind !== "set_password") m.set(i.person_id, i);
     return m;
   }, [invitesQ.data]);
 
@@ -169,6 +174,15 @@ export function PeoplePage() {
                       <Group gap={4} justify="flex-end" wrap="nowrap">
                         {pending && canInvite && (
                           <>
+                            {pending.onboarding_url && (
+                              // LINK-REGEN: always let the manager re-copy the invite
+                              // link (e.g. after dismissing the create screen), without
+                              // having to recreate the engagement.
+                              <Button size="xs" variant="subtle" onClick={() => {
+                                navigator.clipboard.writeText(pending.onboarding_url!);
+                                notifications.show({ color: "teal", message: "Onboarding link copied." });
+                              }}>Copy link</Button>
+                            )}
                             <Button size="xs" variant="subtle" loading={resendM.isPending}
                               onClick={() => resendM.mutate(pending.id)}>Resend</Button>
                             <Button size="xs" variant="subtle" color="red"

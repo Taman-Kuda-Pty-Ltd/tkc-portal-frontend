@@ -12,6 +12,7 @@ import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationship
 import type { OnboardingContext } from "../api/types";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { PhoneConfirmModal } from "../components/PhoneConfirmModal";
+import { PhoneField } from "../components/PhoneField";
 
 const EXPERIENCE = [
   { value: "never_ridden", label: "Never ridden" },
@@ -120,6 +121,7 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
     if (!given.trim() || !family.trim()) return setError("Please enter your name.");
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     if (password !== confirm) return setError("Passwords do not match.");
+    if (!ec.name.trim()) return setError("An emergency contact is required.");
     if (riders.length === 0) return setError("Add at least one rider.");
     for (const r of riders) {
       if (!r.is_self && (!r.given_name.trim() || !r.family_name.trim())) return setError("Enter each rider's name.");
@@ -167,8 +169,8 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
             <TextInput label="First name" value={given} onChange={(e) => setGiven(e.currentTarget.value)} required />
             <TextInput label="Last name" value={family} onChange={(e) => setFamily(e.currentTarget.value)} required />
             <TextInput label="Email" value={ctx.email ?? ""} disabled />
-            <TextInput label="Mobile" value={mobile} disabled={noMobile}
-              onChange={(e) => { setMobile(e.currentTarget.value); setPhoneVerified(false); }} />
+            <PhoneField label="Mobile" value={mobile} disabled={noMobile}
+              onChange={(v) => { setMobile(v); setPhoneVerified(false); }} />
           </SimpleGrid>
           {requirePhone && phoneVerified && !noMobile && (
             <Group gap={6} c="teal" mt={6}><IconCircleCheck size={16} /><Text size="xs" fw={500}>Mobile confirmed</Text></Group>
@@ -201,11 +203,11 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           </Stack>
           <Divider my="sm" label="Emergency contact" labelPosition="left" />
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
-            <TextInput label="Name" value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
+            <TextInput label="Name" required value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
             <Select label="Relationship" data={RELATIONSHIPS} value={ec.relationship || null}
               placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
               onChange={(v) => setEc({ ...ec, relationship: v ?? "" })} />
-            <TextInput label="Phone" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.currentTarget.value })} />
+            <PhoneField label="Phone" value={ec.phone} onChange={(v) => setEc({ ...ec, phone: v })} />
           </SimpleGrid>
           <Divider my="sm" label="Password" labelPosition="left" />
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -274,8 +276,8 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
                     <>
                       <TextInput label="Guardian name" required value={r.guardian_name}
                         onChange={(e) => update(i, { guardian_name: e.currentTarget.value })} />
-                      <TextInput label="Guardian phone" required value={r.guardian_phone}
-                        onChange={(e) => update(i, { guardian_phone: e.currentTarget.value })} />
+                      <PhoneField label="Guardian phone" required value={r.guardian_phone}
+                        onChange={(v) => update(i, { guardian_phone: v })} />
                       <TextInput label="Guardian email" required type="email" value={r.guardian_email}
                         onChange={(e) => update(i, { guardian_email: e.currentTarget.value })} />
                     </>
