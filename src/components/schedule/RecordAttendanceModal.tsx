@@ -7,13 +7,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
-import type { Activity, Shift } from "../../api/types";
+import type { Activity } from "../../api/types";
+
+/** The minimal shift shape the record modal needs — satisfied by the schedule `Shift`
+ *  and by an enriched no-show row, so both can open it. */
+export interface RecordTargetShift {
+  id: number;
+  title: string | null;
+  activity_id: number;
+  starts_at: string;
+  ends_at: string;
+  rides?: { student_id: number; student_name: string | null; horse_name: string | null }[];
+}
 
 /** Manager records/corrects a person's attendance for a shift (backdated), with a reason.
  *  For a lesson it also captures the same data a coach would (MGR-CHK): horse notes,
  *  student notes, and which riders attended. */
 export function RecordAttendanceModal({ target, onClose }: {
-  target: { shift: Shift; personId: number; personName: string } | null;
+  target: { shift: RecordTargetShift; personId: number; personName: string } | null;
   onClose: () => void;
 }) {
   const qc = useQueryClient();

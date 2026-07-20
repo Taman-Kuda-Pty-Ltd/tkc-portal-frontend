@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { Activity, Person } from "../api/types";
+import { RecordAttendanceModal, type RecordTargetShift } from "../components/schedule/RecordAttendanceModal";
 
 interface PendingShift {
   shift_id: number;
@@ -41,6 +42,9 @@ interface NoShow {
   starts_at: string;
   person_id: number;
   person_name: string | null;
+  ends_at: string | null;
+  activity_id: number | null;
+  rides: { student_id: number; student_name: string | null; horse_name: string | null }[];
 }
 interface OpenAtt {
   attendance_id: number;
@@ -121,6 +125,24 @@ interface ShiftClash {
 }
 
 export function ApprovalsPage() {
+  const qc = useQueryClient();
+  // MARK-PRESENT-PAST-TODAY: recording a past no-show opens the same modal the schedule uses.
+  const [recordTarget, setRecordTarget] = useState<
+    { shift: RecordTargetShift; personId: number; personName: string } | null
+  >(null);
+  const openRecord = (n: NoShow) =>
+    setRecordTarget({
+      shift: {
+        id: n.shift_id,
+        title: n.title,
+        activity_id: n.activity_id ?? 0,
+        starts_at: n.starts_at,
+        ends_at: n.ends_at ?? n.starts_at,
+        rides: n.rides,
+      },
+      personId: n.person_id,
+      personName: n.person_name ?? "",
+    });
   const q = useQuery({
     queryKey: ["pending-approval"],
     queryFn: () => api.get<PendingShift[]>("/shifts/pending-approval"),
@@ -298,7 +320,9 @@ export function ApprovalsPage() {
           <Text size="sm" c="dimmed">
             Assigned to a started shift but not checked in. Mark them present if they're here.
           </Text>
-          {(nsQ.data ?? []).map((n) => <NoShowRow key={`${n.shift_id}-${n.person_id}`} item={n} />)}
+          {(nsQ.data ?? []).map((n) => (
+            <NoShowRow key={`${n.shift_id}-${n.person_id}`} item={n} onRecord={openRecord} />
+          ))}
         </>
       )}
 
@@ -398,6 +422,15 @@ export function ApprovalsPage() {
           ))}
         </>
       )}
+
+      <RecordAttendanceModal
+        target={recordTarget}
+        onClose={() => {
+          setRecordTarget(null);
+          qc.invalidateQueries({ queryKey: ["no-shows"] });
+          qc.invalidateQueries({ queryKey: ["open-attendance"] });
+        }}
+      />
     </Stack>
   );
 }
@@ -770,8 +803,12 @@ function ShiftCoverRow({ item }: { item: ShiftCover }) {
   );
 }
 
-function NoShowRow({ item }: { item: NoShow }) {
+function NoShowRow({ item, onRecord }: { item: NoShow; onRecord: (n: NoShow) => void }) {
   const qc = useQueryClient();
+  // A shift on a PAST day can't be "marked present now" (that would bank the hours in
+  // today's period) — the manager records the actual times instead (MARK-PRESENT-PAST-
+  // TODAY). Only a shift happening TODAY offers "Mark present".
+  const isToday = dayjs(item.starts_at).isSame(dayjs(), "day");
   const m = useMutation({
     mutationFn: () => api.post(`/shifts/${item.shift_id}/manager-check-in`, { person_id: item.person_id }),
     onSuccess: () => {
@@ -789,9 +826,15 @@ function NoShowRow({ item }: { item: NoShow }) {
             {item.title || item.activity_name || "Shift"} · {dayjs(item.starts_at).format("D MMM HH:mm")}
           </Text>
         </div>
-        <Button size="sm" variant="light" loading={m.isPending} onClick={() => m.mutate()}>
-          Mark present
-        </Button>
+        {isToday ? (
+          <Button size="sm" variant="light" loading={m.isPending} onClick={() => m.mutate()}>
+            Mark present
+          </Button>
+        ) : (
+          <Button size="sm" variant="light" onClick={() => onRecord(item)}>
+            Record shift
+          </Button>
+        )}
       </Group>
     </Card>
   );
