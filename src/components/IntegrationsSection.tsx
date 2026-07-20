@@ -21,6 +21,19 @@ interface IntegrationSettings {
   address_service_url: string | null;
   has_address_api_key: boolean;
   address_configured: boolean;
+  weather_status: IntegStatus;
+  s3_status: IntegStatus;
+  sms_status: IntegStatus;
+  address_status: IntegStatus;
+}
+
+type IntegStatus = "not_configured" | "not_tested" | "configured";
+
+// INTEG-TRISTATE: one badge for the three-state integration status.
+function StatusBadge({ status }: { status?: IntegStatus }) {
+  if (status === "configured") return <Badge color="teal" variant="light">Configured</Badge>;
+  if (status === "not_tested") return <Badge color="yellow" variant="light">Not tested</Badge>;
+  return <Badge color="gray" variant="light">Not configured</Badge>;
 }
 
 export function IntegrationsSection() {
@@ -196,7 +209,7 @@ export function IntegrationsSection() {
 
   return (
     <Stack gap="sm">
-      <Text fw={600}>WeatherFlow (Tempest)</Text>
+      <Group gap="sm"><Text fw={600}>WeatherFlow (Tempest)</Text><StatusBadge status={q.data?.weather_status} /></Group>
       <Text size="sm" c="dimmed">
         Powers the weather strip on the check-in terminals. Enter your Tempest station
         id and a personal access token. The token is stored encrypted and never leaves
@@ -217,7 +230,7 @@ export function IntegrationsSection() {
       <Divider my="sm" />
 
       <Group gap="xs">
-        <Text fw={600}>File storage (S3-compatible)</Text>
+        <Group gap="sm"><Text fw={600}>File storage (S3-compatible)</Text><StatusBadge status={q.data?.s3_status} /></Group>
         {q.data && (
           <Badge color={q.data.s3_configured ? "teal" : "gray"} variant="light">
             {q.data.s3_configured ? "Configured" : "Not configured"}
@@ -261,7 +274,7 @@ export function IntegrationsSection() {
       <Divider my="sm" />
 
       <Group gap="xs">
-        <Text fw={600}>SMS</Text>
+        <Group gap="sm"><Text fw={600}>SMS</Text><StatusBadge status={q.data?.sms_status} /></Group>
         {q.data && (
           <Badge color={sms.provider === "clicksend" ? (q.data.sms_configured ? "teal" : "gray") : "blue"} variant="light">
             {sms.provider === "clicksend" ? (q.data.sms_configured ? "Configured" : "Not configured") : "Log (dev)"}
@@ -304,7 +317,7 @@ export function IntegrationsSection() {
       <Divider my="sm" />
 
       <Group gap="xs">
-        <Text fw={600}>Address autocomplete</Text>
+        <Group gap="sm"><Text fw={600}>Address autocomplete</Text><StatusBadge status={q.data?.address_status} /></Group>
         {q.data && (
           <Badge color={q.data.address_configured ? "teal" : "gray"} variant="light">
             {q.data.address_configured ? "Configured" : "Not configured"}
