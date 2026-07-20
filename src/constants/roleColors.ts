@@ -8,7 +8,6 @@ const ROLE_COLORS: Record<string, string> = {
   coach: "gold", // brand gold
   groom: "teal",
   stablehand: "cyan",
-  client: "gray",
   volunteer: "grape",
 };
 

@@ -16,6 +16,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconPlus } from "@tabler/icons-react";
 import { roleColor } from "../constants/roleColors";
+import { isPureClient, personStatusBadge } from "../lib/personStatus";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -75,14 +76,6 @@ export function PeoplePage() {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
-  function statusBadge(p: Person) {
-    if (!p.is_active) return <Badge color="gray" variant="light">Disabled</Badge>;
-    // A client (rider / account holder) with no staff login isn't "Invited".
-    if (!p.onboarded && (p.is_student || p.is_account_holder) && p.roles.length === 0)
-      return <Badge color="grape" variant="light">Registered</Badge>;
-    if (!p.onboarded) return <Badge color="yellow" variant="light">Invited</Badge>;
-    return <Badge color="teal" variant="light">Active</Badge>;
-  }
 
   // --- search / filter / paging (client-side; the roster is small) ---
   const [search, setSearch] = useState("");
@@ -95,7 +88,7 @@ export function PeoplePage() {
       if (query && !`${p.full_name} ${p.list_name} ${p.email ?? ""}`.toLowerCase().includes(query)) return false;
       if (kind === "student" && !p.is_student) return false;
       if (kind === "account_holder" && !p.is_account_holder) return false;
-      if (kind === "staff" && (p.is_student || p.is_account_holder) && p.roles.length === 0) return false;
+      if (kind === "staff" && isPureClient(p)) return false;
       if (roleFilter && !p.roles.some((r) => String(r.id) === roleFilter)) return false;
       return true;
     // Alphabetical by surname to match the "Family, Given" listing (NAME-LIST).
@@ -169,7 +162,7 @@ export function PeoplePage() {
                         {p.is_account_holder && <Badge size="sm" variant="light" color="cyan">Account holder</Badge>}
                       </Group>
                     </Table.Td>
-                    <Table.Td>{statusBadge(p)}</Table.Td>
+                    <Table.Td>{personStatusBadge(p)}</Table.Td>
                     <Table.Td>
                       <Group gap={4} justify="flex-end" wrap="nowrap">
                         {pending && canInvite && (

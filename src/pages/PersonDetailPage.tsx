@@ -30,6 +30,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { EngagementDetail, PersonDetail, Role } from "../api/types";
+import { personStatusBadge } from "../lib/personStatus";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
 import { FileUpload, useStorageStatus } from "../components/FileUpload";
@@ -306,8 +307,8 @@ export function PersonDetailPage() {
       <Group justify="space-between" wrap="wrap" mt={-8}>
         <Group gap="xs">
           <Title order={2}>{p.full_name}</Title>
-          {!p.is_active && <Badge color="gray" variant="light">Disabled</Badge>}
-          {p.is_active && !p.onboarded && <Badge color="yellow" variant="light">Invited</Badge>}
+          {/* Shared badge: a login-less client reads "Registered", matching the list. */}
+          {personStatusBadge(p)}
         </Group>
         {canManage && (
           editing ? (

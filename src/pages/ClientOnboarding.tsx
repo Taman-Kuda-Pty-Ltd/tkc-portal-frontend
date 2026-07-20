@@ -89,7 +89,8 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
         emergency_contacts: ec.name.trim() ? [ec] : [],
         password,
         students: riders.map((r) => ({
-          is_self: r.is_self,
+          is_holder: r.is_self, // API field renamed to match the manual flow's is_holder
+
           given_name: r.is_self ? null : r.given_name.trim(),
           family_name: r.is_self ? null : r.family_name.trim(),
           date_of_birth: r.date_of_birth ? dayjs(r.date_of_birth).format("YYYY-MM-DD") : null,
