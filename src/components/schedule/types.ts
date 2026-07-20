@@ -51,6 +51,8 @@ export interface ScheduleCtx {
   canManageShifts: boolean;
   canAssign: boolean;
   timeFormat: TimeFormat;
+  /** CAL-SHIFT-TIMES: show start–end times on calendar chips. */
+  showTimes?: boolean;
   /** Double-booked horses/coaches keyed by shift id (DBL-1). */
   clashByShift?: Map<number, ShiftClash[]>;
   /** A recently-created/targeted shift to highlight + scroll to (SC-7 / SC-11). */

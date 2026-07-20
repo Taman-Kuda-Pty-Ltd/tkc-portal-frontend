@@ -7,10 +7,11 @@ import {
   Loader,
   SegmentedControl,
   Stack,
+  Switch,
   Tabs,
   Text,
 } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight, IconChevronUp, IconPlus } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconChevronUp, IconPlus, IconPrinter } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -64,6 +65,7 @@ export function SchedulePage() {
   // View/Edit toggle (UAT#3 SCHED-TOGGLE): managers see the staff-facing view by
   // default and switch to Edit to reveal assign controls. Non-managers only ever view.
   const [editMode, setEditMode] = useState(false);
+  const [showTimes, setShowTimes] = useState(false); // CAL-SHIFT-TIMES
   const canAssign = canAssignCap && editMode;
   // COACH-ASSIGN-EDITMODE: editing a shift (times/activity/riders/coach) is only
   // allowed in Edit mode — View mode is read-only. Creating a new shift (addingOn)
@@ -236,6 +238,7 @@ export function SchedulePage() {
     canManageShifts,
     canAssign,
     timeFormat,
+    showTimes,
     clashByShift,
     highlightShiftId,
     onOpenShift: setEditingShift,
@@ -333,6 +336,16 @@ export function SchedulePage() {
                 { label: "Week", value: "week" },
               ]}
             />
+          )}
+          {mode === "calendar" && (
+            <>
+              {/* CAL-SHIFT-TIMES */}
+              <Switch size="xs" label="Times" checked={showTimes}
+                onChange={(e) => setShowTimes(e.currentTarget.checked)} />
+              {/* CAL-PDF-EXPORT: browser print → Save as PDF. */}
+              <Button size="xs" variant="light" leftSection={<IconPrinter size={14} />}
+                onClick={() => window.print()}>Print</Button>
+            </>
           )}
           {(canAssignCap || canManageShifts) && (
             <Group gap={6} wrap="nowrap">
