@@ -91,7 +91,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
   const [displayName, setDisplayName] = useState("");
   const [displayEdited, setDisplayEdited] = useState(false);
   const [dob, setDob] = useState<Date | null>(null);
-  const [address, setAddress] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
+  const [address, setAddress] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "", country: "Australia" });
   const [emergency, setEmergency] = useState({ name: "", relationship: "", phone: "" });
   const [tax, setTax] = useState({
     tfn: "",
@@ -147,6 +147,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
         suburb: d.address.suburb ?? "",
         state: d.address.state ?? "",
         postcode: d.address.postcode ?? "",
+        country: d.address.country ?? "Australia",
       });
     if (d.emergency_contacts.length) {
       const e = d.emergency_contacts[0];
@@ -250,6 +251,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
     setFieldErrors({});
     if (!personal.given_name || !personal.family_name) return setError("Please enter your name.");
     if (!dob) return setError("Date of birth is required.");
+    if (!address.line1.trim()) return setError("A postal address (line 1) is required.");
     if (!noMobile && !phoneOk(personal.mobile)) return setError("Enter a valid mobile number, or tick that you don't have one.");
     if (emergency.name && !phoneOk(emergency.phone)) return setError("Enter a valid emergency contact phone.");
     // Guardian consent is mandatory for under-18s (UAT#3 MINOR-1).
@@ -361,7 +363,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
         <Paper withBorder p="md">
           <Title order={4} mb="sm">Address</Title>
           <Stack>
-            <AddressAutocomplete value={address.line1} token={token}
+            <AddressAutocomplete value={address.line1} token={token} required
               onChange={(line1) => setAddress({ ...address, line1 })}
               onSelect={(p) => setAddress({ ...address, line1: p.line1, line2: p.line2 || address.line2, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
             <TextInput label="Address line 2" value={address.line2}
@@ -376,6 +378,8 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
               <TextInput label="Postcode" value={address.postcode}
                 onChange={(e) => setAddress({ ...address, postcode: e.currentTarget.value })} />
             </SimpleGrid>
+            <TextInput label="Country" value={address.country}
+              onChange={(e) => setAddress({ ...address, country: e.currentTarget.value })} />
           </Stack>
         </Paper>
 

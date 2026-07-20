@@ -367,6 +367,7 @@ export interface OnboardingContext {
     suburb: string | null;
     state: string | null;
     postcode: string | null;
+    country?: string | null;
   } | null;
   emergency_contacts: { name: string; relationship: string | null; phone: string | null }[];
   credentials: OnboardingCredential[];

@@ -65,7 +65,7 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
   const [given, setGiven] = useState(ctx.given_name);
   const [family, setFamily] = useState(ctx.family_name);
   const [mobile, setMobile] = useState(ctx.mobile ?? "");
-  const [address, setAddress] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
+  const [address, setAddress] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "", country: "Australia" });
   const [ec, setEc] = useState({ name: "", relationship: "", phone: "" });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -123,6 +123,7 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     if (password !== confirm) return setError("Passwords do not match.");
     if (!ec.name.trim()) return setError("An emergency contact is required.");
+    if (!address.line1.trim()) return setError("A postal address (line 1) is required.");
     if (riders.length === 0) return setError("Add at least one rider.");
     for (const r of riders) {
       if (!r.is_self && (!r.given_name.trim() || !r.family_name.trim())) return setError("Enter each rider's name.");
@@ -186,7 +187,7 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
           )}
           <Divider my="sm" label="Address" labelPosition="left" />
           <Stack gap="sm">
-            <AddressAutocomplete value={address.line1} token={token}
+            <AddressAutocomplete value={address.line1} token={token} required
               onChange={(line1) => setAddress({ ...address, line1 })}
               onSelect={(p) => setAddress({ ...address, line1: p.line1, line2: p.line2 || address.line2, suburb: p.suburb, state: p.state, postcode: p.postcode })} />
             <TextInput label="Address line 2" value={address.line2}
@@ -201,6 +202,8 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
               <TextInput label="Postcode" value={address.postcode}
                 onChange={(e) => setAddress({ ...address, postcode: e.currentTarget.value })} />
             </SimpleGrid>
+            <TextInput label="Country" value={address.country}
+              onChange={(e) => setAddress({ ...address, country: e.currentTarget.value })} />
           </Stack>
           <Divider my="sm" label="Emergency contact" labelPosition="left" />
           <SimpleGrid cols={{ base: 1, sm: 3 }}>

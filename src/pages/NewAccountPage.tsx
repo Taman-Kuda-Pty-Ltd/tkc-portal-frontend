@@ -24,8 +24,9 @@ interface Address {
   suburb: string;
   state: string;
   postcode: string;
+  country: string;
 }
-const emptyAddress = (): Address => ({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "" });
+const emptyAddress = (): Address => ({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "", country: "Australia" });
 
 interface HolderDraft {
   mode: "new" | "existing";
@@ -95,6 +96,10 @@ export function NewAccountPage() {
     // EMER-MANDATORY: an account holder must have an emergency contact (the backend
     // enforces this too — surface it here rather than as a 422).
     if (!ec.name.trim()) return setError("An emergency contact is required.");
+    // A postal address is required for a new-person holder (an existing person may
+    // already have one on file — the backend allows that).
+    if (holder.mode === "new" && !holder.address.line1.trim())
+      return setError("A postal address (line 1) is required.");
     if (alsoRides) {
       const holderDob = holder.mode === "existing" ? holder.person?.date_of_birth ?? null : holder.date_of_birth;
       const err = validateRider({ ...holderRider, is_holder: true, person_dob: holderDob ? String(holderDob) : null });
@@ -152,9 +157,9 @@ export function NewAccountPage() {
 
         {holder.mode === "new" && (
           <>
-            <Divider my="md" label="Address (optional)" labelPosition="left" />
+            <Divider my="md" label="Address" labelPosition="left" />
             <Stack gap="sm">
-              <AddressAutocomplete value={holder.address.line1}
+              <AddressAutocomplete value={holder.address.line1} required
                 onChange={(line1) => setHolderP({ address: { ...holder.address, line1 } })}
                 onSelect={(p) => setHolderP({ address: { ...holder.address, line1: p.line1, line2: p.line2 || holder.address.line2, suburb: p.suburb, state: p.state, postcode: p.postcode } })} />
               <TextInput label="Address line 2" value={holder.address.line2}
@@ -169,6 +174,8 @@ export function NewAccountPage() {
                 <TextInput label="Postcode" value={holder.address.postcode}
                   onChange={(e) => setHolderP({ address: { ...holder.address, postcode: e.currentTarget.value } })} />
               </SimpleGrid>
+              <TextInput label="Country" value={holder.address.country}
+                onChange={(e) => setHolderP({ address: { ...holder.address, country: e.currentTarget.value } })} />
             </Stack>
           </>
         )}
