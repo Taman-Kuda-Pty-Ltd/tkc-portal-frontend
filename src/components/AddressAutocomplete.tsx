@@ -1,4 +1,4 @@
-import { Autocomplete, TextInput } from "@mantine/core";
+import { Anchor, Autocomplete, Stack, TextInput } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +36,7 @@ interface Props {
   label?: string;
   placeholder?: string;
   disabled?: boolean;
+  required?: boolean;
   /** Onboarding invitation token — authorises the lookup for a not-logged-in
    *  invitee (ADDR-AUTH). Logged-in pages don't need it (their JWT authorises). */
   token?: string;
@@ -67,10 +68,13 @@ const SEARCH_TIMEOUT_MS = 4000;
  * On a runtime failure it stops hitting the (likely dead) server for the rest of
  * the session, keeps whatever the user has typed, and shows a small inline hint.
  */
-export function AddressAutocomplete({ value, onChange, onSelect, label = "Address line 1", placeholder, disabled, token }: Props) {
+export function AddressAutocomplete({ value, onChange, onSelect, label = "Address line 1", placeholder, disabled, required, token }: Props) {
   // Once a live lookup fails we stay in manual mode for the session, rather than
   // hammering a dead server on every keystroke.
   const [degraded, setDegraded] = useState(false);
+  // ADDR: let the user opt into plain manual entry even when lookup works (e.g. a
+  // new/rural address G-NAF doesn't have yet).
+  const [manual, setManual] = useState(false);
   const tokenQ = token ? `?token=${encodeURIComponent(token)}` : "";
 
   const status = useQuery({
@@ -127,43 +131,59 @@ export function AddressAutocomplete({ value, onChange, onSelect, label = "Addres
     setOptions(labels);
   }, [search.data]);
 
-  // Disabled, not configured, status probe failed, or a lookup failed at query
-  // time -> plain text input. Manual entry always works.
-  if (disabled || degraded || (status.isSuccess && !configured)) {
+  const lookupAvailable = !disabled && !degraded && !(status.isSuccess && !configured);
+
+  // Disabled, not configured, status probe failed, a lookup failed, or the user
+  // chose manual entry -> plain text input. Manual entry always works.
+  if (disabled || degraded || manual || (status.isSuccess && !configured)) {
     return (
-      <TextInput
-        label={label}
-        placeholder={placeholder}
-        value={value}
-        disabled={disabled}
-        description={degraded ? "Address lookup unavailable — enter manually." : undefined}
-        onChange={(e) => onChange(e.currentTarget.value)}
-      />
+      <Stack gap={2}>
+        <TextInput
+          label={label}
+          placeholder={placeholder}
+          value={value}
+          disabled={disabled}
+          required={required}
+          description={degraded ? "Address lookup unavailable — enter manually." : undefined}
+          onChange={(e) => onChange(e.currentTarget.value)}
+        />
+        {lookupAvailable && manual && (
+          <Anchor component="button" type="button" size="xs" onClick={() => setManual(false)}>
+            Use address lookup instead
+          </Anchor>
+        )}
+      </Stack>
     );
   }
 
   return (
-    <Autocomplete
-      label={label}
-      placeholder={placeholder ?? "Start typing an address…"}
-      value={value}
-      data={options}
-      // Match on our own suggestions; never hide options client-side.
-      filter={({ options }) => options}
-      onChange={(val) => {
-        onChange(val);
-        const picked = byDisplay.current.get(val);
-        if (picked) {
-          const { line1, line2 } = streetLines(picked.display ?? val);
-          onSelect({
-            line1,
-            line2,
-            suburb: picked.locality ?? "",
-            state: picked.state ?? "",
-            postcode: picked.postcode ?? "",
-          });
-        }
-      }}
-    />
+    <Stack gap={2}>
+      <Autocomplete
+        label={label}
+        placeholder={placeholder ?? "Start typing an address…"}
+        value={value}
+        data={options}
+        required={required}
+        // Match on our own suggestions; never hide options client-side.
+        filter={({ options }) => options}
+        onChange={(val) => {
+          onChange(val);
+          const picked = byDisplay.current.get(val);
+          if (picked) {
+            const { line1, line2 } = streetLines(picked.display ?? val);
+            onSelect({
+              line1,
+              line2,
+              suburb: picked.locality ?? "",
+              state: picked.state ?? "",
+              postcode: picked.postcode ?? "",
+            });
+          }
+        }}
+      />
+      <Anchor component="button" type="button" size="xs" onClick={() => setManual(true)}>
+        Enter address manually
+      </Anchor>
+    </Stack>
   );
 }
