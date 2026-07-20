@@ -89,6 +89,7 @@ export interface CoverableShift {
   ends_at: string;
   already_covered: boolean;
   is_lesson: boolean;
+  original_status: "none" | "checked_in" | "checked_out";
 }
 export interface TerminalSession {
   person_id: number;

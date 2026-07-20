@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Alert,
   Autocomplete,
   Avatar,
   Badge,
@@ -758,6 +759,13 @@ function CoverShiftCard({
                         {fmtTime(s.starts_at, timeFormat)}–{fmtTime(s.ends_at, timeFormat)}
                       </Text>
                     </div>
+                    {/* TERM-COVER-COMPLETED: flag a shift the original already worked. */}
+                    {s.original_status === "checked_out" && (
+                      <Badge color="red" variant="light">Already completed</Badge>
+                    )}
+                    {s.original_status === "checked_in" && (
+                      <Badge color="orange" variant="light">Checked in</Badge>
+                    )}
                     {s.already_covered && <Badge color="gray" variant="light">Already covered</Badge>}
                     {selected && <Badge color="teal">Selected</Badge>}
                   </Group>
@@ -767,6 +775,18 @@ function CoverShiftCard({
           </Stack>
         )}
 
+        {/* TERM-COVER-COMPLETED: warn before reassigning a shift the original already
+            worked — they may want to log a new task instead. */}
+        {picked && picked.original_status !== "none" && (
+          <Alert color={picked.original_status === "checked_out" ? "red" : "orange"} p="sm">
+            <Text size="sm">
+              {picked.original_name || "The colleague"} has already{" "}
+              {picked.original_status === "checked_out" ? "completed" : "checked in for"}{" "}
+              this shift. Reassigning it is usually not what you want — if you did separate
+              work, use <b>"Log an extra task"</b> below instead. Continue only if you're sure.
+            </Text>
+          </Alert>
+        )}
         {picked && (
           <Textarea
             label={`Why isn't ${picked.original_name || "the colleague"} doing this shift? (required)`}
