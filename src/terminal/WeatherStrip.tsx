@@ -1,7 +1,27 @@
 import { Box, Group, Text } from "@mantine/core";
+import {
+  IconCloud, IconCloudFog, IconCloudRain, IconCloudSnow, IconCloudStorm,
+  IconMoon, IconSun, IconWind,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { terminalApi, type WeatherHour } from "./terminalApi";
 import type { TimeFormat } from "./timeFormat";
+
+// TERM-WEATHER-ICONS: map a WeatherFlow icon code to a Tabler weather icon.
+function WeatherIcon({ code, size = 22 }: { code: string | null; size?: number }) {
+  const c = code ?? "";
+  const Icon =
+    c.includes("thunder") ? IconCloudStorm
+    : c.includes("snow") || c.includes("sleet") ? IconCloudSnow
+    : c.includes("rain") ? IconCloudRain
+    : c.includes("fog") ? IconCloudFog
+    : c.includes("wind") ? IconWind
+    : c.includes("cloud") ? IconCloud
+    : c.includes("night") ? IconMoon
+    : c.includes("clear") || c.includes("day") ? IconSun
+    : IconCloud;
+  return <Icon size={size} stroke={1.5} />;
+}
 
 /** Slim bottom strip: current conditions + a wind arrow + the next few hours.
  *  Subordinate to the roster; hidden entirely when weather isn't configured. */
@@ -36,8 +56,9 @@ export function WeatherStrip({ timeFormat }: { timeFormat: TimeFormat }) {
     >
       <Group justify="space-between" wrap="wrap" gap="xl">
         <Group gap="lg" wrap="nowrap">
+          <WeatherIcon code={w.icon} size={40} />
           <div>
-            <Text fw={800} fz={28} lh={1}>{temp(w.air_temperature)}</Text>
+            <Text fw={300} fz={30} lh={1} style={{ fontVariantNumeric: "tabular-nums" }}>{temp(w.air_temperature)}</Text>
             {w.feels_like != null && (
               <Text size="xs" c="dimmed">Feels {temp(w.feels_like)}</Text>
             )}
@@ -56,7 +77,8 @@ export function WeatherStrip({ timeFormat }: { timeFormat: TimeFormat }) {
           {w.hourly.map((h, i) => (
             <div key={i} style={{ textAlign: "center", minWidth: 52 }}>
               <Text size="xs" c="dimmed">{hourLabel(h)}</Text>
-              <Text fw={700}>{temp(h.air_temperature)}</Text>
+              <Group justify="center" gap={0}><WeatherIcon code={h.icon} size={18} /></Group>
+              <Text fw={400}>{temp(h.air_temperature)}</Text>
               {h.precip_probability != null && h.precip_probability > 0 && (
                 <Text size="xs" c="blue">{h.precip_probability}%</Text>
               )}

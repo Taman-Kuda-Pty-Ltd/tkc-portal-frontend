@@ -81,10 +81,13 @@ function TerminalClock({ tz, format }: { tz: string; format: TimeFormat }) {
   }, []);
   return (
     <Stack gap={0} align="flex-end">
-      <Text fz={44} fw={800} lh={1} style={{ fontVariantNumeric: "tabular-nums" }}>
+      {/* TERM-FONT: a lighter, more refined large-clock look (was heavy fw800). */}
+      <Text fz={46} fw={300} lh={1} style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.02em" }}>
         {nowInBusinessTz(tz, format, now)}
       </Text>
-      <Text c="dimmed">{dateInBusinessTz(tz, now)}</Text>
+      <Text c="dimmed" tt="uppercase" style={{ letterSpacing: "0.08em", fontSize: 13 }}>
+        {dateInBusinessTz(tz, now)}
+      </Text>
     </Stack>
   );
 }
