@@ -1,3 +1,4 @@
+import tkcLogo from "../assets/tkc-logo-wide.png";
 import {
   ActionIcon,
   Button,
@@ -316,6 +317,10 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
   return (
     <Container size="sm" py="xl">
       <Stack>
+        {/* SELFONBOARD-BRANDING: brand the invitee-facing header with the wordmark. */}
+        {!managerMode && (
+          <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 64, width: "auto", maxWidth: "100%", alignSelf: "center" }} />
+        )}
         <div>
           <Title order={2}>{managerMode ? "Add staff member — full details" : "Welcome to Taman Kuda Club"}</Title>
           <Text c="dimmed">

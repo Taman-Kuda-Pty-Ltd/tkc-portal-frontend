@@ -2,7 +2,7 @@ import { AppShell, Avatar, Badge, Burger, Button, Card, Center, Group, Menu, Nav
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import tkcLogo from "../assets/tkc-logo.png";
+import tkcLogo from "../assets/tkc-logo-wide.png";
 import {
   IconCalendar,
   IconChecklist,
@@ -141,7 +141,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <Group h="100%" px="md" justify="space-between">
           <Group gap="xs">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 34, width: "auto" }} />
+            <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 40, width: "auto" }} />
           </Group>
           <Menu position="bottom-end" withinPortal>
             <Menu.Target>

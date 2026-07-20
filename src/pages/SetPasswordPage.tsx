@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import { api, ApiError, setToken } from "../api/client";
 import { PhoneConfirmModal } from "../components/PhoneConfirmModal";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
+import tkcLogo from "../assets/tkc-logo-wide.png";
 
 interface Ctx { given_name: string; mobile: string | null; require_phone_verification: boolean }
 
@@ -67,11 +68,15 @@ export function SetPasswordPage() {
 
   return (
     <Center h="100vh" p="md">
-      <Card withBorder shadow="sm" padding="xl" w={420} maw="100%">
+      <Stack align="center" w={420} maw="100%">
+        {/* SETPW-BRANDING: logo above the card, prominent personalised greeting. */}
+        <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 56, width: "auto", maxWidth: "100%" }} />
+        <Card withBorder shadow="sm" padding="xl" w="100%">
         <Stack>
           <div>
-            <Title order={3}>Set up your sign-in</Title>
-            <Text size="sm" c="dimmed">Hi {ctxQ.data?.given_name} — choose a password and confirm your mobile.</Text>
+            <Text fw={700} fz="lg">Hi {ctxQ.data?.given_name} 👋</Text>
+            <Title order={4} mt={2}>Set up your sign-in</Title>
+            <Text size="sm" c="dimmed" mt={4}>Choose a password and confirm your mobile number.</Text>
           </div>
           <PasswordInput label="Password" value={password} required onChange={(e) => setPassword(e.currentTarget.value)} />
           <PasswordInput label="Confirm password" value={confirm} required onChange={(e) => setConfirm(e.currentTarget.value)} />
@@ -88,6 +93,7 @@ export function SetPasswordPage() {
           <Button loading={submitM.isPending} onClick={submit}>Set password &amp; sign in</Button>
         </Stack>
       </Card>
+      </Stack>
       <PhoneConfirmModal token={token} phone={mobile} opened={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onVerified={() => { setVerified(true); setConfirmOpen(false); submitM.mutate(); }} />

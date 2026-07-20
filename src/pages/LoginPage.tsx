@@ -10,7 +10,7 @@ import {
 import { useState } from "react";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import tkcLogo from "../assets/tkc-logo.png";
+import tkcLogo from "../assets/tkc-logo-wide.png";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -43,7 +43,7 @@ export function LoginPage() {
         <form onSubmit={submit}>
           <Stack>
             <Stack align="center" gap={4}>
-              <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 120, width: "auto" }} />
+              <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 84, width: "auto", maxWidth: "100%" }} />
               <Text size="sm" c="dimmed">Portal sign in</Text>
             </Stack>
             <TextInput

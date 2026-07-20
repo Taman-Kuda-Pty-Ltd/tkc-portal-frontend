@@ -10,6 +10,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import { RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
 import type { OnboardingContext } from "../api/types";
+import tkcLogo from "../assets/tkc-logo-wide.png";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { PhoneConfirmModal } from "../components/PhoneConfirmModal";
 import { PhoneField } from "../components/PhoneField";
@@ -162,6 +163,8 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
   return (
     <Center p="md">
       <Stack maw={720} w="100%" py="xl">
+        {/* SELFONBOARD-BRANDING */}
+        <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 64, width: "auto", maxWidth: "100%", alignSelf: "center" }} />
         <Title order={2}>Set up your account</Title>
         <Text c="dimmed" size="sm">Welcome to Taman Kuda Club. Add your details and the riders on your account.</Text>
 

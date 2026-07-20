@@ -24,6 +24,7 @@ import {
 } from "@mantine/core";
 import { IconArrowLeft, IconPlus, IconUsers, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import tkcLogo from "../assets/tkc-logo-wide.png";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { RichTextView } from "../components/RichText";
@@ -182,10 +183,14 @@ export function CheckInTerminal({
     <Box style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Stack p="xl" gap="lg" style={{ flex: 1 }}>
       <Group justify="space-between" align="flex-start">
-        <div>
-          <Title order={2}>{name}</Title>
-          <Text size="lg" c="dimmed">Tap your name to check in or out.</Text>
-        </div>
+        <Group align="flex-start" gap="md">
+          {/* TERM-LANDING-BRANDING */}
+          <img src={tkcLogo} alt="Taman Kuda Club" style={{ height: 52, width: "auto" }} />
+          <div>
+            <Title order={2}>{name}</Title>
+            <Text size="lg" c="dimmed">Tap your name to check in or out.</Text>
+          </div>
+        </Group>
         <TerminalClock tz={businessTimezone} format={timeFormat} />
       </Group>
 
