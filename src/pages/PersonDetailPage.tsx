@@ -7,6 +7,7 @@ import {
   Card,
   Checkbox,
   Divider,
+  Flex,
   Group,
   Loader,
   Menu,
@@ -106,6 +107,20 @@ function engToDraft(e: EngagementDetail): EngDraft {
 }
 
 interface EcDraft { name: string; relationship: string; phone: string }
+
+/** One label/value row in the profile at-a-glance panel (PROFILE-CARD). */
+function ProfileInfoRow({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <Group justify="space-between" gap="sm" wrap="nowrap">
+      <Text size="sm" c="dimmed">{label}</Text>
+      {color ? (
+        <Badge variant="light" color={color}>{value}</Badge>
+      ) : (
+        <Text size="sm" fw={500}>{value}</Text>
+      )}
+    </Group>
+  );
+}
 
 export function PersonDetailPage() {
   const { id = "" } = useParams();
@@ -351,22 +366,38 @@ export function PersonDetailPage() {
       {/* Manager-entered (or otherwise password-less) person: offer the set-password link. */}
       {canManage && p.onboarded && p.has_password === false && <SetPasswordPrompt personId={p.id} />}
 
-      {/* Profile photo */}
+      {/* Profile — photo + at-a-glance status (PROFILE-CARD) */}
       <Card withBorder>
-        <FileUpload
-          scope="person_photo"
-          recordId={p.id}
-          attachPath={`/people/${p.id}/photo`}
-          urlPath={`/people/${p.id}/photo-url`}
-          removePath={`/people/${p.id}/photo`}
-          invalidateKey={["person", id]}
-          storageReady={storageReady}
-          variant="avatar"
-          crop="circle"
-          canEdit={canManage && editing}
-          label="Profile photo"
-          size={96}
-        />
+        <Flex direction={{ base: "column", sm: "row" }} gap="xl" align="flex-start">
+          <FileUpload
+            scope="person_photo"
+            recordId={p.id}
+            attachPath={`/people/${p.id}/photo`}
+            urlPath={`/people/${p.id}/photo-url`}
+            removePath={`/people/${p.id}/photo`}
+            invalidateKey={["person", id]}
+            storageReady={storageReady}
+            variant="avatar"
+            crop="circle"
+            canEdit={canManage && editing}
+            label="Profile"
+            size={96}
+          />
+          <Stack gap={6} style={{ flex: 1, minWidth: 200 }}>
+            <ProfileInfoRow label="Status" value={p.is_active ? "Active" : "Disabled"}
+              color={p.is_active ? "teal" : "gray"} />
+            <ProfileInfoRow label="Date joined"
+              value={p.joined_at ? dayjs(p.joined_at).format("D MMM YYYY") : "—"} />
+            <ProfileInfoRow label="Last logged in"
+              value={p.last_login_at ? dayjs(p.last_login_at).format("D MMM YYYY, HH:mm") : "Never"} />
+            <ProfileInfoRow label="Password" value={p.has_password ? "Set" : "Not set"}
+              color={p.has_password ? "teal" : "orange"} />
+            {p.roles.length > 0 && (
+              <ProfileInfoRow label="Check-in PIN" value={p.has_pin ? "Set" : "Not set"}
+                color={p.has_pin ? "teal" : "orange"} />
+            )}
+          </Stack>
+        </Flex>
       </Card>
 
       {/* Personal */}
