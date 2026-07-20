@@ -30,6 +30,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { api } from "../api/client";
+import { normalizeUpload } from "../lib/imageNormalize";
 
 export type UploadScope = "horse_photo" | "horse_document" | "person_photo" | "credential";
 
@@ -72,8 +73,10 @@ export interface FileUploadProps {
   size?: number; // avatar/image preview size in px
 }
 
-const IMAGE_ACCEPT = "image/*";
-const DOC_ACCEPT = "image/*,application/pdf";
+// Accept HEIC/HEIF explicitly (some OSes don't match them via image/*); they're
+// converted to JPG client-side before upload.
+const IMAGE_ACCEPT = "image/*,.heic,.heif";
+const DOC_ACCEPT = "image/*,.heic,.heif,application/pdf";
 
 export function FileUpload({
   scope,
@@ -144,21 +147,32 @@ export function FileUpload({
   });
 
   // Route an incoming file (picked or captured) either into the crop modal or
-  // straight to upload, depending on mode.
-  function handleIncoming(f: File) {
+  // straight to upload, depending on mode. First normalise it (HEIC-NORMALIZE):
+  // images → JPG, documents → JPG or a passed-through PDF.
+  async function handleIncoming(f: File) {
+    let normalized: File;
+    setBusy(true);
+    try {
+      normalized = await normalizeUpload(f, variant === "document");
+    } catch (e) {
+      notifications.show({ color: "red", message: (e as Error).message });
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (cropMode) {
       const reader = new FileReader();
       reader.onload = () => setCropSrc(reader.result as string);
-      reader.readAsDataURL(f);
+      reader.readAsDataURL(normalized);
     } else {
-      void uploadFile(f);
+      void uploadFile(normalized);
     }
   }
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.currentTarget.files?.[0];
     e.currentTarget.value = ""; // allow re-picking the same file
-    if (f) handleIncoming(f);
+    if (f) void handleIncoming(f);
   }
 
   if (!storageReady) {
@@ -271,7 +285,7 @@ export function FileUpload({
           onClose={() => setCamOpen(false)}
           onCapture={(file) => {
             setCamOpen(false);
-            handleIncoming(file);
+            void handleIncoming(file);
           }}
         />
       )}
