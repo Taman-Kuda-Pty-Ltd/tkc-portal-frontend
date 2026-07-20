@@ -16,6 +16,7 @@ import {
   Avatar,
   Box,
   Button,
+  Flex,
   Group,
   Image,
   Modal,
@@ -207,7 +208,14 @@ export function FileUpload({
   return (
     <Stack gap="xs">
       {label && <Text size="sm" fw={500}>{label}</Text>}
-      <Group align="center" gap="md" wrap="wrap">
+      {/* CRED-UPLOAD-NARROW: a document upload stacks (control under the "No … on
+          file" line) on narrow screens; avatar/image keep their side-by-side layout. */}
+      <Flex
+        direction={variant === "document" ? { base: "column", sm: "row" } : "row"}
+        align={variant === "document" ? { base: "flex-start", sm: "center" } : "center"}
+        gap="md"
+        wrap="wrap"
+      >
         {preview}
         {canEdit && (
           <Stack gap={6}>
@@ -257,7 +265,7 @@ export function FileUpload({
             </Text>
           </Stack>
         )}
-      </Group>
+      </Flex>
       {camOpen && (
         <WebcamCapture
           onClose={() => setCamOpen(false)}
