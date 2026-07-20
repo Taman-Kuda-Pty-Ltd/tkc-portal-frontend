@@ -1,6 +1,7 @@
 import { ActionIcon, Autocomplete, Button, Checkbox, Group, Modal, NumberInput, SegmentedControl, Select, Stack, Text, Textarea } from "@mantine/core";
 import { IconPlus, IconX } from "@tabler/icons-react";
-import { DateTimePicker } from "@mantine/dates";
+import { DateField } from "../DateField";
+import { TimeField } from "../TimeField";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -16,8 +17,11 @@ export function RecordAttendanceModal({ target, onClose }: {
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const [inAt, setInAt] = useState<Date | null>(null);
-  const [outAt, setOutAt] = useState<Date | null>(null);
+  // PAST-SHIFT-TIMEPICKER: a shared date + in/out time fields (same components as
+  // shift creation) rather than two DateTimePickers.
+  const [date, setDate] = useState<Date | null>(null);
+  const [inTime, setInTime] = useState("");
+  const [outTime, setOutTime] = useState("");
   const [hours, setHours] = useState<number | string>("");
   const [reason, setReason] = useState("");
   const [lessonNote, setLessonNote] = useState("");
@@ -37,18 +41,22 @@ export function RecordAttendanceModal({ target, onClose }: {
 
   useEffect(() => {
     if (target) {
-      setInAt(dayjs(target.shift.starts_at).toDate());
-      setOutAt(dayjs(target.shift.ends_at).toDate());
+      setDate(dayjs(target.shift.starts_at).toDate());
+      setInTime(dayjs(target.shift.starts_at).format("HH:mm"));
+      setOutTime(dayjs(target.shift.ends_at).format("HH:mm"));
       setHours(""); setReason(""); setLessonNote(""); setNotes([]); setAbsent(new Set());
     }
   }, [target]);
+
+  const combine = (t: string) =>
+    date && t ? `${dayjs(date).format("YYYY-MM-DD")}T${t}:00` : null;
 
   const saveM = useMutation({
     mutationFn: () =>
       api.post("/attendance/record", {
         shift_id: target!.shift.id, person_id: target!.personId,
-        checked_in_at: dayjs(inAt).format("YYYY-MM-DDTHH:mm:ss"),
-        checked_out_at: outAt ? dayjs(outAt).format("YYYY-MM-DDTHH:mm:ss") : null,
+        checked_in_at: combine(inTime),
+        checked_out_at: combine(outTime),
         claimed_hours: hours === "" ? null : Number(hours),
         reason: reason.trim(),
         // Overall lesson note kept in student_notes (back-compat); per-entity rows go
@@ -86,8 +94,11 @@ export function RecordAttendanceModal({ target, onClose }: {
         <Stack>
           <Text size="sm"><b>{target.personName}</b> · {target.shift.title ?? "shift"}</Text>
           <Text size="xs" c="dimmed">Use this to record or correct a check-in/out (up to 14 days back). Requires a reason.</Text>
-          <DateTimePicker label="Checked in" value={inAt} onChange={setInAt} valueFormat="D MMM YYYY HH:mm" />
-          <DateTimePicker label="Checked out" value={outAt} onChange={setOutAt} valueFormat="D MMM YYYY HH:mm" clearable />
+          <DateField label="Date" value={date} onChange={setDate} />
+          <Group grow>
+            <TimeField label="Checked in" value={inTime} onChange={setInTime} />
+            <TimeField label="Checked out" value={outTime} onChange={setOutTime} />
+          </Group>
           {isLesson ? (
             <>
               <Text size="xs" c="dimmed">
@@ -164,7 +175,7 @@ export function RecordAttendanceModal({ target, onClose }: {
             value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>Cancel</Button>
-            <Button loading={saveM.isPending} disabled={!inAt || !reason.trim()} onClick={() => saveM.mutate()}>
+            <Button loading={saveM.isPending} disabled={!date || !inTime || !reason.trim()} onClick={() => saveM.mutate()}>
               Record
             </Button>
           </Group>
