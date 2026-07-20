@@ -178,7 +178,8 @@ export function HorseDetailPage() {
             removePath={`/horses/${horseId}/photo`}
             invalidateKey={["horse", horseId]}
             storageReady={storageReady}
-            variant="image"
+            variant="avatar"
+            crop="circle"
             label="Photo"
             size={160}
           />
