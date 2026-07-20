@@ -948,12 +948,22 @@ function CoachingSection({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {l.riders.length > 0 ? (
                     <Group gap={8} mb={6}>
-                      {l.riders.map((r, i) => (
-                        <Badge key={i} size="lg" variant="light" color="teal"
-                          styles={{ label: { textTransform: "none", fontSize: 15 } }}>
-                          {r.replace(/ on /, " · ")}
-                        </Badge>
-                      ))}
+                      {/* LESSON avatars: each rider as an initials circle + "Rider · Horse". */}
+                      {l.riders.map((r, i) => {
+                        const riderName = r.split(/ on /)[0].trim();
+                        return (
+                          <Badge key={i} size="lg" variant="light" color="teal"
+                            styles={{ label: { textTransform: "none", fontSize: 15 } }}
+                            leftSection={
+                              <Avatar size={20} radius="xl" color={avatarColor(riderName)}
+                                styles={{ placeholder: { fontSize: 10 } }}>
+                                {initials(riderName)}
+                              </Avatar>
+                            }>
+                            {r.replace(/ on /, " · ")}
+                          </Badge>
+                        );
+                      })}
                     </Group>
                   ) : (
                     <Text fw={700} size="lg" mb={6}>{l.title || "Lesson"}</Text>
@@ -1202,6 +1212,7 @@ function ShiftCheckCard({
     : planned;
   const [hours, setHours] = useState<number>(planned);
   const [notes, setNotes] = useState("");
+  const [raiseIssue, setRaiseIssue] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [earlyLeave, setEarlyLeave] = useState(false);
@@ -1221,6 +1232,7 @@ function ShiftCheckCard({
   function startCheckout(early: boolean) {
     setHours(early || adhoc ? elapsedH : planned);
     setNotes("");
+    setRaiseIssue(false);
     setEarlyLeave(early);
     setCheckingOut(true);
   }
@@ -1316,11 +1328,15 @@ function ShiftCheckCard({
                 value={notes} minRows={2} autosize size="lg"
                 onChange={(e) => setNotes(e.currentTarget.value)}
               />
+              {/* CHECKOUT-ISSUE-TOGGLE: raise this shift with a manager (routes it to
+                  Approvals for review). Requires a note describing the issue. */}
+              <Switch size="md" label="Raise an issue with a manager"
+                checked={raiseIssue} onChange={(e) => setRaiseIssue(e.currentTarget.checked)} />
               <Group justify="space-between">
                 <Button size="lg" variant="default" onClick={() => setCheckingOut(false)}>Back</Button>
                 <Button size="xl" color="orange" loading={busy}
-                  disabled={needsReason && !notes.trim()}
-                  onClick={() => run(() => terminalApi.checkOut(personId, pin, shift.shift_id, hours, notes || null))}>
+                  disabled={(needsReason || raiseIssue) && !notes.trim()}
+                  onClick={() => run(() => terminalApi.checkOut(personId, pin, shift.shift_id, hours, notes || null, raiseIssue))}>
                   Confirm check out
                 </Button>
               </Group>
