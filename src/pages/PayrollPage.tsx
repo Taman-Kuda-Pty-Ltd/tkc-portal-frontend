@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Anchor, Badge, Button, Card, Collapse, Group, Loader, Modal, NumberInput, Popover, Stack, Table, Text, Textarea, Title,
+  ActionIcon, Alert, Anchor, Badge, Button, Card, Collapse, Group, Loader, Modal, NumberInput, Popover, Stack, Table, Text, Textarea, Title,
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight, IconCoin, IconPencil, IconPlus, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -47,10 +47,13 @@ const GROUP_LABEL: Record<string, string> = {
   employee: "Employees (wages)", contractor: "Contractors (invoices)", other: "Other",
 };
 interface PayrollReport {
-  period_start: string; period_end: string; closed: boolean; people: PayrollPerson[];
+  period_start: string; period_end: string; closed: boolean;
+  status: "live" | "draft" | "approved"; approved_at: string | null;
+  has_unconfirmed_past: boolean; people: PayrollPerson[];
 }
 interface PayRun {
-  period_start: string; period_end: string; approved_at: string; approved_by: string | null;
+  period_start: string; period_end: string; status: "draft" | "approved";
+  approved_at: string | null; approved_by: string | null;
   person_count: number; total_pay: number;
 }
 
@@ -161,9 +164,13 @@ export function PayrollPage() {
                       <Table.Td>{r.person_count}</Table.Td>
                       <Table.Td>${r.total_pay.toFixed(2)}</Table.Td>
                       <Table.Td>
-                        <Text size="sm" c="dimmed">
-                          {dayjs(r.approved_at).format("D MMM YYYY")}{r.approved_by ? ` · ${r.approved_by}` : ""}
-                        </Text>
+                        {r.status === "draft" ? (
+                          <Badge color="yellow" variant="light">Draft</Badge>
+                        ) : (
+                          <Text size="sm" c="dimmed">
+                            {r.approved_at ? dayjs(r.approved_at).format("D MMM YYYY") : ""}{r.approved_by ? ` · ${r.approved_by}` : ""}
+                          </Text>
+                        )}
                       </Table.Td>
                     </Table.Tr>
                   ))}
@@ -213,12 +220,22 @@ function PeriodReport({ start, org, onBack, onSetStart }: {
     qc.invalidateQueries({ queryKey: ["payroll"] });
     qc.invalidateQueries({ queryKey: ["pay-runs"] });
   };
-  const closeM = useMutation({
-    mutationFn: (close: boolean) => api.post(`/reports/payroll/${close ? "close" : "reopen"}`, { period_start: key }),
-    onSuccess: (_d, close) => { refresh(); if (close) onBack(); },
+  const postM = (path: string) => ({
+    mutationFn: () => api.post(`/reports/payroll/${path}`, { period_start: key }),
+    onSuccess: () => refresh(),
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  const draftM = useMutation(postM("draft"));
+  const approveM = useMutation({ ...postM("approve"), onSuccess: () => { refresh(); onBack(); } });
+  const reopenM = useMutation(postM("reopen"));
+  const deleteM = useMutation({
+    mutationFn: () => api.del(`/reports/payroll?period_start=${key}`),
+    onSuccess: () => { refresh(); onBack(); },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   const report = reportQ.data;
+  const busy = draftM.isPending || approveM.isPending || reopenM.isPending || deleteM.isPending;
+  const status = report?.status ?? "live";
 
   return (
     <Stack>
@@ -228,12 +245,26 @@ function PeriodReport({ start, org, onBack, onSetStart }: {
           {report && report.people.length > 0 && (
             <Button size="xs" variant="light" onClick={() => downloadPayrollCsv(key)}>Export CSV</Button>
           )}
-          {report && (
-            report.closed
-              ? <Button size="xs" variant="default" color="gray" loading={closeM.isPending}
-                  onClick={() => closeM.mutate(false)}>Reopen (unapprove)</Button>
-              : <Button size="xs" color="blue" loading={closeM.isPending} disabled={report.people.length === 0}
-                  onClick={() => closeM.mutate(true)}>Approve pay run</Button>
+          {report && status !== "approved" && (
+            <>
+              {status === "live" && (
+                <Button size="xs" variant="default" loading={busy}
+                  onClick={() => draftM.mutate()}>Save draft</Button>
+              )}
+              {status === "draft" && (
+                <Button size="xs" variant="default" color="red" loading={busy}
+                  onClick={() => { if (window.confirm("Delete this draft pay run?")) deleteM.mutate(); }}>
+                  Delete draft
+                </Button>
+              )}
+              <Button size="xs" color="blue" loading={busy}
+                disabled={report.people.length === 0 || report.has_unconfirmed_past}
+                onClick={() => approveM.mutate()}>Approve pay run</Button>
+            </>
+          )}
+          {report && status === "approved" && (
+            <Button size="xs" variant="default" color="gray" loading={busy}
+              onClick={() => reopenM.mutate()}>Reopen (unapprove)</Button>
           )}
         </Group>
       </Group>
@@ -245,8 +276,16 @@ function PeriodReport({ start, org, onBack, onSetStart }: {
         <ActionIcon variant="light" onClick={() => onSetStart(stepPeriod(start, org, 1))}>
           <IconChevronRight size={16} />
         </ActionIcon>
-        {report?.closed && <Badge color="blue">Approved</Badge>}
+        {status === "approved" && <Badge color="blue">Approved</Badge>}
+        {status === "draft" && <Badge color="yellow">Draft</Badge>}
       </Group>
+
+      {report?.has_unconfirmed_past && status !== "approved" && (
+        <Alert color="orange" title="Unconfirmed past shifts">
+          Some past shifts in this period haven't been checked in/out or recorded. Confirm
+          or record them before approving — future scheduled shifts are fine.
+        </Alert>
+      )}
 
       {reportQ.isLoading || !report ? (
         <Loader />
