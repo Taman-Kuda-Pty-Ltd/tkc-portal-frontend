@@ -28,6 +28,7 @@ import type { PersonDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
 import { FileUpload, useStorageStatus } from "../components/FileUpload";
+import { MyWaiversCard } from "../components/MyWaiversCard";
 import { PhoneField } from "../components/PhoneField";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -95,6 +96,8 @@ export function MyProfilePage() {
 
   return (
     <Stack maw={720} w="100%" mx="auto">
+      {/* FU-WAIVER-SIGN-PORTAL: waivers awaiting the account holder's signature. */}
+      <MyWaiversCard />
       <Group justify="space-between">
         <Title order={2}>My profile</Title>
         {editing ? (
