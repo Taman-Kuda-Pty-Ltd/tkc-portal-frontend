@@ -501,3 +501,47 @@ export interface Shift {
   heading_counts: { heading_id: number; count: number }[];
   rides: Ride[];
 }
+
+// WAIVER-VERSIONING
+export interface WaiverSectionT {
+  title: string;
+  intro?: string | null;
+  items: string[];
+}
+export interface WaiverVersion {
+  id: number;
+  waiver_id: number;
+  version_no: number;
+  html: string;
+  sections: WaiverSectionT[];
+  significant: boolean;
+  published_at: string | null;
+}
+export interface Waiver {
+  id: number;
+  name: string;
+  kind: string;
+  is_active: boolean;
+  current_version: WaiverVersion | null;
+  version_count: number;
+}
+export interface WaiverSignature {
+  id: number;
+  waiver_version_id: number;
+  version_no: number | null;
+  signer_person_id: number;
+  signer_name: string | null;
+  on_behalf_of_person_id: number;
+  on_behalf_of_name: string | null;
+  typed_name: string;
+  signed_on: string;
+  is_current: boolean;
+}
+export interface WaiverPending {
+  student_id: number;
+  student_person_id: number;
+  student_name: string;
+  account_holder_person_id: number | null;
+  account_holder_name: string | null;
+  reason: string;
+}

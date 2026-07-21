@@ -78,6 +78,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const careDueQ = useQuery({ queryKey: ["horse-care-due-count"], queryFn: () => api.get<number>("/horses/care-due/count"), ...attn });
   // SC-4: staff-initiated shift covers awaiting a manager's after-the-fact acknowledgement.
   const coversQ = useQuery({ queryKey: ["shift-covers-count"], queryFn: () => api.get<number>("/shift-covers/pending/count"), ...attn });
+  // WAIVER-VERSIONING: students without a valid signature of the current waiver version.
+  const waiverQ = useQuery({ queryKey: ["waiver-pending-count"], queryFn: () => api.get<number>("/waivers/pending-signatures/count"), enabled: can("manage_people"), refetchInterval: 30000 });
   // APPR-1: split the single nav count into two badges matching the Approvals &
   // attention bands — red = approvals (needs a decision/action), amber = attention
   // (heads-up). Flagged notes sit in the "Needs action" band, so count as approvals.
@@ -86,7 +88,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     (lessonTypeQ.data ?? 0) + (flaggedQ.data ?? 0);
   const attentionCount =
     (noShowQ.data ?? 0) + (openQ.data ?? 0) + (unratedQ.data ?? 0) + (unonbQ.data ?? 0) +
-    (careDueQ.data ?? 0) + (coversQ.data ?? 0);
+    (careDueQ.data ?? 0) + (coversQ.data ?? 0) + (waiverQ.data ?? 0);
 
   // FH-3: badge the Terminals nav with devices that opted into offline alerts and
   // haven't checked in recently.
