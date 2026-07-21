@@ -37,6 +37,7 @@ import { DateField } from "../components/DateField";
 import { FileUpload, useStorageStatus } from "../components/FileUpload";
 import { PersonContextsSection } from "../components/PersonContextsSection";
 import { PersonSecurityCard } from "../components/PersonSecurityCard";
+import { GuardianConsentCard } from "../components/GuardianConsentCard";
 import { PersonRatesSection } from "../components/PersonRatesSection";
 import { PhoneField } from "../components/PhoneField";
 
@@ -369,6 +370,9 @@ export function PersonDetailPage() {
 
       {/* PORTAL-SECURITY: mobile verification + per-account 2FA (accounts that can sign in). */}
       {canManage && (p.mobile || p.has_password) && <PersonSecurityCard person={p} />}
+
+      {/* MINOR-STAFF-CONSENT: guardian consent for an under-18 worker. */}
+      {canManage && p.is_minor && p.roles.length > 0 && <GuardianConsentCard person={p} />}
 
       {/* Profile — photo + at-a-glance status (PROFILE-CARD) */}
       <Card withBorder>

@@ -322,6 +322,17 @@ export interface PersonDetail {
   has_password?: boolean;
   mobile_verified_at?: string | null;
   two_factor_enabled?: boolean;
+  is_minor?: boolean;
+  guardian?: {
+    guardian_name: string | null;
+    relationship: string | null;
+    phone: string | null;
+    email: string | null;
+    consent_given: boolean;
+    consent_date: string | null;
+    notice_sent_at: string | null;
+    manager_confirmed_at: string | null;
+  } | null;
   joined_at?: string | null;
   last_login_at?: string | null;
   super_percent?: number | null;
