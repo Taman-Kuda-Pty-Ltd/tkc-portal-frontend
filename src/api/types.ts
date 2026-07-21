@@ -357,6 +357,8 @@ export interface PersonDetail {
     expires_on: string | null;
     notes: string | null;
     image_key: string | null;
+    verified_at?: string | null;
+    verified_method?: string | null;
   }[];
   engagements: EngagementDetail[];
 }

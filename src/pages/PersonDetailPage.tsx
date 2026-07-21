@@ -675,12 +675,16 @@ export function PersonDetailPage() {
           <Stack gap="md">
             {p.credentials.map((cr) => (
               <div key={cr.id}>
-                <Text size="sm" fw={500}>
-                  {CRED_LABEL[cr.credential_type] ?? cr.credential_type}
-                  {cr.identifier ? ` — ${cr.identifier}` : ""}
-                  {cr.state_of_issue ? ` · ${cr.state_of_issue}` : ""}
-                  {cr.expires_on ? ` (expires ${dayjs(cr.expires_on).format("DD/MM/YYYY")})` : ""}
-                </Text>
+                <Group justify="space-between" wrap="nowrap">
+                  <Text size="sm" fw={500}>
+                    {CRED_LABEL[cr.credential_type] ?? cr.credential_type}
+                    {cr.identifier ? ` — ${cr.identifier}` : ""}
+                    {cr.state_of_issue ? ` · ${cr.state_of_issue}` : ""}
+                    {cr.expires_on ? ` (expires ${dayjs(cr.expires_on).format("DD/MM/YYYY")})` : ""}
+                  </Text>
+                  {canManage && <CredentialVerify personId={p.id} credId={cr.id}
+                    verifiedMethod={cr.verified_method ?? null} onChange={() => qc.invalidateQueries({ queryKey: ["person", id] })} />}
+                </Group>
                 <div style={{ marginTop: 6 }}>
                   <FileUpload
                     scope="credential"
@@ -806,6 +810,31 @@ export function PersonDetailPage() {
 
 /** Offer a set-password/confirm-mobile link for a person who has no password yet
  *  (e.g. a manager-entered staff member) — PWVERIFY-1. */
+function CredentialVerify({ personId, credId, verifiedMethod, onChange }: {
+  personId: number; credId: number; verifiedMethod: string | null; onChange: () => void;
+}) {
+  const m = useMutation({
+    mutationFn: (method: string) => api.post(`/people/${personId}/credentials/${credId}/verify`, { method }),
+    onSuccess: () => { onChange(); notifications.show({ color: "teal", message: "Credential updated." }); },
+    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
+  });
+  return (
+    <Menu withinPortal position="bottom-end">
+      <Menu.Target>
+        <Badge style={{ cursor: "pointer" }} variant="light"
+          color={verifiedMethod ? "teal" : "orange"}>
+          {verifiedMethod === "file" ? "Verified (file)" : verifiedMethod === "sighted" ? "Sighted" : "Unverified"}
+        </Badge>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item onClick={() => m.mutate("file")}>Verify — file matches details</Menu.Item>
+        <Menu.Item onClick={() => m.mutate("sighted")}>Mark sighted (no upload)</Menu.Item>
+        {verifiedMethod && <Menu.Item color="red" onClick={() => m.mutate("none")}>Clear verification</Menu.Item>}
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
 function SetPasswordPrompt({ personId }: { personId: number }) {
   const [link, setLink] = useState<string | null>(null);
   const [emailed, setEmailed] = useState(false);
