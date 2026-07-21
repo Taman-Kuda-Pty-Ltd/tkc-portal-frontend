@@ -42,7 +42,7 @@ export function GuardianConsentCard({ person }: { person: PersonDetail }) {
           {[g?.email, g?.phone].filter(Boolean).join(" · ") || "No guardian contact on file"}
         </Text>
         <Text size="xs" c="dimmed">
-          {g?.notice_sent_at ? `Notice sent ${dayjs(g.notice_sent_at).format("D MMM YYYY, HH:mm")}` : "Notice not sent yet"}
+          {g?.notice_sent_at ? `Notice sent ${dayjs(g.notice_sent_at).format("D MMM YYYY")}` : "Notice not sent yet"}
         </Text>
         <Group mt="xs">
           <Button size="xs" variant="light" loading={sendM.isPending} disabled={!g?.email}
