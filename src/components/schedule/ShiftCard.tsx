@@ -154,6 +154,8 @@ function HeadingGroup({
   const isLesson = !!ctx.activityById.get(shift.activity_id)?.is_lesson;
   // Lead/assisting + share only mean something once a lesson is shared by 2+ coaches.
   const showCoachSplit = isLesson && assigned.length >= 2;
+  // SCHED-PAST-SHIFT-STATE: a shift whose scheduled end is already in the past.
+  const isPast = new Date(shift.ends_at).getTime() < Date.now();
   // Required role: the heading's qualifying role, else the shift's role (from its activity).
   const requiredRole = heading?.qualifying_role_id ?? shift.role_id ?? null;
   const people = [...ctx.personById.values()];
@@ -198,8 +200,16 @@ function HeadingGroup({
             <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
               {a.person_name ?? `#${a.person_id}`}
             </Text>
-            {a.attendance_status === "checked_in" && <Badge size="xs" color="teal">In</Badge>}
+            {/* Today/live In/Out is only meaningful before the shift ends; a past
+                un-actioned shift shows "Not actioned" (tap the clock to record). */}
+            {a.attendance_status === "checked_in" && !isPast && <Badge size="xs" color="teal">In</Badge>}
             {a.attendance_status === "checked_out" && <Badge size="xs" color="blue" variant="light">Out</Badge>}
+            {isPast && a.attendance_status !== "checked_out" && (
+              <Badge size="xs" color="orange" variant="light"
+                title="This past shift hasn't been checked in/out — record or reassign it">
+                Not actioned
+              </Badge>
+            )}
             {showCoachSplit && (
               <Tooltip
                 label={
