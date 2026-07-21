@@ -125,7 +125,8 @@ export interface NamedResource {
 export type HorseType = "school" | "agisted" | "visiting";
 export type HorseSex = "mare" | "gelding" | "stallion" | "colt" | "filly";
 export type RiderLevel = "never_ridden" | "beginner" | "novice" | "intermediate" | "advanced";
-export type HorseCareType = "worming" | "farrier" | "dental" | "vaccination";
+// care_type is a free string (HORSE-CARE-MODEL); these are the built-in suggestions.
+export type HorseCareType = "worming" | "farrier" | "dental" | "vaccination" | "bodywork" | "vet" | "other";
 
 export interface Horse {
   id: number;
@@ -163,18 +164,19 @@ export interface Horse {
 export interface HorseCare {
   id: number;
   horse_id: number;
-  care_type: HorseCareType;
+  care_type: string;
   performed_on: string;
   notes: string | null;
   next_due: string | null;
   product_name: string | null;
   effective_weeks: number | null;
+  attachment_key?: string | null;
 }
 
 export interface HorseCareDue {
   horse_id: number;
   horse_name: string;
-  care_type: HorseCareType;
+  care_type: string;
   last_done: string | null;
   next_due: string | null;
   is_overdue: boolean;

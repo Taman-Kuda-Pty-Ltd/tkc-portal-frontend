@@ -11,7 +11,7 @@ import { Link, useParams } from "react-router-dom";
 import { DateField } from "../components/DateField";
 import { FileUpload, useStorageStatus } from "../components/FileUpload";
 import { api } from "../api/client";
-import type { Horse, HorseCare, HorseCareType, Person, RiderLevel } from "../api/types";
+import type { Horse, HorseCare, Person, RiderLevel } from "../api/types";
 import { HorseTypeBadge } from "./HorsesPage";
 
 const LEVELS: { value: RiderLevel; label: string }[] = [
@@ -45,22 +45,42 @@ export function HorseDetailPage() {
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
 
   const storageReady = useStorageStatus();
+  // HORSE-EDIT-GATING: the record opens read-only; changes need an explicit "Edit horse".
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<Horse>>({});
-  useEffect(() => { if (q.data) setDraft(q.data); }, [q.data]);
+  // Keep the form in sync with server data while NOT editing (view == the read-only form).
+  useEffect(() => { if (q.data && !editing) setDraft(q.data); }, [q.data, editing]);
   const set = (patch: Partial<Horse>) => setDraft((d) => ({ ...d, ...patch }));
+  const dirty = editing && !!q.data && JSON.stringify(draft) !== JSON.stringify(q.data);
+
+  // Unsaved-changes warning on navigate/close-away (mirrors the person page intent).
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   const saveM = useMutation({
     mutationFn: () => api.patch(`/horses/${horseId}`, draft),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["horse", horseId] });
       qc.invalidateQueries({ queryKey: ["horses"] });
+      setEditing(false);
       notifications.show({ color: "teal", message: "Saved" });
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
+  const cancelEdit = () => {
+    if (dirty && !window.confirm("Discard your unsaved changes?")) return;
+    if (q.data) setDraft(q.data);
+    setEditing(false);
+  };
+
   if (q.isLoading || !q.data) return <Text c="dimmed">Loading…</Text>;
   const h = draft;
+  const ro = !editing;
   const isOwned = h.type === "agisted" || h.type === "visiting";
   const peopleOpts = (peopleQ.data ?? []).map((p) => ({ value: String(p.id), label: p.full_name }));
 
@@ -75,9 +95,20 @@ export function HorseDetailPage() {
           {!h.is_active && <Badge color="gray" variant="light">Inactive</Badge>}
           {h.age_years != null && <Badge variant="outline">{h.age_years} yo</Badge>}
         </Group>
-        <Button loading={saveM.isPending} onClick={() => saveM.mutate()}>Save changes</Button>
+        {editing ? (
+          <Group gap="xs">
+            <Button variant="default" onClick={cancelEdit}>Cancel</Button>
+            <Button loading={saveM.isPending} disabled={!dirty} onClick={() => saveM.mutate()}>Save changes</Button>
+          </Group>
+        ) : (
+          <Button variant="light" onClick={() => setEditing(true)}>Edit horse</Button>
+        )}
       </Group>
 
+      {/* All horse fields are gated read-only until "Edit horse" (HORSE-EDIT-GATING). A
+          disabled fieldset natively disables every control inside it. */}
+      <fieldset disabled={ro} style={{ border: 0, padding: 0, margin: 0, minInlineSize: "auto" }}>
+      <Stack>
       <Card withBorder>
         <Group>
           <TextInput label="Name" value={h.name ?? ""} onChange={(e) => set({ name: e.currentTarget.value })} style={{ flex: 1 }} />
@@ -166,7 +197,11 @@ export function HorseDetailPage() {
         )}
       </Card>
 
-      {/* Photo & documents */}
+      </Stack>
+      </fieldset>
+
+      {/* Photo & documents — outside the edit fieldset so viewing/downloading always
+          works; uploads are gated by canEdit. */}
       <Title order={4} mt="sm">Photo &amp; documents</Title>
       <Card withBorder>
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
@@ -180,6 +215,7 @@ export function HorseDetailPage() {
             storageReady={storageReady}
             variant="avatar"
             crop="circle"
+            canEdit={editing}
             label="Photo"
             size={160}
           />
@@ -205,47 +241,32 @@ export function HorseDetailPage() {
   );
 }
 
-const PLACEHOLDER_TYPES: { type: HorseCareType; label: string }[] = [
-  { type: "farrier", label: "Farrier" },
-  { type: "dental", label: "Dental" },
-  { type: "vaccination", label: "Vaccination" },
+// WORMER-DROPDOWN: common wormer products with their effective window (weeks). Custom
+// entry stays possible via the free-text Autocomplete.
+const WORMER_PRODUCTS: { value: string; weeks: number }[] = [
+  { value: "Equimax", weeks: 12 },
+  { value: "Equest", weeks: 13 },
+  { value: "Equest Plus Tape", weeks: 13 },
+  { value: "Panacur", weeks: 8 },
+  { value: "Strategy-T", weeks: 8 },
+  { value: "Ammo", weeks: 8 },
+  { value: "WSD Allwormer", weeks: 8 },
 ];
 
-function HealthAndCare({ horseId }: { horseId: number }) {
-  const qc = useQueryClient();
-  const careQ = useQuery({ queryKey: ["horse-care", horseId], queryFn: () => api.get<HorseCare[]>(`/horses/${horseId}/care`) });
-  const records = careQ.data ?? [];
-  const latest = (t: HorseCareType) =>
-    records.filter((r) => r.care_type === t).sort((a, b) => (a.performed_on < b.performed_on ? 1 : -1))[0];
+// Built-in care types (the log is extensible — "Other" captures anything else).
+const CARE_TYPES: { value: string; label: string }[] = [
+  { value: "worming", label: "Worming" },
+  { value: "farrier", label: "Farrier" },
+  { value: "dental", label: "Dental" },
+  { value: "vaccination", label: "Vaccination" },
+  { value: "bodywork", label: "Bodywork / physio" },
+  { value: "vet", label: "Vet" },
+  { value: "other", label: "Other" },
+];
+const careLabel = (t: string) =>
+  CARE_TYPES.find((c) => c.value === t)?.label ?? (t ? t[0].toUpperCase() + t.slice(1) : "Care");
 
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["horse-care", horseId] });
-    qc.invalidateQueries({ queryKey: ["horse-care-due-count"] });
-    qc.invalidateQueries({ queryKey: ["horse-care-due"] });
-  };
-
-  return (
-    <Stack>
-      <Title order={4}>Health &amp; care</Title>
-
-      {/* Worming — full PoC */}
-      <WormingPanel horseId={horseId} latest={latest("worming")}
-        records={records.filter((r) => r.care_type === "worming")} onChange={invalidate} />
-
-      {/* Farrier / dental / vaccination — latest + full history */}
-      <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        {PLACEHOLDER_TYPES.map((p) => (
-          <PlaceholderCarePanel key={p.type} horseId={horseId} type={p.type} label={p.label}
-            latest={latest(p.type)} records={records.filter((r) => r.care_type === p.type)}
-            onChange={invalidate} />
-        ))}
-      </SimpleGrid>
-    </Stack>
-  );
-}
-
-/** Delete a care record after an explicit confirm (records were previously
- *  irreversible — UAT#3 HCARE-EDIT). */
+/** Delete a care record after an explicit confirm. */
 function useDeleteCare(horseId: number, onChange: () => void) {
   const delM = useMutation({
     mutationFn: (id: number) => api.del(`/horses/${horseId}/care/${id}`),
@@ -253,138 +274,159 @@ function useDeleteCare(horseId: number, onChange: () => void) {
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
   return (r: HorseCare) => {
-    if (window.confirm(`Delete this ${r.care_type} record from ${dayjs(r.performed_on).format("D MMM YYYY")}? This can't be undone.`))
+    if (window.confirm(`Delete this ${careLabel(r.care_type)} record from ${dayjs(r.performed_on).format("D MMM YYYY")}? This can't be undone.`))
       delM.mutate(r.id);
   };
 }
 
-function WormingPanel({ horseId, latest, records, onChange }: {
-  horseId: number; latest?: HorseCare; records: HorseCare[]; onChange: () => void;
-}) {
+/** HORSE-CARE-MODEL: one chronological, extensible care log for a horse. Any record can
+ *  carry an optional next-due date that surfaces here (and in Approvals); worming keeps
+ *  its product + effective-weeks convenience that derives next-due automatically. */
+function HealthAndCare({ horseId }: { horseId: number }) {
+  const qc = useQueryClient();
+  const careQ = useQuery({ queryKey: ["horse-care", horseId], queryFn: () => api.get<HorseCare[]>(`/horses/${horseId}/care`) });
+  const records = (careQ.data ?? []).slice().sort((a, b) => (a.performed_on < b.performed_on ? 1 : -1));
+  const confirmDelete = useDeleteCare(horseId, () => invalidate());
+
+  const [type, setType] = useState("worming");
+  const [customType, setCustomType] = useState("");
   const [product, setProduct] = useState("");
   const [weeks, setWeeks] = useState<number | string>(12);
   const [when, setWhen] = useState<Date | null>(new Date());
+  const [nextDue, setNextDue] = useState<Date | null>(null);
   const [notes, setNotes] = useState("");
-  const confirmDelete = useDeleteCare(horseId, onChange);
+  const isWorming = type === "worming";
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["horse-care", horseId] });
+    qc.invalidateQueries({ queryKey: ["horse-care-due-count"] });
+    qc.invalidateQueries({ queryKey: ["horse-care-due"] });
+  };
 
   const addM = useMutation({
     mutationFn: () => api.post(`/horses/${horseId}/care`, {
-      care_type: "worming",
+      care_type: (type === "other" ? customType.trim() || "other" : type),
       performed_on: toISO(when),
-      product_name: product.trim() || null,
-      effective_weeks: weeks === "" ? null : Number(weeks),
       notes: notes.trim() || null,
+      next_due: !isWorming && nextDue ? toISO(nextDue) : null,
+      product_name: isWorming ? (product.trim() || null) : null,
+      effective_weeks: isWorming && weeks !== "" ? Number(weeks) : null,
     }),
     onSuccess: () => {
-      setProduct(""); setNotes(""); onChange();
-      notifications.show({ color: "teal", message: "Worming recorded" });
+      setProduct(""); setNotes(""); setNextDue(null); setCustomType("");
+      invalidate();
+      notifications.show({ color: "teal", message: "Care record added" });
     },
     onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
   });
 
-  // Prominent next-due callout (UAT#3 HWORM-PROM): an alert when overdue/due-soon,
-  // a clear line when up to date.
-  let status: React.ReactNode = <Text size="sm" c="dimmed">No worming recorded yet.</Text>;
-  if (latest?.next_due) {
-    const due = dayjs(latest.next_due);
-    const overdue = due.isBefore(dayjs(), "day");
-    const soon = !overdue && due.diff(dayjs(), "day") <= 14;
-    const color = overdue ? "red" : soon ? "orange" : "teal";
-    status = (
-      <Alert color={color} variant={overdue || soon ? "filled" : "light"}
-        icon={overdue || soon ? <IconAlertTriangle size={18} /> : undefined} py={8}>
-        <Group justify="space-between" wrap="nowrap">
-          <div>
+  // Next-due callouts: the latest record of each type whose next-due is overdue/soon.
+  const seen = new Set<string>();
+  const dueCallouts = records.filter((r) => {
+    if (seen.has(r.care_type)) return false;
+    seen.add(r.care_type);
+    return r.next_due != null;
+  }).filter((r) => dayjs(r.next_due!).diff(dayjs(), "day") <= 14)
+    .sort((a, b) => (a.next_due! < b.next_due! ? -1 : 1));
+
+  return (
+    <Stack>
+      <Title order={4}>Health &amp; care</Title>
+
+      {dueCallouts.map((r) => {
+        const due = dayjs(r.next_due!);
+        const overdue = due.isBefore(dayjs(), "day");
+        return (
+          <Alert key={`due-${r.id}`} color={overdue ? "red" : "orange"} variant="filled"
+            icon={<IconAlertTriangle size={18} />} py={8}>
             <Text fw={700} size="sm">
-              {overdue ? `Worming OVERDUE — was due ${due.format("D MMM YYYY")}`
-                : soon ? `Worming due soon — ${due.format("D MMM YYYY")}`
-                : `Next worming due ${due.format("D MMM YYYY")}`}
+              {careLabel(r.care_type)} {overdue ? "OVERDUE" : "due soon"} — {overdue ? "was due" : ""} {due.format("D MMM YYYY")}
             </Text>
             <Text size="xs" opacity={0.9}>
-              Last done {dayjs(latest.performed_on).format("D MMM YYYY")}
-              {latest.product_name ? ` · ${latest.product_name}` : ""}
+              Last done {dayjs(r.performed_on).format("D MMM YYYY")}{r.product_name ? ` · ${r.product_name}` : ""}
             </Text>
-          </div>
+          </Alert>
+        );
+      })}
+
+      {/* Add a care record */}
+      <Card withBorder>
+        <Text fw={600} mb={6}>Record care</Text>
+        <Group align="flex-end" wrap="wrap">
+          <Select label="Type" w={170} data={CARE_TYPES} value={type} allowDeselect={false}
+            onChange={(v) => v && setType(v)} comboboxProps={{ withinPortal: true }} />
+          {type === "other" && (
+            <TextInput label="Custom type" placeholder="e.g. Chiropractor" value={customType}
+              onChange={(e) => setCustomType(e.currentTarget.value)} style={{ flex: 1, minWidth: 160 }} />
+          )}
+          <DateField label="Date done" value={when} onChange={(d) => setWhen(d as Date | null)} />
+          {!isWorming && (
+            <DateField label="Next due (optional)" value={nextDue} clearable
+              onChange={(d) => setNextDue(d as Date | null)} />
+          )}
         </Group>
-      </Alert>
-    );
-  }
+        {isWorming && (
+          <Group align="flex-end" wrap="wrap" mt="xs">
+            <Autocomplete label="Wormer product" placeholder="Pick or type" style={{ flex: 1, minWidth: 180 }}
+              data={WORMER_PRODUCTS.map((p) => p.value)} value={product}
+              onChange={(v) => {
+                setProduct(v);
+                const known = WORMER_PRODUCTS.find((p) => p.value === v);
+                if (known) setWeeks(known.weeks);
+              }} />
+            <NumberInput label="Effective (weeks)" w={140} min={1} value={weeks} onChange={setWeeks} />
+            <Text size="xs" c="dimmed" pb={8}>Next-due is set automatically.</Text>
+          </Group>
+        )}
+        <Textarea mt="xs" label="Notes" autosize minRows={1} value={notes}
+          onChange={(e) => setNotes(e.currentTarget.value)} placeholder="Optional notes for this treatment" />
+        <Group justify="flex-end" mt="xs">
+          <Button loading={addM.isPending} disabled={!when} onClick={() => addM.mutate()}>Add record</Button>
+        </Group>
+      </Card>
 
-  return (
-    <Card withBorder>
-      <Text fw={600} mb={6}>Worming</Text>
-      {status}
-      <Divider my="sm" />
-      <Group align="flex-end">
-        <TextInput label="Product" placeholder="e.g. Equimax" value={product} style={{ flex: 1 }}
-          onChange={(e) => setProduct(e.currentTarget.value)} />
-        <NumberInput label="Effective (weeks)" w={130} min={1} value={weeks} onChange={setWeeks} />
-        <DateField label="Date given" value={when} onChange={(d) => setWhen(d as Date | null)} />
-        <Button loading={addM.isPending} disabled={!when} onClick={() => addM.mutate()}>Record</Button>
-      </Group>
-      <Textarea mt="xs" label="Comments" autosize minRows={1} value={notes}
-        onChange={(e) => setNotes(e.currentTarget.value)} placeholder="Optional notes for this treatment" />
-      {records.length > 0 && (
-        <>
-          <Text size="xs" fw={500} mt="sm" c="dimmed">History</Text>
-          <Stack gap={2} mt={4}>
-            {records.slice().sort((a, b) => (a.performed_on < b.performed_on ? 1 : -1)).map((r) => (
-              <Group key={r.id} gap={6} wrap="nowrap" justify="space-between">
-                <Text size="xs" c="dimmed">
-                  {dayjs(r.performed_on).format("D MMM YYYY")}
-                  {r.product_name ? ` — ${r.product_name}` : ""}
-                  {r.next_due ? ` (next due ${dayjs(r.next_due).format("D MMM YYYY")})` : ""}
-                  {r.notes ? ` · ${r.notes}` : ""}
-                </Text>
-                <ActionIcon size="sm" color="red" variant="subtle" onClick={() => confirmDelete(r)}>
-                  <IconTrash size={13} />
-                </ActionIcon>
-              </Group>
-            ))}
+      {/* Chronological log */}
+      <Card withBorder>
+        <Text fw={600} mb={6}>Care log</Text>
+        {records.length === 0 ? (
+          <Text size="sm" c="dimmed">No care recorded yet.</Text>
+        ) : (
+          <Stack gap={6}>
+            {records.map((r) => {
+              const overdue = r.next_due && dayjs(r.next_due).isBefore(dayjs(), "day");
+              const soon = r.next_due && !overdue && dayjs(r.next_due).diff(dayjs(), "day") <= 14;
+              return (
+                <Group key={r.id} gap={8} wrap="nowrap" justify="space-between"
+                  style={{ borderBottom: "1px solid var(--mantine-color-default-border)", paddingBottom: 6 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <Group gap={6} wrap="wrap">
+                      <Badge variant="light" size="sm">{careLabel(r.care_type)}</Badge>
+                      <Text size="sm" fw={500}>{dayjs(r.performed_on).format("D MMM YYYY")}</Text>
+                      {r.product_name && <Text size="sm" c="dimmed">· {r.product_name}</Text>}
+                      {r.next_due && (
+                        <Text size="xs" c={overdue ? "red" : soon ? "orange" : "dimmed"} fw={overdue || soon ? 700 : 400}>
+                          next due {dayjs(r.next_due).format("D MMM YYYY")}
+                        </Text>
+                      )}
+                    </Group>
+                    {r.notes && <Text size="xs" c="dimmed">{r.notes}</Text>}
+                    {r.attachment_key && (
+                      <Anchor size="xs" onClick={async () => {
+                        const { url } = await api.get<{ url: string }>(`/horses/${horseId}/care/${r.id}/attachment-url`);
+                        window.open(url, "_blank");
+                      }}>View attachment</Anchor>
+                    )}
+                  </div>
+                  <ActionIcon size="sm" color="red" variant="subtle" aria-label="Delete record"
+                    onClick={() => confirmDelete(r)}>
+                    <IconTrash size={14} />
+                  </ActionIcon>
+                </Group>
+              );
+            })}
           </Stack>
-        </>
-      )}
-    </Card>
-  );
-}
-
-function PlaceholderCarePanel({ horseId, type, label, latest, records, onChange }: {
-  horseId: number; type: HorseCareType; label: string; latest?: HorseCare; records: HorseCare[]; onChange: () => void;
-}) {
-  const [when, setWhen] = useState<Date | null>(new Date());
-  const [notes, setNotes] = useState("");
-  const confirmDelete = useDeleteCare(horseId, onChange);
-  const addM = useMutation({
-    mutationFn: () => api.post(`/horses/${horseId}/care`,
-      { care_type: type, performed_on: toISO(when), notes: notes.trim() || null }),
-    onSuccess: () => { setNotes(""); onChange(); notifications.show({ color: "teal", message: `${label} recorded` }); },
-    onError: (e: Error) => notifications.show({ color: "red", message: e.message }),
-  });
-  return (
-    <Card withBorder padding="sm">
-      <Text fw={600} size="sm">{label}</Text>
-      <Text size="xs" c="dimmed" mb={6}>
-        {latest ? `Last done ${dayjs(latest.performed_on).format("D MMM YYYY")}` : "Not recorded"}
-      </Text>
-      <DateField label="Last done" size="xs" value={when} onChange={(d) => setWhen(d as Date | null)} />
-      <TextInput label="Comments" size="xs" mt={4} value={notes} placeholder="Optional"
-        onChange={(e) => setNotes(e.currentTarget.value)} />
-      <Button size="xs" variant="light" mt={6} fullWidth loading={addM.isPending} disabled={!when}
-        onClick={() => addM.mutate()}>Record</Button>
-      {records.length > 0 && (
-        <Stack gap={2} mt={6}>
-          {records.slice().sort((a, b) => (a.performed_on < b.performed_on ? 1 : -1)).map((r) => (
-            <Group key={r.id} gap={4} wrap="nowrap" justify="space-between">
-              <Text size="xs" c="dimmed">
-                {dayjs(r.performed_on).format("D MMM YYYY")}{r.notes ? ` · ${r.notes}` : ""}
-              </Text>
-              <ActionIcon size="xs" color="red" variant="subtle" onClick={() => confirmDelete(r)}>
-                <IconTrash size={12} />
-              </ActionIcon>
-            </Group>
-          ))}
-        </Stack>
-      )}
-    </Card>
+        )}
+      </Card>
+    </Stack>
   );
 }
