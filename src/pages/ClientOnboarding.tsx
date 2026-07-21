@@ -49,6 +49,12 @@ interface Rider {
   photo_media_consent: boolean;
   notes: string;
   disclaimer_accepted: boolean;
+  // Emergency contact (EMER, students-only) — required per rider. May be the account
+  // holder (ec_is_holder), except for a self-managing (is_self) rider.
+  ec_is_holder: boolean;
+  ec_name: string;
+  ec_relationship: string;
+  ec_phone: string;
   // Guardian (minor riders) — defaults to the account holder.
   guardian_is_holder: boolean;
   guardian_name: string;
@@ -59,6 +65,7 @@ interface Rider {
 const emptyRider = (is_self = false): Rider => ({
   is_self, given_name: "", family_name: "", date_of_birth: null, gender: null, height_cm: "", weight_kg: "",
   riding_experience: null, medical_notes: "", allergies_dietary: "", photo_media_consent: false, notes: "", disclaimer_accepted: false,
+  ec_is_holder: true, ec_name: "", ec_relationship: "", ec_phone: "",
   guardian_is_holder: true, guardian_name: "", guardian_relationship: "", guardian_phone: "", guardian_email: "",
 });
 
@@ -67,7 +74,6 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
   const [family, setFamily] = useState(ctx.family_name);
   const [mobile, setMobile] = useState(ctx.mobile ?? "");
   const [address, setAddress] = useState({ line1: "", line2: "", line3: "", suburb: "", state: "", postcode: "", country: "Australia" });
-  const [ec, setEc] = useState({ name: "", relationship: "", phone: "" });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [riders, setRiders] = useState<Rider[]>([]);
@@ -87,11 +93,16 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
         given_name: given.trim(), family_name: family.trim(),
         mobile: noMobile ? null : mobile || null, no_mobile: noMobile,
         address: address.line1 || address.suburb ? address : null,
-        emergency_contacts: ec.name.trim() ? [ec] : [],
+        emergency_contacts: [], // EMER (students-only): the holder's own EC is optional
         password,
         students: riders.map((r) => ({
           is_holder: r.is_self, // API field renamed to match the manual flow's is_holder
-
+          // Emergency contact per rider; a self-managing rider names their own.
+          emergency_contact_is_holder: r.ec_is_holder && !r.is_self,
+          emergency_contact:
+            r.ec_is_holder && !r.is_self
+              ? null
+              : { name: r.ec_name.trim(), relationship: r.ec_relationship || null, phone: r.ec_phone || null },
           given_name: r.is_self ? null : r.given_name.trim(),
           family_name: r.is_self ? null : r.family_name.trim(),
           date_of_birth: r.date_of_birth ? dayjs(r.date_of_birth).format("YYYY-MM-DD") : null,
@@ -123,13 +134,15 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
     if (!given.trim() || !family.trim()) return setError("Please enter your name.");
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     if (password !== confirm) return setError("Passwords do not match.");
-    if (!ec.name.trim()) return setError("An emergency contact is required.");
     if (!address.line1.trim()) return setError("A postal address (line 1) is required.");
     if (riders.length === 0) return setError("Add at least one rider.");
     for (const r of riders) {
       if (!r.is_self && (!r.given_name.trim() || !r.family_name.trim())) return setError("Enter each rider's name.");
       if (!r.date_of_birth) return setError("Each rider needs a date of birth.");
       if (!r.disclaimer_accepted) return setError("Please accept the disclaimer for each rider.");
+      // EMER (students-only): each rider needs an emergency contact unless they nominated
+      // the account holder (not available to a self-managing rider).
+      if (!(r.ec_is_holder && !r.is_self) && !r.ec_name.trim()) return setError("Each rider needs an emergency contact.");
       if (!r.is_self && isMinor(r.date_of_birth)) {
         if (!r.guardian_relationship) return setError("Choose the guardian's relationship for each minor rider.");
         if (r.guardian_is_holder) {
@@ -208,14 +221,6 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
             <TextInput label="Country" value={address.country}
               onChange={(e) => setAddress({ ...address, country: e.currentTarget.value })} />
           </Stack>
-          <Divider my="sm" label="Emergency contact" labelPosition="left" />
-          <SimpleGrid cols={{ base: 1, sm: 3 }}>
-            <TextInput label="Name" required value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
-            <Select label="Relationship" data={RELATIONSHIPS} value={ec.relationship || null}
-              placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
-              onChange={(v) => setEc({ ...ec, relationship: v ?? "" })} />
-            <PhoneField label="Phone" value={ec.phone} onChange={(v) => setEc({ ...ec, phone: v })} />
-          </SimpleGrid>
           <Divider my="sm" label="Password" labelPosition="left" />
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <PasswordInput label="Password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} required />
@@ -264,6 +269,28 @@ export function ClientOnboarding({ token, ctx }: { token: string; ctx: Onboardin
             <Checkbox mt="sm" checked={r.photo_media_consent}
               onChange={(e) => update(i, { photo_media_consent: e.currentTarget.checked })}
               label="I consent to photos/media of this rider being used by the club" />
+
+            {/* EMER (students-only): every rider needs an emergency contact. */}
+            <Divider my="sm" label="Emergency contact" labelPosition="left" />
+            {!r.is_self && (
+              <Select label="Emergency contact" allowDeselect={false} comboboxProps={{ withinPortal: true }}
+                data={[{ value: "holder", label: `${given || "You"} (account holder)` }, { value: "other", label: "Someone else" }]}
+                value={r.ec_is_holder ? "holder" : "other"}
+                onChange={(v) => update(i, { ec_is_holder: v === "holder" })} />
+            )}
+            {(!r.ec_is_holder || r.is_self) && (
+              <SimpleGrid cols={{ base: 1, sm: 3 }} mt={r.is_self ? 0 : "sm"}>
+                <TextInput label="Name" required value={r.ec_name}
+                  onChange={(e) => update(i, { ec_name: e.currentTarget.value })} />
+                <Select label="Relationship" data={RELATIONSHIPS} value={r.ec_relationship || null}
+                  placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
+                  onChange={(v) => update(i, { ec_relationship: v ?? "" })} />
+                <PhoneField label="Phone" value={r.ec_phone} onChange={(v) => update(i, { ec_phone: v })} />
+              </SimpleGrid>
+            )}
+            {r.ec_is_holder && !r.is_self && (
+              <Text size="xs" c="dimmed" mt={4}>Uses you (the account holder) as the emergency contact.</Text>
+            )}
 
             {!r.is_self && isMinor(r.date_of_birth) && (
               <Card withBorder mt="sm" bg="var(--mantine-color-gray-light)">

@@ -24,7 +24,10 @@ export const GENDERS = [
   { value: "undisclosed", label: "Prefer not to say" },
 ];
 // Shared, capitalised relationship lists (UAT#3 REL-CONSIST/REL-CASING).
-import { ACCOUNT_RELATIONSHIPS, GUARDIAN_RELATIONSHIPS } from "../constants/relationships";
+import {
+  ACCOUNT_RELATIONSHIPS, GUARDIAN_RELATIONSHIPS,
+  RELATIONSHIPS as EC_RELATIONSHIPS,
+} from "../constants/relationships";
 export const RELATIONSHIPS = ACCOUNT_RELATIONSHIPS; // rider ↔ account-holder link
 export { GUARDIAN_RELATIONSHIPS };
 
@@ -56,6 +59,12 @@ export interface RiderDraft {
   photo_media_consent: boolean;
   notes: string;
   relationship: string;
+  // Emergency contact (EMER, students-only) — required for every rider. May be the
+  // account holder (ec_is_holder) except for a self-managing holder-rider.
+  ec_is_holder: boolean;
+  ec_name: string;
+  ec_relationship: string;
+  ec_phone: string;
   // Guardian (minors) — defaults to the account holder.
   guardian_is_holder: boolean;
   guardian_name: string;
@@ -72,6 +81,7 @@ export const emptyRider = (patch: Partial<RiderDraft> = {}): RiderDraft => ({
   height_cm: "", weight_kg: "", riding_experience: null,
   medical_notes: "", allergies_dietary: "", photo_media_consent: false, notes: "",
   relationship: "parent",
+  ec_is_holder: true, ec_name: "", ec_relationship: "", ec_phone: "",
   guardian_is_holder: true, guardian_name: "", guardian_relationship: "",
   guardian_phone: "", guardian_email: "",
   ...patch,
@@ -96,6 +106,13 @@ export function riderPayload(r: RiderDraft): Record<string, unknown> {
     photo_media_consent: r.photo_media_consent,
     relationship: r.relationship,
   };
+  // Emergency contact (students-only): a self-managing holder-rider can't nominate
+  // themselves, so ec_is_holder only applies to non-holder riders.
+  const ecIsHolder = r.ec_is_holder && !r.is_holder;
+  body.emergency_contact_is_holder = ecIsHolder;
+  body.emergency_contact = ecIsHolder
+    ? null
+    : { name: r.ec_name.trim(), relationship: r.ec_relationship || null, phone: r.ec_phone || null };
   if (!r.is_holder) {
     if (r.mode === "existing") body.person_id = r.person_id;
     else {
@@ -126,6 +143,10 @@ export function validateRider(r: RiderDraft): string | null {
     if (r.mode === "new" && (!r.given_name.trim() || !r.family_name.trim())) return "Enter each rider's first and last name.";
     if (r.mode === "new" && !r.date_of_birth) return "Each rider needs a date of birth.";
   }
+  // EMER (students-only): every rider needs an emergency contact unless they nominated
+  // the account holder (not available to a self-managing holder-rider).
+  const ecIsHolder = r.ec_is_holder && !r.is_holder;
+  if (!ecIsHolder && !r.ec_name.trim()) return "Each rider needs an emergency contact.";
   if (isMinorDob(riderDob(r))) {
     if (!r.guardian_relationship) return "Choose the guardian's relationship for the minor rider.";
     // When the guardian is the account holder, their phone/email come from the holder,
@@ -287,6 +308,32 @@ export function RiderFields({
         value={r.notes} onChange={(e) => update({ notes: e.currentTarget.value })} />
       <Checkbox label="Photo / media consent given" checked={r.photo_media_consent}
         onChange={(e) => update({ photo_media_consent: e.currentTarget.checked })} />
+
+      <Divider label="Emergency contact" labelPosition="left" />
+      {/* EMER (students-only): every rider needs an emergency contact. A non-holder rider
+          may nominate the account holder; a self-managing holder-rider must name their own. */}
+      {!r.is_holder && (
+        <Select label="Emergency contact" allowDeselect={false} comboboxProps={{ withinPortal: true }}
+          data={[
+            { value: "holder", label: holderName ? `${holderName} (account holder)` : "Account holder" },
+            { value: "other", label: "Someone else" },
+          ]}
+          value={r.ec_is_holder ? "holder" : "other"}
+          onChange={(v) => update({ ec_is_holder: v === "holder" })} />
+      )}
+      {(!r.ec_is_holder || r.is_holder) && (
+        <SimpleGrid cols={{ base: 1, sm: 3 }}>
+          <TextInput label="Name" required value={r.ec_name}
+            onChange={(e) => update({ ec_name: e.currentTarget.value })} />
+          <Select label="Relationship" data={EC_RELATIONSHIPS} value={r.ec_relationship || null}
+            placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
+            onChange={(v) => update({ ec_relationship: v ?? "" })} />
+          <PhoneField label="Phone" value={r.ec_phone} onChange={(v) => update({ ec_phone: v })} />
+        </SimpleGrid>
+      )}
+      {r.ec_is_holder && !r.is_holder && (
+        <Text size="xs" c="dimmed">Uses the account holder as the emergency contact.</Text>
+      )}
 
       {minor && (
         <Card withBorder bg="var(--mantine-color-gray-light)">

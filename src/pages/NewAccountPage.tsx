@@ -11,7 +11,6 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { AccountCreated, PersonMatch } from "../api/types";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
-import { RELATIONSHIPS } from "../constants/relationships";
 import { DateField } from "../components/DateField";
 import { PhoneField } from "../components/PhoneField";
 import { GENDERS, PersonSearchSelect, RiderFields, emptyRider, riderPayload, validateRider } from "../components/riderForm";
@@ -47,7 +46,6 @@ export function NewAccountPage() {
     mode: "new", person: null, given_name: "", family_name: "", email: "", mobile: "",
     date_of_birth: null, gender: null, address: emptyAddress(),
   });
-  const [ec, setEc] = useState({ name: "", relationship: "", phone: "" });
   const [alsoRides, setAlsoRides] = useState(false);
   const [holderRider, setHolderRider] = useState<RiderDraft>(emptyRider({ is_holder: true, relationship: "self" }));
   const [riders, setRiders] = useState<RiderDraft[]>([]);
@@ -74,7 +72,7 @@ export function NewAccountPage() {
           gender: holder.gender,
           address:
             holder.mode === "new" && (holder.address.line1 || holder.address.suburb) ? holder.address : null,
-          emergency_contact: { name: ec.name.trim(), relationship: ec.relationship.trim() || null, phone: ec.phone || null },
+          // Emergency contact is now per-student (EMER, students-only) — not on the holder.
         },
         students,
       });
@@ -93,9 +91,8 @@ export function NewAccountPage() {
     setError(null);
     if (holder.mode === "existing" && !holder.person) return setError("Search for and choose the account holder, or add a new one.");
     if (holder.mode === "new" && (!holder.given_name.trim() || !holder.family_name.trim())) return setError("Enter the account holder's first and last name.");
-    // EMER-MANDATORY: an account holder must have an emergency contact (the backend
-    // enforces this too — surface it here rather than as a 422).
-    if (!ec.name.trim()) return setError("An emergency contact is required.");
+    // EMER (students-only): the emergency contact is validated per rider (below), not on
+    // the account holder.
     // A postal address is required for a new-person holder (an existing person may
     // already have one on file — the backend allows that).
     if (holder.mode === "new" && !holder.address.line1.trim())
@@ -179,15 +176,6 @@ export function NewAccountPage() {
             </Stack>
           </>
         )}
-
-        <Divider my="md" label="Emergency contact" labelPosition="left" />
-        <SimpleGrid cols={{ base: 1, sm: 3 }}>
-          <TextInput label="Name" required value={ec.name} onChange={(e) => setEc({ ...ec, name: e.currentTarget.value })} />
-          <Select label="Relationship" data={RELATIONSHIPS} value={ec.relationship || null}
-            placeholder="Select" clearable comboboxProps={{ withinPortal: true }}
-            onChange={(v) => setEc({ ...ec, relationship: v ?? "" })} />
-          <PhoneField label="Phone" value={ec.phone} onChange={(v) => setEc({ ...ec, phone: v })} />
-        </SimpleGrid>
 
         <Checkbox mt="md" checked={alsoRides} onChange={(e) => setAlsoRides(e.currentTarget.checked)}
           label="The account holder also rides (add them as a rider)" />
