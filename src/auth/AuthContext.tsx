@@ -6,7 +6,9 @@ import type { Me } from "../api/types";
 interface AuthState {
   me: Me | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  // Returns { requires2fa, challenge } — when requires2fa, call complete2fa to finish.
+  login: (email: string, password: string) => Promise<{ requires2fa: boolean; challenge?: string }>;
+  complete2fa: (challenge: string, code: string) => Promise<void>;
   logout: () => void;
   can: (capability: string) => boolean;
 }
@@ -39,7 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      await api.login(email, password);
+      const res = await api.login(email, password);
+      if (!res.requires2fa) {
+        setLoading(true);
+        await loadMe();
+      }
+      return res;
+    },
+    [loadMe],
+  );
+
+  const complete2fa = useCallback(
+    async (challenge: string, code: string) => {
+      await api.verify2fa(challenge, code);
       setLoading(true);
       await loadMe();
     },
@@ -57,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AuthContext.Provider value={{ me, loading, login, logout, can }}>
+    <AuthContext.Provider value={{ me, loading, login, complete2fa, logout, can }}>
       {children}
     </AuthContext.Provider>
   );

@@ -91,7 +91,7 @@ export const api = {
   patch: <T>(p: string, body?: unknown) => request<T>("PATCH", p, body),
   del: <T>(p: string) => request<T>("DELETE", p),
 
-  login: async (email: string, password: string) => {
+  login: async (email: string, password: string): Promise<{ requires2fa: boolean; challenge?: string }> => {
     const form = new URLSearchParams();
     form.set("username", email);
     form.set("password", password);
@@ -101,8 +101,17 @@ export const api = {
       body: form,
     });
     if (!res.ok) throw new ApiError(res.status, "Incorrect email or password");
-    const data = (await res.json()) as { access_token: string };
+    const data = (await res.json()) as {
+      access_token: string | null; requires_2fa?: boolean; challenge?: string;
+    };
+    // FU-2FA-LOGIN: a 2FA account gets no token yet — the caller must complete the code step.
+    if (data.requires_2fa) return { requires2fa: true, challenge: data.challenge };
     setToken(data.access_token);
-    return data;
+    return { requires2fa: false };
+  },
+
+  verify2fa: async (challenge: string, code: string) => {
+    const data = await api.post<{ access_token: string | null }>("/auth/login/2fa", { challenge, code });
+    setToken(data.access_token);
   },
 };
