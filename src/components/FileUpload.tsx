@@ -32,7 +32,7 @@ import Cropper, { type Area } from "react-easy-crop";
 import { api } from "../api/client";
 import { normalizeUpload } from "../lib/imageNormalize";
 
-export type UploadScope = "horse_photo" | "horse_document" | "person_photo" | "credential";
+export type UploadScope = "horse_photo" | "horse_document" | "horse_care_document" | "person_photo" | "credential";
 
 /** Whether file storage is configured — any authenticated user may probe this. */
 export function useStorageStatus(): boolean {

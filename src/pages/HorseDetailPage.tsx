@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Alert, Anchor, Autocomplete, Badge, Button, Card, Divider, Group, NumberInput,
+  ActionIcon, Alert, Anchor, Autocomplete, Badge, Button, Card, Divider, FileButton, Group, NumberInput,
   Select, SimpleGrid, Stack, Switch, Text, Textarea, TextInput, Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -296,6 +296,9 @@ function HealthAndCare({ horseId }: { horseId: number }) {
   const [when, setWhen] = useState<Date | null>(new Date());
   const [nextDue, setNextDue] = useState<Date | null>(null);
   const [notes, setNotes] = useState("");
+  const [attachmentKey, setAttachmentKey] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const isWorming = type === "worming";
 
   const invalidate = () => {
@@ -303,6 +306,25 @@ function HealthAndCare({ horseId }: { horseId: number }) {
     qc.invalidateQueries({ queryKey: ["horse-care-due-count"] });
     qc.invalidateQueries({ queryKey: ["horse-care-due"] });
   };
+
+  // FU-CARE-ATTACH: upload a scan/receipt (JPG/PDF) to the bucket now, keep its key, and
+  // attach it when the care record is created.
+  async function pickAttachment(file: File) {
+    setUploading(true);
+    try {
+      const presign = await api.post<{ url: string; key: string }>("/storage/presign-upload", {
+        scope: "horse_care_document", record_id: horseId, filename: file.name || "upload",
+      });
+      const put = await fetch(presign.url, { method: "PUT", body: file });
+      if (!put.ok) throw new Error(`Upload failed (${put.status}).`);
+      setAttachmentKey(presign.key);
+      setAttachmentName(file.name);
+    } catch (e) {
+      notifications.show({ color: "red", message: (e as Error).message });
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const addM = useMutation({
     mutationFn: () => api.post(`/horses/${horseId}/care`, {
@@ -312,9 +334,11 @@ function HealthAndCare({ horseId }: { horseId: number }) {
       next_due: !isWorming && nextDue ? toISO(nextDue) : null,
       product_name: isWorming ? (product.trim() || null) : null,
       effective_weeks: isWorming && weeks !== "" ? Number(weeks) : null,
+      attachment_key: attachmentKey,
     }),
     onSuccess: () => {
       setProduct(""); setNotes(""); setNextDue(null); setCustomType("");
+      setAttachmentKey(null); setAttachmentName(null);
       invalidate();
       notifications.show({ color: "teal", message: "Care record added" });
     },
@@ -381,8 +405,22 @@ function HealthAndCare({ horseId }: { horseId: number }) {
         )}
         <Textarea mt="xs" label="Notes" autosize minRows={1} value={notes}
           onChange={(e) => setNotes(e.currentTarget.value)} placeholder="Optional notes for this treatment" />
-        <Group justify="flex-end" mt="xs">
-          <Button loading={addM.isPending} disabled={!when} onClick={() => addM.mutate()}>Add record</Button>
+        <Group justify="space-between" mt="xs">
+          <Group gap={6}>
+            <FileButton onChange={(f) => f && pickAttachment(f)} accept="image/jpeg,application/pdf">
+              {(props) => (
+                <Button {...props} size="xs" variant="light" loading={uploading}>
+                  {attachmentKey ? "Replace attachment" : "Attach scan/receipt"}
+                </Button>
+              )}
+            </FileButton>
+            {attachmentName && (
+              <Text size="xs" c="dimmed">{attachmentName}
+                <Anchor ml={6} onClick={() => { setAttachmentKey(null); setAttachmentName(null); }}>remove</Anchor>
+              </Text>
+            )}
+          </Group>
+          <Button loading={addM.isPending} disabled={!when || uploading} onClick={() => addM.mutate()}>Add record</Button>
         </Group>
       </Card>
 
