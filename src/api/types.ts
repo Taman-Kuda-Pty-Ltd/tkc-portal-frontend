@@ -318,6 +318,8 @@ export interface PersonDetail {
   is_account_holder?: boolean;
   has_pin: boolean;
   has_password?: boolean;
+  mobile_verified_at?: string | null;
+  two_factor_enabled?: boolean;
   joined_at?: string | null;
   last_login_at?: string | null;
   super_percent?: number | null;

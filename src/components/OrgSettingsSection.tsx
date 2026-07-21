@@ -1,4 +1,4 @@
-import { Button, Group, NumberInput, SegmentedControl, Select, Stack, Switch, Text } from "@mantine/core";
+import { Button, Group, NumberInput, SegmentedControl, Select, Stack, Text } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -153,12 +153,8 @@ export function OrgSettingsSection() {
       </Text>
       <NumberInput label="Check-out overdue grace (minutes after end)" min={0} step={5} w={260}
         value={overdueGrace} onChange={setOverdueGrace} />
-      <Text size="sm" c="dimmed" mt="xs">
-        Require new people to verify their mobile with an SMS code before they can finish
-        onboarding. When off, verification is offered but optional.
-      </Text>
-      <Switch label="Require mobile verification (2FA) during onboarding" checked={require2fa}
-        onChange={(e) => setRequire2fa(e.currentTarget.checked)} />
+      {/* 2FA / mobile verification moved to the Portal Security section. require2fa is still
+          loaded + re-sent here so saving Timekeeping never resets it. */}
       <Text size="sm" c="dimmed" mt="xs">
         The pay period used by payroll reports. Monthly uses calendar months; fortnightly
         counts from the anchor date so periods never drift.

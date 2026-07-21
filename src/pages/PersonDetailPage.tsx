@@ -36,6 +36,7 @@ import { useAuth } from "../auth/AuthContext";
 import { DateField } from "../components/DateField";
 import { FileUpload, useStorageStatus } from "../components/FileUpload";
 import { PersonContextsSection } from "../components/PersonContextsSection";
+import { PersonSecurityCard } from "../components/PersonSecurityCard";
 import { PersonRatesSection } from "../components/PersonRatesSection";
 import { PhoneField } from "../components/PhoneField";
 
@@ -365,6 +366,9 @@ export function PersonDetailPage() {
 
       {/* Manager-entered (or otherwise password-less) person: offer the set-password link. */}
       {canManage && p.onboarded && p.has_password === false && <SetPasswordPrompt personId={p.id} />}
+
+      {/* PORTAL-SECURITY: mobile verification + per-account 2FA (accounts that can sign in). */}
+      {canManage && (p.mobile || p.has_password) && <PersonSecurityCard person={p} />}
 
       {/* Profile — photo + at-a-glance status (PROFILE-CARD) */}
       <Card withBorder>

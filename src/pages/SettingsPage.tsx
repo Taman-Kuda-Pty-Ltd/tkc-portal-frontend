@@ -4,6 +4,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { EmailSettingsSection } from "../components/EmailSettingsSection";
 import { IntegrationsSection } from "../components/IntegrationsSection";
 import { OrgSettingsSection } from "../components/OrgSettingsSection";
+import { PortalSecuritySection } from "../components/PortalSecuritySection";
 import { FacilitiesSection } from "../components/FacilitiesSection";
 import { ActivitiesPage } from "./ActivitiesPage";
 import { LensesPage } from "./LensesPage";
@@ -160,6 +161,17 @@ export function SettingsPage() {
             </Accordion.Control>
             <Accordion.Panel>
               <OrgSettingsSection />
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {can("manage_settings") && (
+          <Accordion.Item value="portal-security">
+            <Accordion.Control>
+              <Text fw={600}>Portal Security</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <PortalSecuritySection />
             </Accordion.Panel>
           </Accordion.Item>
         )}
