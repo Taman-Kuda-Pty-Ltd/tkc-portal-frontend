@@ -229,6 +229,7 @@ export function HorseDetailPage() {
               invalidateKey={["horse", horseId]}
               storageReady={storageReady}
               variant="document"
+              canEdit={editing}
               label="Document (registration, passport, vet certificate…)"
             />
           </div>

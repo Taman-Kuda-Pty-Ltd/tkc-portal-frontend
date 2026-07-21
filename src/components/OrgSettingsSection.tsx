@@ -40,6 +40,7 @@ interface OrgSettings {
   business_timezone: string;
   terminal_time_format: string;
   require_onboarding_2fa: boolean;
+  portal_session_minutes: number;
 }
 
 export function OrgSettingsSection() {
@@ -93,6 +94,9 @@ export function OrgSettingsSection() {
         business_timezone: tz,
         terminal_time_format: timeFmt,
         require_onboarding_2fa: require2fa,
+        // Owned by Portal Security — re-send the loaded value so a Timekeeping save
+        // never resets it (mirrors require_onboarding_2fa above).
+        portal_session_minutes: q.data?.portal_session_minutes ?? 720,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["org-settings"] });

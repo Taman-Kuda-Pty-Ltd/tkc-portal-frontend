@@ -75,7 +75,9 @@ export function PersonSecurityCard({ person }: { person: PersonDetail }) {
 
         <Switch
           label="Two-factor at sign-in for this account"
-          description={verified ? "Send an SMS code on each portal sign-in." : "Verify the mobile above first to enable."}
+          description={verified
+            ? "Marks this account to require an SMS code at sign-in (enforcement is rolling out)."
+            : "Verify the mobile above first to enable."}
           checked={Boolean(p.two_factor_enabled)}
           disabled={!verified || twoFaM.isPending}
           onChange={(e) => twoFaM.mutate(e.currentTarget.checked)}
