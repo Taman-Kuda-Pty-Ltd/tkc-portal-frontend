@@ -253,6 +253,11 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
     if (!personal.given_name || !personal.family_name) return setError("Please enter your name.");
     if (!dob) return setError("Date of birth is required.");
     if (!address.line1.trim()) return setError("A postal address (line 1) is required.");
+    // AU-ADDR-MANDATORY (T5-06): a complete Australian address needs suburb, state, postcode.
+    const isAU = !(address.country || "").trim() || /^(australia|au)$/i.test(address.country.trim());
+    if (isAU && (!address.suburb.trim() || !address.state.trim() || !address.postcode.trim()))
+      return setError("For an Australian address, suburb, state and postcode are required.");
+    if (!emergency.name.trim()) return setError("An emergency contact name is required."); // T5-07
     if (!noMobile && !phoneOk(personal.mobile)) return setError("Enter a valid mobile number, or tick that you don't have one.");
     if (emergency.name && !phoneOk(emergency.phone)) return setError("Enter a valid emergency contact phone.");
     // Guardian consent is mandatory for under-18s (UAT#3 MINOR-1).
@@ -376,11 +381,11 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
             <TextInput label="Address line 3" value={address.line3}
               onChange={(e) => setAddress({ ...address, line3: e.currentTarget.value })} />
             <SimpleGrid cols={{ base: 1, sm: 3 }}>
-              <TextInput label="Suburb" value={address.suburb}
+              <TextInput label="Suburb" required value={address.suburb}
                 onChange={(e) => setAddress({ ...address, suburb: e.currentTarget.value })} />
-              <TextInput label="State" value={address.state}
+              <TextInput label="State" required value={address.state}
                 onChange={(e) => setAddress({ ...address, state: e.currentTarget.value })} />
-              <TextInput label="Postcode" value={address.postcode}
+              <TextInput label="Postcode" required value={address.postcode}
                 onChange={(e) => setAddress({ ...address, postcode: e.currentTarget.value })} />
             </SimpleGrid>
             <TextInput label="Country" value={address.country}
@@ -393,7 +398,7 @@ export function OnboardingPage({ managerMode = false, tokenOverride }: {
           <Stack>
             {/* Phone shares the grid so it matches the Name field width (UAT#3 EMER-WIDTH). */}
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label="Name" value={emergency.name}
+              <TextInput label="Name" required value={emergency.name}
                 onChange={(e) => setEmergency({ ...emergency, name: e.currentTarget.value })} />
               <Select label="Relationship" data={RELATIONSHIPS} value={emergency.relationship || null}
                 placeholder="Select" comboboxProps={{ withinPortal: true }}
