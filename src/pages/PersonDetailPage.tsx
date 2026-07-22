@@ -348,7 +348,10 @@ export function PersonDetailPage() {
                     });
                     setReOpen(true);
                   }}>Re-onboard…</Menu.Item>
-                  <Menu.Item onClick={() => { setPw(""); setPwConfirm(""); setPwOpen(true); }}>Reset password…</Menu.Item>
+                  {/* T5-11: gate the reset behind Edit mode (no accidental resets while viewing). */}
+                  <Menu.Item disabled={!editing} onClick={() => { setPw(""); setPwConfirm(""); setPwOpen(true); }}>
+                    Reset password{editing ? "…" : " (Edit to enable)"}
+                  </Menu.Item>
                   <Menu.Item onClick={() => { setPinValue(""); setPinOpen(true); }}>
                     {p.has_pin ? "Reset check-in PIN…" : "Set check-in PIN…"}
                   </Menu.Item>
@@ -369,7 +372,7 @@ export function PersonDetailPage() {
       {canManage && p.onboarded && p.has_password === false && <SetPasswordPrompt personId={p.id} />}
 
       {/* PORTAL-SECURITY: mobile verification + per-account 2FA (accounts that can sign in). */}
-      {canManage && (p.mobile || p.has_password) && <PersonSecurityCard person={p} />}
+      {canManage && (p.mobile || p.has_password) && <PersonSecurityCard person={p} editing={editing} />}
 
       {/* MINOR-STAFF-CONSENT: guardian consent for an under-18 worker. */}
       {canManage && p.is_minor && p.roles.length > 0 && <GuardianConsentCard person={p} />}

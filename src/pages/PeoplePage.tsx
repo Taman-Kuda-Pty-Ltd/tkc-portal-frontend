@@ -33,6 +33,12 @@ export function PeoplePage() {
   const canInvite = can("manage_onboarding");
 
   const peopleQ = useQuery({ queryKey: ["people"], queryFn: () => api.get<Person[]>("/people") });
+  // T5-12: flag minor staff still awaiting guardian consent, right on the list.
+  const minorConsentQ = useQuery({
+    queryKey: ["minor-consent-list"],
+    queryFn: () => api.get<{ person_id: number }[]>("/people/minor-staff-consent/pending"),
+  });
+  const minorConsentSet = new Set((minorConsentQ.data ?? []).map((m) => m.person_id));
   const rolesQ = useQuery({ queryKey: ["roles"], queryFn: () => api.get<Role[]>("/roles") });
   const invitesQ = useQuery({
     queryKey: ["invitations"],
@@ -150,7 +156,15 @@ export function PeoplePage() {
                 return (
                   <Table.Tr key={p.id}>
                     <Table.Td>
-                      <Anchor onClick={() => navigate(`/people/${p.id}`)}>{p.list_name}</Anchor>
+                      <Group gap={6} wrap="nowrap">
+                        <Anchor onClick={() => navigate(`/people/${p.id}`)}>{p.list_name}</Anchor>
+                        {minorConsentSet.has(p.id) && (
+                          <Badge size="xs" color="orange" variant="light"
+                            title="Under-18 worker — guardian consent not yet confirmed">
+                            Guardian consent
+                          </Badge>
+                        )}
+                      </Group>
                     </Table.Td>
                     <Table.Td>{p.email ?? <Text c="dimmed" size="sm">—</Text>}</Table.Td>
                     <Table.Td>

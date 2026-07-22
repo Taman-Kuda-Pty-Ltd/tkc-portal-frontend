@@ -78,8 +78,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const careDueQ = useQuery({ queryKey: ["horse-care-due-count"], queryFn: () => api.get<number>("/horses/care-due/count"), ...attn });
   // SC-4: staff-initiated shift covers awaiting a manager's after-the-fact acknowledgement.
   const coversQ = useQuery({ queryKey: ["shift-covers-count"], queryFn: () => api.get<number>("/shift-covers/pending/count"), ...attn });
-  // WAIVER-VERSIONING: students without a valid signature of the current waiver version.
-  const waiverQ = useQuery({ queryKey: ["waiver-pending-count"], queryFn: () => api.get<number>("/waivers/pending-signatures/count"), enabled: can("manage_people"), refetchInterval: 30000 });
   // MINOR-STAFF-CONSENT: scheduled minor workers without confirmed guardian consent.
   const minorQ = useQuery({ queryKey: ["minor-consent-count"], queryFn: () => api.get<number>("/people/minor-staff-consent/pending/count"), enabled: can("manage_people"), refetchInterval: 30000 });
   // CRED-ATTENTION: workers missing/unverified for a required credential.
@@ -90,10 +88,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const approvalsCount =
     (pendingQ.data ?? 0) + (coachChangesQ.data ?? 0) + (varianceQ.data ?? 0) +
     (lessonTypeQ.data ?? 0) + (flaggedQ.data ?? 0);
+  // T5-10: every counted signal must have a matching list on the Approvals page, or
+  // the badge reads N with "nothing to review". Waivers are deferred for v1 (no visible
+  // list yet), so they're not counted here — they return with the waiver rebuild.
   const attentionCount =
     (noShowQ.data ?? 0) + (openQ.data ?? 0) + (unratedQ.data ?? 0) + (unonbQ.data ?? 0) +
-    (careDueQ.data ?? 0) + (coversQ.data ?? 0) + (waiverQ.data ?? 0) + (minorQ.data ?? 0) +
-    (credQ.data ?? 0);
+    (careDueQ.data ?? 0) + (coversQ.data ?? 0) + (minorQ.data ?? 0) + (credQ.data ?? 0);
 
   // FH-3: badge the Terminals nav with devices that opted into offline alerts and
   // haven't checked in recently.

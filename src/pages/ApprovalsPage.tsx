@@ -197,6 +197,16 @@ export function ApprovalsPage() {
     queryKey: ["shift-covers"],
     queryFn: () => api.get<ShiftCover[]>("/shift-covers/pending"),
   });
+  // T5-10: these two feed the nav attention badge but weren't listed here, so the
+  // badge counted items with nothing visible. Surface them.
+  const minorConsentQ = useQuery({
+    queryKey: ["minor-consent-list"],
+    queryFn: () => api.get<{ person_id: number; name: string; guardian_name: string | null; notice_sent_at: string | null }[]>("/people/minor-staff-consent/pending"),
+  });
+  const credAttnQ = useQuery({
+    queryKey: ["cred-attention-list"],
+    queryFn: () => api.get<{ person_id: number; name: string; credential_type: string; reason: string }[]>("/people/credential-attention/pending"),
+  });
   // Each clash is reported twice (once per direction) — keep one row per pair.
   const clashPairs = (clashesQ.data ?? []).filter((c) => c.shift_id < c.other_shift_id);
 
@@ -417,6 +427,49 @@ export function ApprovalsPage() {
                   </Text>
                 </div>
                 <Anchor component={Link} to={`/horses/${c.horse_id}`} size="sm">Record →</Anchor>
+              </Group>
+            </Card>
+          ))}
+        </>
+      )}
+
+      {(minorConsentQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg" c="orange">Minor staff — guardian consent</Title>
+          <Text size="sm" c="dimmed">
+            Under-18 workers scheduled to work whose guardian consent hasn't been confirmed.
+            Open their profile to send the notice or confirm it in person.
+          </Text>
+          {(minorConsentQ.data ?? []).map((m) => (
+            <Card key={m.person_id} withBorder>
+              <Group justify="space-between" wrap="wrap">
+                <Text size="sm">
+                  <Anchor component={Link} to={`/people/${m.person_id}`} fw={600}>{m.name}</Anchor>
+                  {m.guardian_name ? ` — guardian ${m.guardian_name}` : " — no guardian on file"}
+                  {m.notice_sent_at ? " · notice sent" : ""}
+                </Text>
+                <Anchor component={Link} to={`/people/${m.person_id}`} size="sm">Review →</Anchor>
+              </Group>
+            </Card>
+          ))}
+        </>
+      )}
+
+      {(credAttnQ.data ?? []).length > 0 && (
+        <>
+          <Title order={4} mt="lg" c="orange">Credential attention</Title>
+          <Text size="sm" c="dimmed">
+            Workers who are missing, unverified, or expired for a required credential.
+            Open their profile to verify it.
+          </Text>
+          {(credAttnQ.data ?? []).map((c, i) => (
+            <Card key={`${c.person_id}-${c.credential_type}-${i}`} withBorder>
+              <Group justify="space-between" wrap="wrap">
+                <Text size="sm">
+                  <Anchor component={Link} to={`/people/${c.person_id}`} fw={600}>{c.name}</Anchor>
+                  {" — "}{c.credential_type} · {c.reason}
+                </Text>
+                <Anchor component={Link} to={`/people/${c.person_id}`} size="sm">Verify →</Anchor>
               </Group>
             </Card>
           ))}

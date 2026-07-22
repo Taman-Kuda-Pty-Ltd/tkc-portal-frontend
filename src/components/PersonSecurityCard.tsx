@@ -9,7 +9,7 @@ import type { PersonDetail } from "../api/types";
 
 /** PORTAL-SECURITY (per-account): mobile verification state + a manual verify flow, and
  * the per-account 2FA toggle (only enableable once the mobile is verified). */
-export function PersonSecurityCard({ person }: { person: PersonDetail }) {
+export function PersonSecurityCard({ person, editing = true }: { person: PersonDetail; editing?: boolean }) {
   const qc = useQueryClient();
   const p = person;
   const [entering, setEntering] = useState(false);
@@ -52,11 +52,15 @@ export function PersonSecurityCard({ person }: { person: PersonDetail }) {
             ) : (
               <Badge color="orange" variant="light">Not verified</Badge>
             )}
-            {p.mobile && !entering && (
+            {/* T5-11: gate the send behind Edit mode so a code isn't sent by accident while viewing. */}
+            {p.mobile && !entering && editing && (
               <Button size="xs" variant="light" loading={sendM.isPending}
                 onClick={() => sendM.mutate()}>
                 {verified ? "Re-verify" : "Send code"}
               </Button>
+            )}
+            {p.mobile && !entering && !editing && (
+              <Text size="xs" c="dimmed">Edit details to send a code</Text>
             )}
           </Group>
         </Group>
@@ -79,7 +83,7 @@ export function PersonSecurityCard({ person }: { person: PersonDetail }) {
             ? "Marks this account to require an SMS code at sign-in (enforcement is rolling out)."
             : "Verify the mobile above first to enable."}
           checked={Boolean(p.two_factor_enabled)}
-          disabled={!verified || twoFaM.isPending}
+          disabled={!editing || !verified || twoFaM.isPending}
           onChange={(e) => twoFaM.mutate(e.currentTarget.checked)}
         />
       </Stack>
