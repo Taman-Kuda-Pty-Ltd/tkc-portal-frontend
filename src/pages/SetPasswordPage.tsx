@@ -7,7 +7,7 @@ import { PhoneConfirmModal } from "../components/PhoneConfirmModal";
 import { PhoneField, isValidPhoneNumber } from "../components/PhoneField";
 import tkcLogo from "../assets/tkc-logo-wide.png";
 
-interface Ctx { given_name: string; mobile: string | null; require_phone_verification: boolean }
+interface Ctx { given_name: string; mobile: string | null; require_phone_verification: boolean; mobile_locked?: boolean }
 
 /** Public set-password + confirm-mobile page (UAT#3 PWVERIFY-1). Reached from a link
  *  emailed to a manually-created person so they can choose their own password/PIN and
@@ -43,7 +43,9 @@ export function SetPasswordPage() {
     onError: (e: Error) => setError(e instanceof ApiError ? e.message : e.message),
   });
 
-  const requirePhone = !!ctxQ.data?.require_phone_verification;
+  // RESET-HARDEN (T5-08): a verified mobile is locked — reset verifies against it.
+  const mobileLocked = !!ctxQ.data?.mobile_locked;
+  const requirePhone = !!ctxQ.data?.require_phone_verification || mobileLocked;
 
   function submit() {
     setError(null);
@@ -82,13 +84,21 @@ export function SetPasswordPage() {
           <PasswordInput label="Confirm password" value={confirm} required onChange={(e) => setConfirm(e.currentTarget.value)} />
           <TextInput label="PIN (6–8 digits)" value={pin} description="For quick check-in on shared terminals"
             onChange={(e) => setPin(e.currentTarget.value.replace(/\D/g, "").slice(0, 8))} />
-          <PhoneField label="Mobile" value={mobile} disabled={noMobile}
+          <PhoneField label="Mobile" value={mobile} disabled={noMobile || mobileLocked}
             onChange={(v) => { setMobile(v); setVerified(false); }} />
+          {mobileLocked && (
+            <Text size="xs" c="dimmed">
+              For your security we’ll text a code to the mobile on your account to confirm this reset.
+            </Text>
+          )}
           {/* Always offer the no-mobile opt-out — otherwise, with 2FA off (so no
               verification step), the "enter a valid mobile, or tick that you don't
-              have one" error is a dead end with no tickbox (SETPW-NO-MOBILE-OPTOUT). */}
-          <Checkbox checked={noMobile} onChange={(e) => { setNoMobile(e.currentTarget.checked); setVerified(false); }}
-            label={requirePhone ? "I don't have a mobile number (skip verification)" : "I don't have a mobile number"} />
+              have one" error is a dead end with no tickbox (SETPW-NO-MOBILE-OPTOUT).
+              A verified/locked account can't opt out — the reset must be confirmed. */}
+          {!mobileLocked && (
+            <Checkbox checked={noMobile} onChange={(e) => { setNoMobile(e.currentTarget.checked); setVerified(false); }}
+              label={requirePhone ? "I don't have a mobile number (skip verification)" : "I don't have a mobile number"} />
+          )}
           {error && <Alert color="red" p="xs"><Text size="xs">{error}</Text></Alert>}
           <Button loading={submitM.isPending} onClick={submit}>Set password &amp; sign in</Button>
         </Stack>
