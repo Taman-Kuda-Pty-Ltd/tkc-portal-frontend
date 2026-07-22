@@ -183,71 +183,80 @@ function HeadingGroup({
       </Group>
       <Stack gap={4}>
         {assigned.length === 0 && <Text size="xs" c="dimmed">None</Text>}
-        {assigned.map((a) => (
-          <Group
-            key={a.id}
-            justify="space-between"
-            gap={6}
-            wrap="nowrap"
-            pl={8}
-            pr={2}
-            py={2}
-            style={{
-              background: "var(--mantine-color-gray-light)",
-              borderRadius: "var(--mantine-radius-sm)",
-            }}
-          >
-            <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
-              {a.person_name ?? `#${a.person_id}`}
-            </Text>
-            {/* Today/live In/Out is only meaningful before the shift ends; a past
-                un-actioned shift shows "Not actioned" (tap the clock to record). */}
-            {a.attendance_status === "checked_in" && !isPast && <Badge size="xs" color="teal">In</Badge>}
-            {a.attendance_status === "checked_out" && <Badge size="xs" color="blue" variant="light">Out</Badge>}
-            {isPast && a.attendance_status !== "checked_out" && (
-              <Badge size="xs" color="orange" variant="light"
-                title="This past shift hasn't been checked in/out — record or reassign it">
-                Not actioned
-              </Badge>
-            )}
-            {showCoachSplit && (
-              <Tooltip
-                label={
-                  a.coach_kind === "secondary"
-                    ? `Assisting coach — paid ${Math.round((a.share ?? 1) * 100)}% of the lesson${ctx.canAssign ? " (tap to mark lead)" : ""}`
-                    : `Lead coach — paid the full lesson${ctx.canAssign ? " (tap to mark assisting)" : ""}`
-                }
-                withArrow
-              >
-                <Badge
-                  size="xs"
-                  variant={a.coach_kind === "secondary" ? "filled" : "light"}
-                  color={a.coach_kind === "secondary" ? "grape" : "blue"}
-                  style={{ cursor: ctx.canAssign ? "pointer" : "default" }}
-                  onClick={() =>
-                    ctx.canAssign &&
-                    ctx.onSetCoachKind(shift.id, a.id, a.coach_kind === "secondary" ? "primary" : "secondary")
-                  }
-                >
-                  {a.coach_kind === "secondary" ? `Assisting · ${Math.round((a.share ?? 1) * 100)}%` : "Lead"}
-                </Badge>
-              </Tooltip>
-            )}
-            {ctx.canManageShifts && (
-              <ActionIcon size="sm" variant="subtle" aria-label="Record attendance"
-                title="Record / correct attendance"
-                onClick={() => ctx.onRecordAttendance(shift, a.person_id, a.person_name ?? `#${a.person_id}`)}>
-                <IconClock size={14} />
-              </ActionIcon>
-            )}
-            {ctx.canAssign && (
-              <ActionIcon size="sm" variant="subtle" color="red"
-                onClick={() => ctx.onUnassign(shift.id, a.id)} aria-label="Remove">
-                <IconX size={14} />
-              </ActionIcon>
-            )}
-          </Group>
-        ))}
+        {assigned.map((a) => {
+          // T5-09: the name gets its own line so a narrow week column no longer
+          // squeezes it to a few characters; status + controls wrap onto the row
+          // below (previously they shared one no-wrap row and overran the name).
+          const showStatus =
+            (a.attendance_status === "checked_in" && !isPast) ||
+            a.attendance_status === "checked_out" ||
+            (isPast && a.attendance_status !== "checked_out");
+          const hasControlsRow = showStatus || showCoachSplit || ctx.canManageShifts || ctx.canAssign;
+          return (
+            <div
+              key={a.id}
+              style={{
+                background: "var(--mantine-color-gray-light)",
+                borderRadius: "var(--mantine-radius-sm)",
+                padding: "2px 4px 2px 8px",
+              }}
+            >
+              <Text size="sm" fw={600} lineClamp={1}>
+                {a.person_name ?? `#${a.person_id}`}
+              </Text>
+              {hasControlsRow && (
+                <Group gap={4} wrap="wrap" justify="flex-end" mt={2}>
+                  {/* Today/live In/Out is only meaningful before the shift ends; a past
+                      un-actioned shift shows "Not actioned" (tap the clock to record). */}
+                  {a.attendance_status === "checked_in" && !isPast && <Badge size="xs" color="teal">In</Badge>}
+                  {a.attendance_status === "checked_out" && <Badge size="xs" color="blue" variant="light">Out</Badge>}
+                  {isPast && a.attendance_status !== "checked_out" && (
+                    <Badge size="xs" color="orange" variant="light"
+                      title="This past shift hasn't been checked in/out — record or reassign it">
+                      Not actioned
+                    </Badge>
+                  )}
+                  {showCoachSplit && (
+                    <Tooltip
+                      label={
+                        a.coach_kind === "secondary"
+                          ? `Assisting coach — paid ${Math.round((a.share ?? 1) * 100)}% of the lesson${ctx.canAssign ? " (tap to mark lead)" : ""}`
+                          : `Lead coach — paid the full lesson${ctx.canAssign ? " (tap to mark assisting)" : ""}`
+                      }
+                      withArrow
+                    >
+                      <Badge
+                        size="xs"
+                        variant={a.coach_kind === "secondary" ? "filled" : "light"}
+                        color={a.coach_kind === "secondary" ? "grape" : "blue"}
+                        style={{ cursor: ctx.canAssign ? "pointer" : "default" }}
+                        onClick={() =>
+                          ctx.canAssign &&
+                          ctx.onSetCoachKind(shift.id, a.id, a.coach_kind === "secondary" ? "primary" : "secondary")
+                        }
+                      >
+                        {a.coach_kind === "secondary" ? `Assisting · ${Math.round((a.share ?? 1) * 100)}%` : "Lead"}
+                      </Badge>
+                    </Tooltip>
+                  )}
+                  {ctx.canManageShifts && (
+                    <ActionIcon size="sm" variant="subtle" aria-label="Record attendance"
+                      title="Record / correct attendance"
+                      onClick={() => ctx.onRecordAttendance(shift, a.person_id, a.person_name ?? `#${a.person_id}`)}>
+                      <IconClock size={14} />
+                    </ActionIcon>
+                  )}
+                  {ctx.canAssign && (
+                    <ActionIcon size="sm" variant="subtle" color="red"
+                      onClick={() => ctx.onUnassign(shift.id, a.id)} aria-label="Remove">
+                      <IconX size={14} />
+                    </ActionIcon>
+                  )}
+                </Group>
+              )}
+            </div>
+          );
+        })}
         {ctx.canAssign && (
           <Select
             size="xs"
