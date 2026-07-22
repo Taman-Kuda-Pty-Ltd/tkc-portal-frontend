@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { api, getToken, setToken } from "../api/client";
+import { notifications } from "@mantine/notifications";
+import { api, getToken, setToken, setUnauthorizedHandler } from "../api/client";
 import type { Me } from "../api/types";
 
 interface AuthState {
@@ -19,6 +20,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Mirror `me` into a ref so the once-registered 401 handler reads current state;
+  // `handledExpiry` collapses a burst of concurrent 401s into a single sign-out.
+  const meRef = useRef<Me | null>(null);
+  meRef.current = me;
+  const handledExpiry = useRef(false);
+
   const loadMe = useCallback(async () => {
     if (!getToken()) {
       setMe(null);
@@ -27,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       setMe(await api.get<Me>("/auth/me"));
+      handledExpiry.current = false;
     } catch {
       setToken(null);
       setMe(null);
@@ -38,6 +46,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void loadMe();
   }, [loadMe]);
+
+  // On an authenticated 401 (session expired mid-use), sign out and let App route
+  // to /login — instead of leaving stale data on screen. Ignored while logged out
+  // (the initial /auth/me with a stale token is handled by loadMe's catch).
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (!meRef.current || handledExpiry.current) return;
+      handledExpiry.current = true;
+      setToken(null);
+      setMe(null);
+      notifications.show({
+        color: "orange",
+        title: "Session expired",
+        message: "You’ve been signed out. Please sign in again.",
+      });
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string) => {

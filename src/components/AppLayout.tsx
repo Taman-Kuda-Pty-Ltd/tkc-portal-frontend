@@ -103,9 +103,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
     enabled: can("manage_settings"),
     refetchInterval: 60000,
   });
-  const terminalsOffline = (terminalsQ.data ?? []).filter(
-    (t) => t.is_active && t.alert_when_offline && !terminalOnline(t),
-  ).length;
+  // Only assert "offline" from a fresh fetch — never from a failed/stale one, which
+  // otherwise reads as a false-offline (T5-02) when the admin request was failing.
+  const terminalsOffline = terminalsQ.isError
+    ? 0
+    : (terminalsQ.data ?? []).filter(
+        (t) => t.is_active && t.alert_when_offline && !terminalOnline(t),
+      ).length;
   // Badges per nav item: Approvals shows two (approvals + attention), Terminals one.
   const navBadges = (to: string): { count: number; color: string }[] => {
     if (to === "/approvals")

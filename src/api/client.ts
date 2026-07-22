@@ -11,6 +11,14 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+// Invoked when an *authenticated* request 401s (expired/invalid session). Lets the
+// auth layer reset state and redirect to /login instead of leaving stale data on
+// screen (which otherwise reads as e.g. a terminal falsely showing "offline").
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+
 export class ApiError extends Error {
   status: number;
   // Per-field messages from a 422, keyed by the field path (loc without the
@@ -46,6 +54,9 @@ async function request<T>(
 
   if (res.status === 401) {
     setToken(null);
+    // Only treat as an expired session when the request was actually authenticated.
+    // A 401 on login / 2FA carries no token and must NOT trigger the redirect.
+    if (token) onUnauthorized?.();
     throw new ApiError(401, "Session expired — please sign in again.");
   }
   if (!res.ok) {
