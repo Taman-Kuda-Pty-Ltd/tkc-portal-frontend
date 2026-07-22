@@ -221,13 +221,13 @@ export function CheckInTerminal({
           {others.length > 0 && !showOthers && (
             <Button variant="light" size="lg" leftSection={<IconUsers size={20} />}
               onClick={() => setShowOthers(true)}>
-              Someone else
+              I'm not on today's schedule
             </Button>
           )}
           {showOthers && (
             <Card withBorder padding="lg" w="100%" maw={460}>
               <Group justify="space-between" mb="sm">
-                <Text fw={700} size="lg">Someone else</Text>
+                <Text fw={700} size="lg">Not on today's schedule — tap your name</Text>
                 <Button variant="subtle" size="sm" onClick={() => setShowOthers(false)}>Hide</Button>
               </Group>
               <Box style={{ maxHeight: "50vh", overflowY: "auto" }}>
@@ -765,7 +765,14 @@ function CoverShiftCard({
                       )}
                       <Text size="sm" c="dimmed" mt={4}>
                         {fmtTime(s.starts_at, timeFormat)}–{fmtTime(s.ends_at, timeFormat)}
+                        {s.is_lesson && s.facility_name ? ` · ${s.facility_name}` : ""}
                       </Text>
+                      {/* F188: show the lesson's riders/horses so the coverer knows what they're taking on. */}
+                      {s.is_lesson && s.riders.length > 0 && (
+                        <Text size="sm" c="dimmed" mt={2}>
+                          Riders: {s.riders.join(", ")}
+                        </Text>
+                      )}
                     </div>
                     {/* TERM-COVER-COMPLETED: flag a shift the original already worked. */}
                     {s.original_status === "checked_out" && (
@@ -1291,6 +1298,12 @@ function ShiftCheckCard({
           </Text>
         </div>
         <Group gap="xs">
+          {/* F187: a colleague is covering this shift — surface it so it's not a surprise. */}
+          {shift.covered_by && (
+            <Badge size="lg" color="orange" variant="light" tt="none">
+              Covered by {shift.covered_by}
+            </Badge>
+          )}
           {shift.is_new && <Badge size="lg" color="grape" variant="light">New shift</Badge>}
           {adhoc && <Badge size="lg" color="yellow" variant="light">Pending approval</Badge>}
           {att?.status === "checked_in" && <Badge size="lg" color="teal">On site</Badge>}

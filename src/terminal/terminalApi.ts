@@ -73,6 +73,7 @@ export interface ShiftBrief {
   is_adhoc: boolean;
   pay_hours: number | null;
   variance_margin: number | null;
+  covered_by: string | null; // F187: a colleague is covering this shift
 }
 export interface TerminalActivity {
   id: number;
@@ -90,6 +91,8 @@ export interface CoverableShift {
   already_covered: boolean;
   is_lesson: boolean;
   original_status: "none" | "checked_in" | "checked_out";
+  facility_name: string | null; // F188: lesson location
+  riders: string[]; // F188: "Student on Horse"
 }
 export interface TerminalSession {
   person_id: number;
